@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 2
   maxCapacityUnits: 50
-  passengerSpeed: 0.029
+  passengerSpeed: 0.0435
   start: {x: 0, y: -0.82}
   rightBottom: {x: 0.66, y: -0.82}
   rightTop: {x: 0.88, y: 0.72}
@@ -26,9 +26,9 @@ MonoBehaviour:
   bottomSegments: 20
   sideSegments: 56
   topSegments: 66
-  roadShoulder: 0.045
+  roadShoulder: 0.026
   stationConnectProgress: 0
   leftFeederProgress: 0.71
   rightFeederProgress: 0.29
-  feederRowSpacing: 0.18
+  feederRowSpacing: 0.14
   feederRowsPerStack: 12

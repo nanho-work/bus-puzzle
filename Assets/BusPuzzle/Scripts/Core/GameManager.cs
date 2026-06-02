@@ -22,6 +22,7 @@ namespace BusPuzzle
 
         private const float PassengerFastForwardDuration = 2.0f;
         private const float PassengerFastForwardMultiplier = 3.0f;
+        private const float BoardingUnitInterval = 0.12f;
 
         private readonly List<PassengerView> circulatingPassengerUnits = new List<PassengerView>();
         private readonly List<BusView> buses = new List<BusView>();
@@ -245,12 +246,14 @@ namespace BusPuzzle
                     var boarded = false;
                     bus.BoardPassenger(passenger, () => boarded = true);
                     yield return new WaitUntil(() => boarded);
+                    yield return new WaitForSeconds(BoardingUnitInterval);
 
                     if (bus.IsFull)
                     {
                         var stationSlotIndex = bus.StationSlotIndex;
+                        var departureRoute = boardView.BuildRouteFromStation(bus);
                         var departed = false;
-                        bus.Depart(() =>
+                        bus.Depart(departureRoute, () =>
                         {
                             boardView.ReleaseStationSlot(stationSlotIndex);
                             UpdateCounters();

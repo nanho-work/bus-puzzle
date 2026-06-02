@@ -82,7 +82,7 @@ namespace BusPuzzle
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Small,
                         35,
-                        0.035f,
+                        0.0525f,
                         new Vector2(0f, -0.70f),
                         new Vector2(0.42f, -0.70f),
                         new Vector2(0.70f, 0.48f),
@@ -94,18 +94,18 @@ namespace BusPuzzle
                         16,
                         44,
                         52,
-                        0.035f,
+                        0.022f,
                         0f,
                         0.73f,
                         0.27f,
-                        0.18f,
+                        0.14f,
                         10);
 
                 case RotaryRoadPresetId.Medium:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Medium,
                         42,
-                        0.032f,
+                        0.048f,
                         new Vector2(0f, -0.76f),
                         new Vector2(0.55f, -0.76f),
                         new Vector2(0.80f, 0.58f),
@@ -117,18 +117,18 @@ namespace BusPuzzle
                         18,
                         50,
                         58,
-                        0.040f,
+                        0.024f,
                         0f,
                         0.72f,
                         0.28f,
-                        0.18f,
+                        0.14f,
                         11);
 
                 default:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Large,
                         LevelData.MaxRotaryUnitCapacity,
-                        0.029f,
+                        0.0435f,
                         new Vector2(0f, -0.82f),
                         new Vector2(0.66f, -0.82f),
                         new Vector2(0.88f, 0.72f),
@@ -140,11 +140,11 @@ namespace BusPuzzle
                         20,
                         56,
                         66,
-                        0.045f,
+                        0.026f,
                         0f,
                         0.71f,
                         0.29f,
-                        0.18f,
+                        0.14f,
                         12);
             }
         }

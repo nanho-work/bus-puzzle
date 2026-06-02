@@ -19,11 +19,11 @@ namespace BusPuzzle
         [SerializeField] private int bottomSegments = 20;
         [SerializeField] private int sideSegments = 56;
         [SerializeField] private int topSegments = 66;
-        [SerializeField] private float roadShoulder = 0.045f;
+        [SerializeField] private float roadShoulder = 0.026f;
         [SerializeField] private float stationConnectProgress = 0f;
         [SerializeField] private float leftFeederProgress = 0.71f;
         [SerializeField] private float rightFeederProgress = 0.29f;
-        [SerializeField] private float feederRowSpacing = 0.18f;
+        [SerializeField] private float feederRowSpacing = 0.14f;
         [SerializeField] private int feederRowsPerStack = 12;
 
         public RoadPresetDefinition ToDefinition()

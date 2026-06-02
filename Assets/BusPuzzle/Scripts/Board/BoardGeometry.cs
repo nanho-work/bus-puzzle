@@ -62,10 +62,15 @@ namespace BusPuzzle
 
         public static GameObject CreateFlatRoundedRect(string name, Transform parent, Vector3 position, Vector2 size, float radius, Material material)
         {
+            return CreateFlatRoundedRect(name, parent, position, size, radius, material, Quaternion.identity);
+        }
+
+        public static GameObject CreateFlatRoundedRect(string name, Transform parent, Vector3 position, Vector2 size, float radius, Material material, Quaternion rotation)
+        {
             const int cornerSegments = 5;
             var roundedObject = new GameObject(name);
             roundedObject.transform.SetParent(parent, false);
-            roundedObject.transform.position = position;
+            roundedObject.transform.SetPositionAndRotation(position, rotation);
 
             radius = Mathf.Clamp(radius, 0.01f, Mathf.Min(size.x, size.y) * 0.5f);
             var halfWidth = size.x * 0.5f;

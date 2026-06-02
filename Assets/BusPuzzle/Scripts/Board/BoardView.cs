@@ -16,15 +16,18 @@ namespace BusPuzzle
         private const float StationSlotSpacing = 0.44f;
         private const float StationSlotWidth = 0.29f;
         private const float StationSlotDepth = 0.62f;
+        private const float StationYawDegrees = 7f;
         private const float RotaryCenterZ = 2.42f;
         private const float BoardingGateProgressWindow = 0.070f;
         private const float PassengerVisualScale = 1.20f;
-        private const float PassengerInnerPersonLocalZ = -0.20f * PassengerVisualScale;
-        private const float PassengerOuterPersonLocalZ = 0.20f * PassengerVisualScale;
+        private const float PassengerInnerPersonLocalZ = -0.155f * PassengerVisualScale;
+        private const float PassengerSecondPersonLocalZ = -0.052f * PassengerVisualScale;
+        private const float PassengerThirdPersonLocalZ = 0.052f * PassengerVisualScale;
+        private const float PassengerOuterPersonLocalZ = 0.155f * PassengerVisualScale;
         private const float PassengerPersonRadius = 0.065f * PassengerVisualScale;
-        private const float PassengerInnerRailOverlap = 0.095f * PassengerVisualScale;
-        private const float PassengerOuterRoadClearance = 0.020f * PassengerVisualScale;
-        private const float PassengerTangentialSlotSpacing = 0.142f;
+        private const float PassengerInnerRailOverlap = 0.110f * PassengerVisualScale;
+        private const float PassengerOuterRoadClearance = 0.008f * PassengerVisualScale;
+        private const float PassengerTangentialSlotSpacing = 0.120f;
         private const float PassengerUnitY = 0.08f;
         private const float FeederMergeDuration = 0.34f;
         private const float FeederQueueStepDuration = 0.20f;
@@ -73,7 +76,11 @@ namespace BusPuzzle
                 PassengerTangentialSlotSpacing,
                 PassengerSetRoadWidth,
                 PassengerSetPivotOffset,
-                PassengerSetPivotOffset + PassengerOuterPersonLocalZ);
+                new Vector4(
+                    PassengerInnerPersonLocalZ,
+                    PassengerSecondPersonLocalZ,
+                    PassengerThirdPersonLocalZ,
+                    PassengerOuterPersonLocalZ));
             passengerFlow.Configure(rotaryLayout);
             rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count);
 
@@ -145,7 +152,7 @@ namespace BusPuzzle
                     continue;
                 }
 
-                var distance = Vector3.SqrMagnitude(passenger.transform.position - GetBoardingGatePosition(passenger.LaneOffset));
+                var distance = Vector3.SqrMagnitude(passenger.transform.position - GetBoardingGatePosition());
                 if (distance >= bestDistance)
                 {
                     continue;
@@ -270,6 +277,7 @@ namespace BusPuzzle
             var rightRoadX = GridRightX + CellSize * 0.95f;
             var route = new List<BusRouteStep>();
             var currentPosition = exitPosition;
+            var stationRotation = StationRotation;
 
             AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(bus.Direction));
 
@@ -298,9 +306,28 @@ namespace BusPuzzle
                 AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(horizontalDirection));
             }
 
-            var stationRootPosition = bus.GetRootPositionForVisualCenter(stationPosition, GridDirection.Up);
+            var stationApproachPosition = stationPosition - StationForward * (CellSize * 0.62f);
+            var stationApproachRootPosition = bus.GetRootPositionForVisualCenter(stationApproachPosition, stationRotation);
+            var stationRootPosition = bus.GetRootPositionForVisualCenter(stationPosition, stationRotation);
             AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(GridDirection.Up));
-            AddRouteStep(route, stationRootPosition, GridDirectionUtility.ToRotation(GridDirection.Up));
+            AddRouteStep(route, stationApproachRootPosition, stationRotation);
+            AddRouteStep(route, stationRootPosition, stationRotation);
+            return route.ToArray();
+        }
+
+        public BusRouteStep[] BuildRouteFromStation(BusView bus)
+        {
+            var route = new List<BusRouteStep>();
+            var startPosition = bus.transform.position;
+            var exitLaneDirection = Vector3.right;
+            var exitLaneRotation = Quaternion.LookRotation(exitLaneDirection, Vector3.up);
+            var stationExit = startPosition + StationForward * (CellSize * 2.20f);
+            var upperRoadEntry = stationExit + StationRight * (CellSize * 0.65f) + StationForward * (CellSize * 0.30f);
+            var upperRoadExit = upperRoadEntry + exitLaneDirection * (GridWorldWidth * 1.50f);
+
+            AddRouteStep(route, stationExit, StationRotation);
+            AddRouteStep(route, upperRoadEntry, exitLaneRotation);
+            AddRouteStep(route, upperRoadExit, exitLaneRotation);
             return route.ToArray();
         }
 
@@ -375,6 +402,7 @@ namespace BusPuzzle
                 StationSlotWidth,
                 StationSlotDepth,
                 CellSize,
+                StationRotation,
                 GetFreeStationPosition,
                 GetStationPosition,
                 GetLockedStationPosition);
@@ -400,20 +428,24 @@ namespace BusPuzzle
         private static Vector3 GetStationPosition(int index)
         {
             var totalIndex = FreeStationSlots + index;
-            var x = (totalIndex - (TotalStationSlots - 1) * 0.5f) * StationSlotSpacing;
-            return new Vector3(x, 0f, StationZ);
+            return GetStationPositionByTotalIndex(totalIndex);
         }
 
         private static Vector3 GetFreeStationPosition()
         {
-            return new Vector3(-(TotalStationSlots - 1) * 0.5f * StationSlotSpacing, 0f, StationZ);
+            return GetStationPositionByTotalIndex(0);
         }
 
         private static Vector3 GetLockedStationPosition(int index)
         {
             var totalIndex = FreeStationSlots + ActiveStationSlots + index;
-            var x = (totalIndex - (TotalStationSlots - 1) * 0.5f) * StationSlotSpacing;
-            return new Vector3(x, 0f, StationZ);
+            return GetStationPositionByTotalIndex(totalIndex);
+        }
+
+        private static Vector3 GetStationPositionByTotalIndex(int totalIndex)
+        {
+            var offset = (totalIndex - (TotalStationSlots - 1) * 0.5f) * StationSlotSpacing;
+            return new Vector3(offset, 0f, StationZ);
         }
 
         private static int TotalStationSlots => FreeStationSlots + ActiveStationSlots + LockedStationSlots;
@@ -423,6 +455,9 @@ namespace BusPuzzle
         private static float GridTopZ => GridBottomZ + (GridRows - 1) * CellSize;
         private static float GridLeftX => (0 - (GridColumns - 1) * 0.5f) * CellSize;
         private static float GridRightX => (GridColumns - 1 - (GridColumns - 1) * 0.5f) * CellSize;
+        private static Quaternion StationRotation => Quaternion.Euler(0f, StationYawDegrees, 0f);
+        private static Vector3 StationForward => StationRotation * Vector3.forward;
+        private static Vector3 StationRight => StationRotation * Vector3.right;
 
         private int GetStartingRotaryUnitCount(int passengerUnitCount)
         {
@@ -432,7 +467,7 @@ namespace BusPuzzle
         private void AssignPassengerTraffic(PassengerView passenger, int rotarySlotIndex)
         {
             var clampedSlotIndex = Mathf.Clamp(rotarySlotIndex, 0, rotaryLayout.CapacityUnits - 1);
-            passengerFlow.AssignTraffic(passenger, clampedSlotIndex, GetLaneOffset());
+            passengerFlow.AssignTraffic(passenger, clampedSlotIndex);
         }
 
         private void AssignPassengerFeeder(PassengerView passenger, int feederQueueIndex)
@@ -580,11 +615,6 @@ namespace BusPuzzle
             return side < 0 ? rotaryLayout.Preset.LeftFeederProgress : rotaryLayout.Preset.RightFeederProgress;
         }
 
-        private float GetLaneOffset()
-        {
-            return PassengerSetPivotOffset;
-        }
-
         private PassengerUnitRoadPose GetFeederPose(int side, int slotIndex)
         {
             return rotaryLayout.GetFeederPose(side, slotIndex, RotaryCenterZ, PassengerUnitY);
@@ -604,35 +634,32 @@ namespace BusPuzzle
                 poses[index] = rotaryLayout.GetFeederPoseByDistance(side, distance, RotaryCenterZ, PassengerUnitY);
             }
 
-            poses[PoseCount - 1] = GetRotaryPoseByDistance(passengerFlow.GetPredictedSlotDistance(rotarySlotIndex, FeederMergeDuration), PassengerSetPivotOffset);
+            poses[PoseCount - 1] = GetRotaryPoseByDistance(passengerFlow.GetPredictedSlotDistance(rotarySlotIndex, FeederMergeDuration));
             return poses;
         }
 
-        private PassengerUnitRoadPose GetRotaryPose(float progress, float laneOffset)
+        private PassengerUnitRoadPose GetRotaryPoseByDistance(float routeDistance)
         {
-            return rotaryLayout.GetRotaryPose(progress, laneOffset, RotaryCenterZ, PassengerUnitY);
+            return passengerFlow.GetPose(routeDistance, RotaryCenterZ, PassengerUnitY);
         }
 
-        private PassengerUnitRoadPose GetRotaryPoseByDistance(float routeDistance, float laneOffset)
+        private Vector3 GetBoardingGatePosition()
         {
-            return passengerFlow.GetPose(routeDistance, laneOffset, RotaryCenterZ, PassengerUnitY);
+            var gateDistance = passengerFlow.GetProgressDistance(rotaryLayout.Preset.BoardingGateProgress);
+            return GetRotaryPoseByDistance(gateDistance).Position;
         }
 
-        private Vector3 GetBoardingGatePosition(float laneOffset)
+        private bool IsPassengerAtBoardingGate(PassengerView passenger)
         {
-            return GetRotaryPose(rotaryLayout.Preset.BoardingGateProgress, laneOffset).Position;
-        }
-
-        private static bool IsPassengerAtBoardingGate(PassengerView passenger)
-        {
-            var progress = Mathf.Repeat(passenger.RouteProgress, 1f);
-            return progress <= BoardingGateProgressWindow || progress >= 1f - BoardingGateProgressWindow;
+            var gateDistance = passengerFlow.GetProgressDistance(rotaryLayout.Preset.BoardingGateProgress);
+            var gateWindow = passengerFlow.RoutePathLength * BoardingGateProgressWindow;
+            return passengerFlow.GetCircularDistance(passenger.RouteDistance, gateDistance) <= gateWindow;
         }
 
         private void SetPassengerTrafficPose(PassengerView passenger)
         {
-            var pose = GetRotaryPoseByDistance(passenger.RouteDistance, passenger.LaneOffset);
-            passenger.SetPose(pose.Position, pose.Rotation);
+            var pose = GetRotaryPoseByDistance(passenger.RouteDistance);
+            passenger.SetPose(pose);
         }
 
     }

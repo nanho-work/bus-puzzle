@@ -29,6 +29,10 @@ namespace BusPuzzle
         private const float SourceBusHeight = 3.2162495f;
         private const float SourceBusLength = 8.064726f;
         private const float CounterCharacterScale = 0.105f;
+        private const float BoardingWalkDuration = 0.46f;
+        private const float BoardingPersonEnterDuration = 0.12f;
+        private const float BoardingPersonEnterInterval = 0.035f;
+        private const float BoardingPassengerY = 0.08f;
 
         private readonly List<Transform> unitMarkers = new List<Transform>();
 
@@ -119,7 +123,12 @@ namespace BusPuzzle
 
         public Vector3 GetRootPositionForVisualCenter(Vector3 visualCenterPosition, GridDirection facingDirection)
         {
-            return visualCenterPosition - GridDirectionUtility.ToRotation(facingDirection) * new Vector3(0f, 0f, VisualCenterZ);
+            return GetRootPositionForVisualCenter(visualCenterPosition, GridDirectionUtility.ToRotation(facingDirection));
+        }
+
+        public Vector3 GetRootPositionForVisualCenter(Vector3 visualCenterPosition, Quaternion facingRotation)
+        {
+            return visualCenterPosition - facingRotation * new Vector3(0f, 0f, VisualCenterZ);
         }
 
         public bool OccupiesCell(Vector2Int cell)
@@ -186,9 +195,10 @@ namespace BusPuzzle
                 return;
             }
 
-            var absorbPosition = transform.TransformPoint(new Vector3(0f, VisualHeight + cellSize * 0.08f, VisualCenterZ));
+            var approachPosition = transform.TransformPoint(new Vector3(0f, BoardingPassengerY, VisualFrontZ + cellSize * 0.10f));
+            var entryPosition = transform.TransformPoint(new Vector3(0f, BoardingPassengerY, VisualFrontZ - VisualCharacterLength * 0.28f));
             passenger.BeginBoarding();
-            passenger.AbsorbTo(absorbPosition, 0.24f, () =>
+            passenger.WalkToBoard(approachPosition, entryPosition, BoardingWalkDuration, BoardingPersonEnterDuration, BoardingPersonEnterInterval, () =>
             {
                 boardedUnits++;
                 UpdateBoardingCounter();
@@ -197,7 +207,7 @@ namespace BusPuzzle
             });
         }
 
-        public void Depart(Action onComplete)
+        public void Depart(BusRouteStep[] route, Action onComplete)
         {
             if (IsDeparted)
             {
@@ -207,7 +217,7 @@ namespace BusPuzzle
 
             StopMotion();
             HideBoardingCounter();
-            motionRoutine = StartCoroutine(DepartRoutine(onComplete));
+            motionRoutine = StartCoroutine(DepartRoutine(route, onComplete));
         }
 
         private void LateUpdate()
@@ -636,23 +646,23 @@ namespace BusPuzzle
             onComplete?.Invoke();
         }
 
-        private IEnumerator DepartRoutine(Action onComplete)
+        private IEnumerator DepartRoutine(BusRouteStep[] route, Action onComplete)
         {
             IsDeparted = true;
             IsParkedAtStation = false;
             yield return new WaitForSeconds(0.12f);
 
-            var startPosition = transform.position;
-            var targetPosition = startPosition + new Vector3(7.5f, 0f, 0.8f);
-            var elapsed = 0f;
-            const float duration = 0.62f;
-
-            while (elapsed < duration)
+            if (route != null && route.Length > 0)
             {
-                elapsed += Time.deltaTime;
-                var t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
-                transform.position = Vector3.Lerp(startPosition, targetPosition, t);
-                yield return null;
+                yield return MoveRouteRoutine(route, 0.16f, null);
+            }
+            else
+            {
+                var fallbackRoute = new[]
+                {
+                    new BusRouteStep(transform.position + new Vector3(7.5f, 0f, 0.8f), transform.rotation)
+                };
+                yield return MoveRouteRoutine(fallbackRoute, 0.16f, null);
             }
 
             gameObject.SetActive(false);

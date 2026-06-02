@@ -6,11 +6,38 @@ namespace BusPuzzle
     {
         public readonly Vector3 Position;
         public readonly Quaternion Rotation;
+        public readonly bool HasCustomPersonLocalPositions;
+        public readonly Vector3 Person1LocalPosition;
+        public readonly Vector3 Person2LocalPosition;
+        public readonly Vector3 Person3LocalPosition;
+        public readonly Vector3 Person4LocalPosition;
 
         private PassengerUnitRoadPose(Vector3 position, Quaternion rotation)
         {
             Position = position;
             Rotation = rotation;
+            HasCustomPersonLocalPositions = false;
+            Person1LocalPosition = Vector3.zero;
+            Person2LocalPosition = Vector3.zero;
+            Person3LocalPosition = Vector3.zero;
+            Person4LocalPosition = Vector3.zero;
+        }
+
+        private PassengerUnitRoadPose(
+            Vector3 position,
+            Quaternion rotation,
+            Vector3 person1LocalPosition,
+            Vector3 person2LocalPosition,
+            Vector3 person3LocalPosition,
+            Vector3 person4LocalPosition)
+        {
+            Position = position;
+            Rotation = rotation;
+            HasCustomPersonLocalPositions = true;
+            Person1LocalPosition = person1LocalPosition;
+            Person2LocalPosition = person2LocalPosition;
+            Person3LocalPosition = person3LocalPosition;
+            Person4LocalPosition = person4LocalPosition;
         }
 
         public static PassengerUnitRoadPose FromPathSample(Vector3 position, RotaryPathSample sample)
@@ -23,6 +50,28 @@ namespace BusPuzzle
             return new PassengerUnitRoadPose(
                 position,
                 Quaternion.LookRotation(widthAxis, Vector3.up));
+        }
+
+        public static PassengerUnitRoadPose FromPersonWorldPositions(
+            Vector3 person1Position,
+            Vector3 person2Position,
+            Vector3 person3Position,
+            Vector3 person4Position)
+        {
+            var position = (person1Position + person2Position + person3Position + person4Position) * 0.25f;
+            var widthAxis = person4Position - person1Position;
+            widthAxis.y = 0f;
+            widthAxis = widthAxis.sqrMagnitude > 0.0001f ? widthAxis.normalized : Vector3.forward;
+            var rotation = Quaternion.LookRotation(widthAxis, Vector3.up);
+            var inverseRotation = Quaternion.Inverse(rotation);
+
+            return new PassengerUnitRoadPose(
+                position,
+                rotation,
+                inverseRotation * (person1Position - position),
+                inverseRotation * (person2Position - position),
+                inverseRotation * (person3Position - position),
+                inverseRotation * (person4Position - position));
         }
     }
 
@@ -38,7 +87,7 @@ namespace BusPuzzle
             float laneSpacing,
             float roadShoulder,
             float passengerPivotOffset,
-            float outerSpacingOffset,
+            Vector4 passengerPersonLocalZ,
             RotaryPath path,
             FeederRoadPath leftFeederPath,
             FeederRoadPath rightFeederPath)
@@ -50,7 +99,7 @@ namespace BusPuzzle
             LaneSpacing = laneSpacing;
             RoadShoulder = roadShoulder;
             this.passengerPivotOffset = passengerPivotOffset;
-            OuterSpacingOffset = outerSpacingOffset;
+            PassengerPersonLocalZ = passengerPersonLocalZ;
             Path = path;
             LeftFeederPath = leftFeederPath;
             RightFeederPath = rightFeederPath;
@@ -62,7 +111,9 @@ namespace BusPuzzle
         public int MeshSampleCount { get; }
         public float LaneSpacing { get; }
         public float RoadShoulder { get; }
-        public float OuterSpacingOffset { get; }
+        public float PassengerPivotOffset => passengerPivotOffset;
+        public Vector4 PassengerPersonLocalZ { get; }
+        public float OuterSpacingOffset => passengerPivotOffset + PassengerPersonLocalZ.w;
         public RotaryPath Path { get; }
         public FeederRoadPath LeftFeederPath { get; }
         public FeederRoadPath RightFeederPath { get; }
@@ -77,7 +128,7 @@ namespace BusPuzzle
             float passengerTangentialSlotSpacing,
             float passengerSetRoadWidth,
             float passengerSetPivotOffset,
-            float passengerOuterSpacingOffset)
+            Vector4 passengerPersonLocalZ)
         {
             var capacity = Mathf.Clamp(rotaryUnitCapacity, LevelData.MinRotaryUnitCapacity, preset.MaxCapacityUnits);
             var targetPathLength = preset.MaxCapacityUnits * passengerTangentialSlotSpacing;
@@ -94,7 +145,7 @@ namespace BusPuzzle
                 passengerSetRoadWidth,
                 preset.RoadShoulder,
                 passengerSetPivotOffset,
-                passengerOuterSpacingOffset,
+                passengerPersonLocalZ,
                 path,
                 leftFeederPath,
                 rightFeederPath);
@@ -130,18 +181,24 @@ namespace BusPuzzle
             return side < 0 ? LeftFeederPath : RightFeederPath;
         }
 
-        public PassengerUnitRoadPose GetRotaryPose(float progress, float laneOffset, float centerZ, float y)
+        public float GetPersonLaneOffset(int personIndex)
         {
-            var sample = Path.Sample(progress);
-            var localPoint = sample.Point + sample.Outward * laneOffset;
-            return PassengerUnitRoadPose.FromPathSample(ToWorldPoint(localPoint, centerZ, y), sample);
+            return passengerPivotOffset + GetPersonLocalZ(personIndex);
         }
 
-        public PassengerUnitRoadPose GetRotaryPoseByDistance(float routeDistance, float laneOffset, float centerZ, float y)
+        private float GetPersonLocalZ(int personIndex)
         {
-            var sample = Path.SampleByDistance(routeDistance);
-            var localPoint = sample.Point + sample.Outward * laneOffset;
-            return PassengerUnitRoadPose.FromPathSample(ToWorldPoint(localPoint, centerZ, y), sample);
+            switch (personIndex)
+            {
+                case 0:
+                    return PassengerPersonLocalZ.x;
+                case 1:
+                    return PassengerPersonLocalZ.y;
+                case 2:
+                    return PassengerPersonLocalZ.z;
+                default:
+                    return PassengerPersonLocalZ.w;
+            }
         }
 
         private static FeederRoadPath CreateFeederPath(

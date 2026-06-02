@@ -24,11 +24,11 @@ namespace BusPuzzle
     {
         private const string EditorBusPrefabPath = "Assets/Cobra Games Studio/Low Poly Bus Pack/Prefabs/kozak_i_van.prefab";
         private const string BusPrefabResourcePath = "BusModels/kozak_i_van";
-        private const float BusVisualScale = 0.67f;
+        private const float BusVisualScale = 0.80f;
         private const float SourceBusWidth = 2.413354f;
         private const float SourceBusHeight = 3.2162495f;
         private const float SourceBusLength = 8.064726f;
-        private const float CounterCharacterScale = 0.085f;
+        private const float CounterCharacterScale = 0.105f;
 
         private readonly List<Transform> unitMarkers = new List<Transform>();
 
@@ -385,7 +385,7 @@ namespace BusPuzzle
         {
             boardingCounterRoot = new GameObject("Boarding Counter").transform;
             boardingCounterRoot.SetParent(transform, false);
-            boardingCounterRoot.localPosition = new Vector3(0f, VisualHeight + cellSize * 0.22f, VisualRearZ - cellSize * 0.18f);
+            boardingCounterRoot.localPosition = new Vector3(0f, cellSize * 0.18f, VisualRearZ - cellSize * 0.18f);
             boardingCounterRoot.gameObject.SetActive(false);
 
             CreateCounterBadge("Counter Background Shadow", new Color(0.06f, 0.07f, 0.09f), new Vector3(cellSize * 0.009f, -cellSize * 0.009f, 0.010f));
@@ -402,7 +402,7 @@ namespace BusPuzzle
             badge.transform.localPosition = localPosition;
 
             var meshFilter = badge.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = CreateRoundedBadgeMesh(cellSize * 0.40f, cellSize * 0.20f, cellSize * 0.085f);
+            meshFilter.sharedMesh = CreateRoundedBadgeMesh(cellSize * 0.75f, cellSize * 0.36f, cellSize * 0.128f);
 
             var renderer = badge.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = PuzzlePalette.CreateSolidMaterial(name, color);
@@ -513,24 +513,18 @@ namespace BusPuzzle
                 vertices[index + 1] = new Vector3(points[index].x, points[index].y, 0f);
             }
 
-            var triangles = new int[points.Count * 12];
+            var triangles = new int[points.Count * 6];
             for (var index = 0; index < points.Count; index++)
             {
                 var current = index + 1;
                 var next = index + 1 == points.Count ? 1 : index + 2;
-                var triangleIndex = index * 12;
+                var triangleIndex = index * 6;
                 triangles[triangleIndex] = 0;
                 triangles[triangleIndex + 1] = current;
                 triangles[triangleIndex + 2] = next;
                 triangles[triangleIndex + 3] = 0;
                 triangles[triangleIndex + 4] = next;
                 triangles[triangleIndex + 5] = current;
-                triangles[triangleIndex + 6] = 0;
-                triangles[triangleIndex + 7] = next;
-                triangles[triangleIndex + 8] = current;
-                triangles[triangleIndex + 9] = 0;
-                triangles[triangleIndex + 10] = current;
-                triangles[triangleIndex + 11] = next;
             }
 
             var mesh = new Mesh { name = "Counter Badge Mesh" };

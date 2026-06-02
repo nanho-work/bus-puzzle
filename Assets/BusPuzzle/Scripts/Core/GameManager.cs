@@ -18,7 +18,7 @@ namespace BusPuzzle
         [SerializeField] private BoardView boardView;
         [SerializeField] private GameUiController uiController;
         [SerializeField] private Camera gameCamera;
-        [SerializeField] private int startingLevelIndex;
+        [SerializeField] private int startingLevelIndex = 0;
 
         private const float PassengerFastForwardDuration = 2.0f;
         private const float PassengerFastForwardMultiplier = 3.0f;
@@ -168,7 +168,7 @@ namespace BusPuzzle
 
         private void TryLaunchBus(BusView bus)
         {
-            if (!bus.IsOnBoard || bus.IsMoving || bus.IsDeparted)
+            if (!bus.IsOnBoard || bus.IsMoving || bus.IsDeparted || HasMovingBus())
             {
                 return;
             }
@@ -432,7 +432,7 @@ namespace BusPuzzle
             camera.orthographic = true;
             camera.orthographicSize = 4.68f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.63f, 0.77f, 0.88f);
+            camera.backgroundColor = new Color(0.55f, 0.69f, 0.80f);
             return camera;
         }
 
@@ -443,7 +443,7 @@ namespace BusPuzzle
 
             var light = lightObject.GetComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 1.25f;
+            light.intensity = 0.95f;
         }
     }
 }

@@ -32,6 +32,8 @@ namespace BusPuzzle
 
             var levelOne = CreateLevel(
                 "Downtown Warmup",
+                RotaryRoadPresetId.Large,
+                50,
                 new[]
                 {
                     PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Yellow, PuzzleColor.Green,
@@ -69,6 +71,8 @@ namespace BusPuzzle
 
             var levelTwo = CreateLevel(
                 "Crosswalk Mix",
+                RotaryRoadPresetId.Small,
+                24,
                 new[]
                 {
                     PuzzleColor.Red, PuzzleColor.Green, PuzzleColor.Blue, PuzzleColor.Yellow,
@@ -87,6 +91,8 @@ namespace BusPuzzle
 
             var levelThree = CreateLevel(
                 "Terminal Shuffle",
+                RotaryRoadPresetId.Medium,
+                32,
                 new[]
                 {
                     PuzzleColor.Purple, PuzzleColor.Red, PuzzleColor.Orange, PuzzleColor.Blue,
@@ -111,11 +117,16 @@ namespace BusPuzzle
             return sequence;
         }
 
-        private static LevelData CreateLevel(string name, IEnumerable<PuzzleColor> passengers, IEnumerable<BusDefinition> buses)
+        private static LevelData CreateLevel(
+            string name,
+            RotaryRoadPresetId roadPresetId,
+            int rotaryUnitCapacity,
+            IEnumerable<PuzzleColor> passengers,
+            IEnumerable<BusDefinition> buses)
         {
             var level = CreateInstance<LevelData>();
             level.hideFlags = HideFlags.DontSave;
-            level.Configure(name, passengers, buses);
+            level.Configure(name, passengers, buses, rotaryUnitCapacity, roadPresetId);
             return level;
         }
     }

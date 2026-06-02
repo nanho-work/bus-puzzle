@@ -50,15 +50,15 @@ namespace BusPuzzle
         {
             var material = new Material(FindDefaultShader());
             material.name = $"{DisplayName(color)} {nameSuffix}";
-            material.color = ToColor(color);
+            SetMaterialColor(material, ToColor(color));
             return material;
         }
 
         public static Material CreateSolidMaterial(string materialName, Color color)
         {
-            var material = new Material(FindDefaultShader());
+            var material = new Material(FindFlatShader());
             material.name = materialName;
-            material.color = color;
+            SetMaterialColor(material, color);
             return material;
         }
 
@@ -76,6 +76,28 @@ namespace BusPuzzle
             return Shader.Find("Universal Render Pipeline/Lit")
                 ?? Shader.Find("Standard")
                 ?? Shader.Find("Unlit/Color");
+        }
+
+        private static Shader FindFlatShader()
+        {
+            return Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Unlit/Color")
+                ?? Shader.Find("Universal Render Pipeline/Lit")
+                ?? Shader.Find("Standard");
+        }
+
+        private static void SetMaterialColor(Material material, Color color)
+        {
+            material.color = color;
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", color);
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", color);
+            }
         }
     }
 }

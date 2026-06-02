@@ -32,18 +32,80 @@ namespace BusPuzzle
 
             var levelOne = CreateLevel(
                 "Downtown Warmup",
-                new[] { PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Yellow, PuzzleColor.Yellow },
-                new[] { new BusDefinition(PuzzleColor.Red, 2), new BusDefinition(PuzzleColor.Blue, 2), new BusDefinition(PuzzleColor.Yellow, 2) });
+                new[]
+                {
+                    PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Yellow, PuzzleColor.Green,
+                    PuzzleColor.Purple, PuzzleColor.Orange, PuzzleColor.Red, PuzzleColor.Blue,
+                    PuzzleColor.Yellow, PuzzleColor.Green, PuzzleColor.Purple, PuzzleColor.Orange,
+                    PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Yellow, PuzzleColor.Green,
+                    PuzzleColor.Purple, PuzzleColor.Orange, PuzzleColor.Red, PuzzleColor.Blue,
+                    PuzzleColor.Yellow, PuzzleColor.Green, PuzzleColor.Purple, PuzzleColor.Orange,
+                    PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Yellow, PuzzleColor.Green,
+                    PuzzleColor.Purple, PuzzleColor.Orange, PuzzleColor.Red, PuzzleColor.Blue,
+                    PuzzleColor.Yellow, PuzzleColor.Green, PuzzleColor.Purple, PuzzleColor.Orange,
+                    PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Yellow, PuzzleColor.Green,
+                    PuzzleColor.Purple, PuzzleColor.Orange, PuzzleColor.Red, PuzzleColor.Blue,
+                    PuzzleColor.Yellow, PuzzleColor.Green, PuzzleColor.Purple, PuzzleColor.Orange,
+                    PuzzleColor.Red, PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Blue,
+                    PuzzleColor.Red, PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Blue
+                },
+                new[]
+                {
+                    new BusDefinition(PuzzleColor.Red, BusSize.Small, GridDirection.Up, new Vector2Int(5, 10)),
+                    new BusDefinition(PuzzleColor.Blue, BusSize.Small, GridDirection.Up, new Vector2Int(9, 10)),
+                    new BusDefinition(PuzzleColor.Yellow, BusSize.Small, GridDirection.Left, new Vector2Int(2, 8)),
+                    new BusDefinition(PuzzleColor.Green, BusSize.Small, GridDirection.Right, new Vector2Int(11, 8)),
+                    new BusDefinition(PuzzleColor.Purple, BusSize.Small, GridDirection.Down, new Vector2Int(5, 2)),
+                    new BusDefinition(PuzzleColor.Orange, BusSize.Small, GridDirection.Down, new Vector2Int(9, 2)),
+                    new BusDefinition(PuzzleColor.Red, BusSize.Small, GridDirection.Right, new Vector2Int(6, 4)),
+                    new BusDefinition(PuzzleColor.Blue, BusSize.Small, GridDirection.Left, new Vector2Int(7, 6)),
+                    new BusDefinition(PuzzleColor.Yellow, BusSize.Small, GridDirection.Up, new Vector2Int(12, 5)),
+                    new BusDefinition(PuzzleColor.Green, BusSize.Small, GridDirection.Down, new Vector2Int(1, 6)),
+                    new BusDefinition(PuzzleColor.Purple, BusSize.Small, GridDirection.Right, new Vector2Int(3, 3)),
+                    new BusDefinition(PuzzleColor.Red, BusSize.Small, GridDirection.Up, new Vector2Int(3, 0)),
+                    new BusDefinition(PuzzleColor.Blue, BusSize.Small, GridDirection.Up, new Vector2Int(11, 0)),
+                    new BusDefinition(PuzzleColor.Orange, BusSize.Small, GridDirection.Left, new Vector2Int(10, 7))
+                });
 
             var levelTwo = CreateLevel(
                 "Crosswalk Mix",
-                new[] { PuzzleColor.Red, PuzzleColor.Green, PuzzleColor.Blue, PuzzleColor.Green, PuzzleColor.Red, PuzzleColor.Yellow, PuzzleColor.Blue, PuzzleColor.Yellow },
-                new[] { new BusDefinition(PuzzleColor.Red, 2), new BusDefinition(PuzzleColor.Blue, 2), new BusDefinition(PuzzleColor.Green, 2), new BusDefinition(PuzzleColor.Yellow, 2) });
+                new[]
+                {
+                    PuzzleColor.Red, PuzzleColor.Green, PuzzleColor.Blue, PuzzleColor.Yellow,
+                    PuzzleColor.Red, PuzzleColor.Green, PuzzleColor.Red, PuzzleColor.Blue,
+                    PuzzleColor.Yellow, PuzzleColor.Red, PuzzleColor.Green, PuzzleColor.Red,
+                    PuzzleColor.Blue, PuzzleColor.Yellow, PuzzleColor.Green, PuzzleColor.Red,
+                    PuzzleColor.Blue, PuzzleColor.Yellow
+                },
+                new[]
+                {
+                    new BusDefinition(PuzzleColor.Red, BusSize.Medium, GridDirection.Up, new Vector2Int(6, 0)),
+                    new BusDefinition(PuzzleColor.Green, BusSize.Small, GridDirection.Right, new Vector2Int(5, 5)),
+                    new BusDefinition(PuzzleColor.Blue, BusSize.Small, GridDirection.Up, new Vector2Int(3, 1)),
+                    new BusDefinition(PuzzleColor.Yellow, BusSize.Small, GridDirection.Right, new Vector2Int(2, 8))
+                });
 
             var levelThree = CreateLevel(
                 "Terminal Shuffle",
-                new[] { PuzzleColor.Purple, PuzzleColor.Red, PuzzleColor.Orange, PuzzleColor.Purple, PuzzleColor.Blue, PuzzleColor.Orange, PuzzleColor.Green, PuzzleColor.Red, PuzzleColor.Blue, PuzzleColor.Green, PuzzleColor.Purple, PuzzleColor.Orange },
-                new[] { new BusDefinition(PuzzleColor.Purple, 3), new BusDefinition(PuzzleColor.Orange, 3), new BusDefinition(PuzzleColor.Red, 2), new BusDefinition(PuzzleColor.Blue, 2), new BusDefinition(PuzzleColor.Green, 2) });
+                new[]
+                {
+                    PuzzleColor.Purple, PuzzleColor.Red, PuzzleColor.Orange, PuzzleColor.Blue,
+                    PuzzleColor.Green, PuzzleColor.Purple, PuzzleColor.Orange, PuzzleColor.Red,
+                    PuzzleColor.Purple, PuzzleColor.Blue, PuzzleColor.Orange, PuzzleColor.Green,
+                    PuzzleColor.Purple, PuzzleColor.Orange, PuzzleColor.Purple, PuzzleColor.Red,
+                    PuzzleColor.Orange, PuzzleColor.Blue, PuzzleColor.Purple, PuzzleColor.Green,
+                    PuzzleColor.Orange, PuzzleColor.Purple, PuzzleColor.Red, PuzzleColor.Orange,
+                    PuzzleColor.Blue, PuzzleColor.Green, PuzzleColor.Purple, PuzzleColor.Purple,
+                    PuzzleColor.Purple
+                },
+                new[]
+                {
+                    new BusDefinition(PuzzleColor.Purple, BusSize.Large, GridDirection.Up, new Vector2Int(6, 0)),
+                    new BusDefinition(PuzzleColor.Orange, BusSize.Medium, GridDirection.Right, new Vector2Int(1, 8)),
+                    new BusDefinition(PuzzleColor.Red, BusSize.Small, GridDirection.Left, new Vector2Int(12, 5)),
+                    new BusDefinition(PuzzleColor.Blue, BusSize.Small, GridDirection.Up, new Vector2Int(9, 1)),
+                    new BusDefinition(PuzzleColor.Green, BusSize.Small, GridDirection.Down, new Vector2Int(4, 12))
+                });
 
             sequence.Configure(new[] { levelOne, levelTwo, levelThree });
             return sequence;

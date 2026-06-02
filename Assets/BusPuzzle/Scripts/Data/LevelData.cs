@@ -7,18 +7,19 @@ namespace BusPuzzle
     public sealed class LevelData : ScriptableObject
     {
         [SerializeField] private string levelName = "New Level";
-        [SerializeField] private List<PuzzleColor> passengerQueue = new List<PuzzleColor>();
+        [SerializeField] private List<PuzzleColor> passengerUnits = new List<PuzzleColor>();
         [SerializeField] private List<BusDefinition> buses = new List<BusDefinition>();
 
         public string LevelName => levelName;
-        public IReadOnlyList<PuzzleColor> PassengerQueue => passengerQueue;
+        public IReadOnlyList<PuzzleColor> PassengerUnits => passengerUnits;
         public IReadOnlyList<BusDefinition> Buses => buses;
-        public int PassengerCount => passengerQueue.Count;
+        public int PassengerUnitCount => passengerUnits.Count;
+        public int PassengerPeopleCount => passengerUnits.Count * 4;
 
-        public void Configure(string newLevelName, IEnumerable<PuzzleColor> passengers, IEnumerable<BusDefinition> busDefinitions)
+        public void Configure(string newLevelName, IEnumerable<PuzzleColor> units, IEnumerable<BusDefinition> busDefinitions)
         {
             levelName = newLevelName;
-            passengerQueue = new List<PuzzleColor>(passengers);
+            passengerUnits = new List<PuzzleColor>(units);
             buses = new List<BusDefinition>(busDefinitions);
         }
     }

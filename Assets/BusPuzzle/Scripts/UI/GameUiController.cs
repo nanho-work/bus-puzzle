@@ -10,6 +10,7 @@ namespace BusPuzzle
         private Text levelText;
         private Text statusText;
         private Text remainingText;
+        private Text stationText;
         private Button restartButton;
         private Button nextButton;
 
@@ -42,7 +43,12 @@ namespace BusPuzzle
 
         public void SetRemaining(int remainingCount)
         {
-            remainingText.text = $"Queue {remainingCount}";
+            remainingText.text = $"Units {remainingCount}";
+        }
+
+        public void SetStationSlots(int occupiedSlots, int totalSlots)
+        {
+            stationText.text = $"Stops {occupiedSlots}/{totalSlots}";
         }
 
         public void ShowPlaying(string levelName)
@@ -70,27 +76,30 @@ namespace BusPuzzle
 
         private void BuildLayout()
         {
-            var topPanel = CreatePanel("Top Bar", transform, new Color(0.08f, 0.10f, 0.13f, 0.90f));
-            SetAnchors(topPanel, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(24f, -168f), new Vector2(-24f, -24f));
+            var topPanel = CreatePanel("Top Bar", transform, new Color(0.08f, 0.10f, 0.13f, 0.82f));
+            SetAnchors(topPanel, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(20f, -108f), new Vector2(-20f, -18f));
 
-            levelText = CreateText("Level Text", topPanel, TextAnchor.MiddleLeft, 44, FontStyle.Bold);
-            SetAnchors(levelText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0.44f, 1f), new Vector2(28f, -8f), new Vector2(-8f, -8f));
+            levelText = CreateText("Level Text", topPanel, TextAnchor.MiddleLeft, 34, FontStyle.Bold);
+            SetAnchors(levelText.rectTransform, new Vector2(0f, 0.5f), new Vector2(0.32f, 1f), new Vector2(20f, -6f), new Vector2(-6f, -4f));
 
-            remainingText = CreateText("Remaining Text", topPanel, TextAnchor.MiddleRight, 36, FontStyle.Normal);
-            SetAnchors(remainingText.rectTransform, new Vector2(0.58f, 0.5f), new Vector2(1f, 1f), new Vector2(8f, -8f), new Vector2(-28f, -8f));
+            stationText = CreateText("Station Text", topPanel, TextAnchor.MiddleCenter, 28, FontStyle.Bold);
+            SetAnchors(stationText.rectTransform, new Vector2(0.34f, 0.5f), new Vector2(0.66f, 1f), new Vector2(4f, -6f), new Vector2(-4f, -4f));
 
-            statusText = CreateText("Status Text", topPanel, TextAnchor.MiddleCenter, 38, FontStyle.Bold);
-            SetAnchors(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.52f), new Vector2(28f, 8f), new Vector2(-28f, -4f));
+            remainingText = CreateText("Remaining Text", topPanel, TextAnchor.MiddleRight, 30, FontStyle.Normal);
+            SetAnchors(remainingText.rectTransform, new Vector2(0.68f, 0.5f), new Vector2(1f, 1f), new Vector2(8f, -6f), new Vector2(-20f, -4f));
+
+            statusText = CreateText("Status Text", topPanel, TextAnchor.MiddleCenter, 32, FontStyle.Bold);
+            SetAnchors(statusText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.52f), new Vector2(20f, 6f), new Vector2(-20f, -4f));
 
             var bottomPanel = CreatePanel("Bottom Bar", transform, new Color(0.08f, 0.10f, 0.13f, 0.88f));
-            SetAnchors(bottomPanel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(24f, 24f), new Vector2(-24f, 164f));
+            SetAnchors(bottomPanel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(20f, 18f), new Vector2(-20f, 108f));
 
             restartButton = CreateButton("Restart Button", bottomPanel, "Restart", new Color(0.24f, 0.29f, 0.34f));
-            SetAnchors(restartButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0.48f, 1f), new Vector2(20f, 20f), new Vector2(-10f, -20f));
+            SetAnchors(restartButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0.48f, 1f), new Vector2(14f, 16f), new Vector2(-8f, -16f));
             restartButton.onClick.AddListener(() => RestartRequested?.Invoke());
 
             nextButton = CreateButton("Next Button", bottomPanel, "Next", new Color(0.12f, 0.42f, 0.78f));
-            SetAnchors(nextButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0f), new Vector2(1f, 1f), new Vector2(10f, 20f), new Vector2(-20f, -20f));
+            SetAnchors(nextButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0f), new Vector2(1f, 1f), new Vector2(8f, 16f), new Vector2(-14f, -16f));
             nextButton.onClick.AddListener(() => NextLevelRequested?.Invoke());
             nextButton.interactable = false;
         }
@@ -139,7 +148,7 @@ namespace BusPuzzle
             colors.disabledColor = new Color(0.20f, 0.22f, 0.25f, 0.55f);
             button.colors = colors;
 
-            var labelText = CreateText($"{name} Label", buttonObject.transform, TextAnchor.MiddleCenter, 38, FontStyle.Bold);
+            var labelText = CreateText($"{name} Label", buttonObject.transform, TextAnchor.MiddleCenter, 30, FontStyle.Bold);
             labelText.text = label;
             SetAnchors(labelText.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 4f), new Vector2(-12f, -4f));
 

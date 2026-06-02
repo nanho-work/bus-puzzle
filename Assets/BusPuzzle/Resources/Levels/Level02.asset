@@ -13,21 +13,47 @@ MonoBehaviour:
   m_Name: Level02
   m_EditorClassIdentifier: 
   levelName: Crosswalk Mix
-  passengerQueue:
+  passengerUnits:
   - 0
   - 3
   - 1
+  - 2
+  - 0
   - 3
   - 0
+  - 1
   - 2
+  - 0
+  - 3
+  - 0
+  - 1
+  - 2
+  - 3
+  - 0
   - 1
   - 2
   buses:
   - color: 0
-    capacity: 2
+    size: 1
+    direction: 0
+    gridPosition:
+      x: 6
+      y: 0
   - color: 1
-    capacity: 2
+    size: 0
+    direction: 0
+    gridPosition:
+      x: 3
+      y: 1
   - color: 3
-    capacity: 2
+    size: 0
+    direction: 1
+    gridPosition:
+      x: 5
+      y: 5
   - color: 2
-    capacity: 2
+    size: 0
+    direction: 1
+    gridPosition:
+      x: 2
+      y: 8

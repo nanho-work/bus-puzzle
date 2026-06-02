@@ -13,17 +13,145 @@ MonoBehaviour:
   m_Name: Level01
   m_EditorClassIdentifier: 
   levelName: Downtown Warmup
-  passengerQueue:
-  - 0
-  - 1
+  passengerUnits:
   - 0
   - 1
   - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 1
   - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 0
+  - 0
+  - 1
+  - 1
+  - 0
+  - 0
+  - 1
+  - 1
   buses:
   - color: 0
-    capacity: 2
+    size: 0
+    direction: 0
+    gridPosition:
+      x: 5
+      y: 10
   - color: 1
-    capacity: 2
+    size: 0
+    direction: 0
+    gridPosition:
+      x: 9
+      y: 10
   - color: 2
-    capacity: 2
+    size: 0
+    direction: 3
+    gridPosition:
+      x: 2
+      y: 8
+  - color: 3
+    size: 0
+    direction: 1
+    gridPosition:
+      x: 11
+      y: 8
+  - color: 4
+    size: 0
+    direction: 2
+    gridPosition:
+      x: 5
+      y: 2
+  - color: 5
+    size: 0
+    direction: 2
+    gridPosition:
+      x: 9
+      y: 2
+  - color: 0
+    size: 0
+    direction: 1
+    gridPosition:
+      x: 6
+      y: 4
+  - color: 1
+    size: 0
+    direction: 3
+    gridPosition:
+      x: 7
+      y: 6
+  - color: 2
+    size: 0
+    direction: 0
+    gridPosition:
+      x: 12
+      y: 5
+  - color: 3
+    size: 0
+    direction: 2
+    gridPosition:
+      x: 1
+      y: 6
+  - color: 4
+    size: 0
+    direction: 1
+    gridPosition:
+      x: 3
+      y: 3
+  - color: 0
+    size: 0
+    direction: 0
+    gridPosition:
+      x: 3
+      y: 0
+  - color: 1
+    size: 0
+    direction: 0
+    gridPosition:
+      x: 11
+      y: 0
+  - color: 5
+    size: 0
+    direction: 3
+    gridPosition:
+      x: 10
+      y: 7

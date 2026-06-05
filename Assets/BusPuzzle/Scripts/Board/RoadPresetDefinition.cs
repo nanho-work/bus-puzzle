@@ -81,7 +81,7 @@ namespace BusPuzzle
                 case RotaryRoadPresetId.Small:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Small,
-                        35,
+                        30,
                         0.0525f,
                         new Vector2(0f, -0.70f),
                         new Vector2(0.42f, -0.70f),
@@ -104,7 +104,7 @@ namespace BusPuzzle
                 case RotaryRoadPresetId.Medium:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Medium,
-                        42,
+                        35,
                         0.048f,
                         new Vector2(0f, -0.76f),
                         new Vector2(0.55f, -0.76f),
@@ -127,7 +127,7 @@ namespace BusPuzzle
                 default:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Large,
-                        LevelData.MaxRotaryUnitCapacity,
+                        40,
                         0.0435f,
                         new Vector2(0f, -0.82f),
                         new Vector2(0.66f, -0.82f),

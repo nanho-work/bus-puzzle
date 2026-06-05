@@ -1,7 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 namespace BusPuzzle
 {
@@ -20,9 +18,9 @@ namespace BusPuzzle
         [SerializeField] private Camera gameCamera;
         [SerializeField] private int startingLevelIndex = 0;
 
-        private const float PassengerFastForwardDuration = 2.0f;
         private const float PassengerFastForwardMultiplier = 3.0f;
-        private const float BoardingUnitInterval = 0.12f;
+        private const float EndgamePassengerSpeedMultiplier = 1.35f;
+        private const int EndgameRemainingBusThreshold = 4;
 
         private readonly List<PassengerView> circulatingPassengerUnits = new List<PassengerView>();
         private readonly List<BusView> buses = new List<BusView>();
@@ -30,8 +28,9 @@ namespace BusPuzzle
         private LevelData currentLevel;
         private GameState gameState;
         private int currentLevelIndex;
-        private float passengerFastForwardTimer;
-        private Coroutine boardingRoutine;
+        private GameInputController inputController;
+        private VehicleDispatchController vehicleDispatchController;
+        private BoardingFlowController boardingFlowController;
 
         private void Awake()
         {
@@ -39,11 +38,14 @@ namespace BusPuzzle
             Screen.orientation = ScreenOrientation.Portrait;
 
             EnsureSceneDependencies();
+            ConfigureControllers();
             LoadLevel(Mathf.Max(0, startingLevelIndex));
         }
 
         private void OnDestroy()
         {
+            boardingFlowController?.Stop();
+
             if (uiController == null)
             {
                 return;
@@ -60,38 +62,23 @@ namespace BusPuzzle
                 return;
             }
 
-            var passengerDeltaTime = Time.deltaTime;
-            if (passengerFastForwardTimer > 0f)
-            {
-                passengerFastForwardTimer = Mathf.Max(0f, passengerFastForwardTimer - Time.deltaTime);
-                passengerDeltaTime *= PassengerFastForwardMultiplier;
-            }
+            var passengerDeltaTime = Time.deltaTime * GetPassengerTimeMultiplier();
 
             boardView.UpdatePassengerTraffic(circulatingPassengerUnits, passengerDeltaTime);
 
-            if (boardingRoutine == null && HasStationBusReadyToBoardNow())
+            if (GameProgressEngine.ShouldStartBoardingResolver(
+                gameState == GameState.Playing,
+                boardingFlowController.IsRunning,
+                boardingFlowController.HasStationBusReadyToBoardNow(),
+                boardingFlowController.HasStationBusReadyToDepart()))
             {
                 StartBoardingResolver();
             }
 
-            if (!TryGetPointerDown(out var screenPosition, out var pointerId))
+            if (inputController.TryTakeBusTap(out var bus))
             {
-                return;
+                vehicleDispatchController.TryLaunch(bus);
             }
-
-            if (IsPointerOverUi(pointerId))
-            {
-                return;
-            }
-
-            var bus = TryGetBusAtScreenPosition(screenPosition);
-            if (bus != null)
-            {
-                TryLaunchBus(bus);
-                return;
-            }
-
-            passengerFastForwardTimer = PassengerFastForwardDuration;
         }
 
         private void EnsureSceneDependencies()
@@ -129,18 +116,47 @@ namespace BusPuzzle
             }
         }
 
+        private void ConfigureControllers()
+        {
+            inputController = new GameInputController(gameCamera);
+            vehicleDispatchController = new VehicleDispatchController(
+                boardView,
+                uiController,
+                buses,
+                UpdateCounters,
+                StartBoardingResolver,
+                CheckBlocked,
+                GetCurrentLevelName);
+            boardingFlowController = new BoardingFlowController(
+                this,
+                boardView,
+                buses,
+                circulatingPassengerUnits,
+                UpdateCounters,
+                TryCompleteLevelIfReady,
+                CheckBlocked,
+                () => gameState == GameState.Playing);
+        }
+
         private void LoadLevel(int levelIndex)
         {
-            if (boardingRoutine != null)
-            {
-                StopCoroutine(boardingRoutine);
-                boardingRoutine = null;
-            }
-
+            boardingFlowController.Reset();
             currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
             currentLevel = levelSequence.GetLevel(currentLevelIndex);
+            var validationReport = LevelValidator.Validate(currentLevel);
+            if (validationReport.HasIssues)
+            {
+                var validationMessage = validationReport.ToConsoleMessage(currentLevel != null ? currentLevel.LevelName : "Missing Level");
+                if (validationReport.HasErrors)
+                {
+                    Debug.LogError(validationMessage);
+                }
+                else
+                {
+                    Debug.LogWarning(validationMessage);
+                }
+            }
 
-            passengerFastForwardTimer = 0f;
             gameState = GameState.Playing;
 
             boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses);
@@ -167,149 +183,9 @@ namespace BusPuzzle
             LoadLevel(currentLevelIndex + 1);
         }
 
-        private void TryLaunchBus(BusView bus)
-        {
-            if (!bus.IsOnBoard || bus.IsMoving || bus.IsDeparted || HasMovingBus())
-            {
-                return;
-            }
-
-            if (!boardView.TryReserveStationSlot(out var stationSlotIndex, out var stationPosition))
-            {
-                uiController.ShowInvalid("Station full");
-                CheckBlocked();
-                return;
-            }
-
-            if (!boardView.IsPathClear(bus, buses, out _))
-            {
-                boardView.ReleaseStationSlot(stationSlotIndex);
-                UpdateCounters();
-
-                uiController.ShowInvalid("Blocked");
-                bus.BounceBlocked(boardView.GetWorldDirection(bus), () =>
-                {
-                    CheckBlocked();
-                });
-                return;
-            }
-
-            UpdateCounters();
-            uiController.ShowInvalid($"{PuzzlePalette.DisplayName(bus.Color)} bus dispatched");
-
-            var route = boardView.BuildRouteToStation(bus, stationPosition);
-            bus.MoveToStation(route, stationSlotIndex, () =>
-            {
-                UpdateCounters();
-                uiController.ShowPlaying(currentLevel.LevelName);
-                StartBoardingResolver();
-                CheckBlocked();
-            });
-        }
-
         private void StartBoardingResolver()
         {
-            if (boardingRoutine != null || gameState != GameState.Playing)
-            {
-                return;
-            }
-
-            boardingRoutine = StartCoroutine(BoardingResolverRoutine());
-        }
-
-        private IEnumerator BoardingResolverRoutine()
-        {
-            var didBoard = true;
-
-            while (didBoard && gameState == GameState.Playing)
-            {
-                didBoard = false;
-
-                for (var busIndex = 0; busIndex < buses.Count; busIndex++)
-                {
-                    var bus = buses[busIndex];
-                    if (!bus.IsParkedAtStation || bus.IsDeparted || bus.IsFull)
-                    {
-                        continue;
-                    }
-
-                    if (!boardView.TryFindBoardingPassenger(circulatingPassengerUnits, bus.Color, out var passengerIndex))
-                    {
-                        continue;
-                    }
-
-                    var passenger = circulatingPassengerUnits[passengerIndex];
-                    circulatingPassengerUnits.RemoveAt(passengerIndex);
-                    UpdateCounters();
-
-                    didBoard = true;
-                    var boarded = false;
-                    bus.BoardPassenger(passenger, () => boarded = true);
-                    yield return new WaitUntil(() => boarded);
-                    yield return new WaitForSeconds(BoardingUnitInterval);
-
-                    if (bus.IsFull)
-                    {
-                        var stationSlotIndex = bus.StationSlotIndex;
-                        var departureRoute = boardView.BuildRouteFromStation(bus);
-                        var departed = false;
-                        bus.Depart(departureRoute, () =>
-                        {
-                            boardView.ReleaseStationSlot(stationSlotIndex);
-                            UpdateCounters();
-                            departed = true;
-                        });
-
-                        yield return new WaitUntil(() => departed);
-                    }
-
-                    UpdateCounters();
-                    break;
-                }
-            }
-
-            boardingRoutine = null;
-
-            if (circulatingPassengerUnits.Count == 0)
-            {
-                CompleteLevel();
-                yield break;
-            }
-
-            CheckBlocked();
-        }
-
-        private bool HasStationBusReadyToBoardNow()
-        {
-            for (var index = 0; index < buses.Count; index++)
-            {
-                var bus = buses[index];
-                if (!bus.IsParkedAtStation || bus.IsDeparted || bus.IsFull)
-                {
-                    continue;
-                }
-
-                if (boardView.TryFindBoardingPassenger(circulatingPassengerUnits, bus.Color, out _))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private bool HasStationBusThatCanEventuallyBoard()
-        {
-            for (var index = 0; index < buses.Count; index++)
-            {
-                var bus = buses[index];
-                if (bus.IsParkedAtStation && !bus.IsDeparted && !bus.IsFull && boardView.HasPassengerColor(circulatingPassengerUnits, bus.Color))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            boardingFlowController.Start();
         }
 
         private void CompleteLevel()
@@ -317,6 +193,17 @@ namespace BusPuzzle
             gameState = GameState.Cleared;
             UpdateCounters();
             uiController.ShowClear(currentLevelIndex + 1 < levelSequence.Count);
+        }
+
+        private bool TryCompleteLevelIfReady()
+        {
+            if (!GameProgressEngine.CanComplete(CreateProgressSnapshot(false)))
+            {
+                return false;
+            }
+
+            CompleteLevel();
+            return true;
         }
 
         private void FailLevel()
@@ -327,28 +214,33 @@ namespace BusPuzzle
 
         private void CheckBlocked()
         {
-            if (gameState != GameState.Playing || circulatingPassengerUnits.Count == 0 || boardingRoutine != null || HasMovingBus())
+            switch (GameProgressEngine.EvaluateBlockedState(CreateProgressSnapshot(true)))
             {
-                return;
+                case GameProgressDecision.Complete:
+                    CompleteLevel();
+                    break;
+                case GameProgressDecision.StartBoardingResolver:
+                    StartBoardingResolver();
+                    break;
+                case GameProgressDecision.Fail:
+                    FailLevel();
+                    break;
             }
+        }
 
-            if (HasStationBusReadyToBoardNow())
-            {
-                StartBoardingResolver();
-                return;
-            }
-
-            if (HasStationBusThatCanEventuallyBoard())
-            {
-                return;
-            }
-
-            if (boardView.IsAnyMoveAvailable(buses))
-            {
-                return;
-            }
-
-            FailLevel();
+        private GameProgressSnapshot CreateProgressSnapshot(bool includeBlockedChecks)
+        {
+            return new GameProgressSnapshot(
+                gameState == GameState.Playing,
+                boardingFlowController.IsRunning,
+                circulatingPassengerUnits.Count,
+                boardingFlowController.HasPendingReservations,
+                boardingFlowController.HasBusBoardingPassengers(),
+                HasMovingBus(),
+                boardingFlowController.HasStationBusReadyToDepart(),
+                includeBlockedChecks && boardingFlowController.HasStationBusReadyToBoardNow(),
+                includeBlockedChecks && boardingFlowController.HasStationBusThatCanEventuallyBoard(),
+                includeBlockedChecks && boardView.IsAnyMoveAvailable(buses));
         }
 
         private bool HasMovingBus()
@@ -370,58 +262,40 @@ namespace BusPuzzle
             uiController.SetStationSlots(boardView.OccupiedStationSlots, boardView.StationCapacity);
         }
 
-        private BusView TryGetBusAtScreenPosition(Vector2 screenPosition)
+        private bool IsPassengerFastForwardHeld()
         {
-            var ray = gameCamera.ScreenPointToRay(screenPosition);
-            var hits = Physics.RaycastAll(ray, 100f);
+            return inputController.IsPassengerFastForwardHeld();
+        }
 
-            foreach (var hit in hits)
+        private float GetPassengerTimeMultiplier()
+        {
+            if (IsPassengerFastForwardHeld())
             {
-                var bus = hit.collider.GetComponentInParent<BusView>();
-                if (bus != null)
+                return PassengerFastForwardMultiplier;
+            }
+
+            return CountRemainingActiveBuses() <= EndgameRemainingBusThreshold
+                ? EndgamePassengerSpeedMultiplier
+                : 1f;
+        }
+
+        private int CountRemainingActiveBuses()
+        {
+            var remaining = 0;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (buses[index] != null && !buses[index].IsDeparted)
                 {
-                    return bus;
+                    remaining++;
                 }
             }
 
-            return null;
+            return remaining;
         }
 
-        private static bool TryGetPointerDown(out Vector2 screenPosition, out int pointerId)
+        private string GetCurrentLevelName()
         {
-            if (Input.touchCount > 0)
-            {
-                var touch = Input.GetTouch(0);
-                if (touch.phase == TouchPhase.Began)
-                {
-                    screenPosition = touch.position;
-                    pointerId = touch.fingerId;
-                    return true;
-                }
-            }
-
-            if (Input.GetMouseButtonDown(0))
-            {
-                screenPosition = Input.mousePosition;
-                pointerId = -1;
-                return true;
-            }
-
-            screenPosition = Vector2.zero;
-            pointerId = -1;
-            return false;
-        }
-
-        private static bool IsPointerOverUi(int pointerId)
-        {
-            if (EventSystem.current == null)
-            {
-                return false;
-            }
-
-            return pointerId >= 0
-                ? EventSystem.current.IsPointerOverGameObject(pointerId)
-                : EventSystem.current.IsPointerOverGameObject();
+            return currentLevel != null ? currentLevel.LevelName : string.Empty;
         }
 
         private static Camera CreateDefaultCamera()

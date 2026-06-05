@@ -20,6 +20,14 @@ namespace BusPuzzle
                     return new Color(0.56f, 0.28f, 0.86f);
                 case PuzzleColor.Orange:
                     return new Color(1.00f, 0.47f, 0.16f);
+                case PuzzleColor.White:
+                    return new Color(0.94f, 0.95f, 0.92f);
+                case PuzzleColor.Black:
+                    return new Color(0.08f, 0.09f, 0.11f);
+                case PuzzleColor.Pink:
+                    return new Color(1.00f, 0.25f, 0.66f);
+                case PuzzleColor.SkyBlue:
+                    return new Color(0.12f, 0.78f, 0.96f);
                 default:
                     return Color.white;
             }
@@ -41,6 +49,14 @@ namespace BusPuzzle
                     return "Purple";
                 case PuzzleColor.Orange:
                     return "Orange";
+                case PuzzleColor.White:
+                    return "White";
+                case PuzzleColor.Black:
+                    return "Black";
+                case PuzzleColor.Pink:
+                    return "Pink";
+                case PuzzleColor.SkyBlue:
+                    return "Sky Blue";
                 default:
                     return "Unknown";
             }

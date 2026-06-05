@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b551e93c5e74b3cbe8c06caef6a472a, type: 3}
+  m_Name: EffectAudioLibrary
+  m_EditorClassIdentifier: 
+  collisionClip: {fileID: 8300000, guid: 6a118ce6c539e4b51a1b4ce85f1ca10f, type: 3}
+  boardingClip: {fileID: 8300000, guid: 22bc3f78885b6453c9b9d2acd05a4299, type: 3}
+  collisionVolume: 0.8
+  boardingVolume: 0.55

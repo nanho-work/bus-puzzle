@@ -5,20 +5,8 @@ namespace BusPuzzle
 {
     public sealed class BoardView : MonoBehaviour
     {
-        private const int GridColumns = 14;
-        private const int GridRows = 14;
-        private const int FreeStationSlots = 1;
-        private const int ActiveStationSlots = 4;
-        private const int LockedStationSlots = 4;
-        private const float CellSize = 0.31f;
-        private const float GridBottomZ = -4.17f;
-        private const float StationZ = 0.66f;
-        private const float StationSlotSpacing = 0.44f;
-        private const float StationSlotWidth = 0.29f;
-        private const float StationSlotDepth = 0.62f;
-        private const float StationYawDegrees = 7f;
-        private const float RotaryCenterZ = 2.42f;
         private const float BoardingGateProgressWindow = 0.070f;
+        private const float BoardingReservationProgressWindow = 0.180f;
         private const float PassengerVisualScale = 1.20f;
         private const float PassengerInnerPersonLocalZ = -0.155f * PassengerVisualScale;
         private const float PassengerSecondPersonLocalZ = -0.052f * PassengerVisualScale;
@@ -40,33 +28,19 @@ namespace BusPuzzle
         private const float PassengerSetPivotOffset =
             PassengerPersonRadius - PassengerInnerPersonLocalZ - PassengerInnerRailOverlap;
 
-        private readonly bool[] stationOccupied = new bool[ActiveStationSlots];
-        private readonly PassengerFlowController passengerFlow = new PassengerFlowController();
+        private readonly StationSlotController stationSlots = new StationSlotController(BoardLayoutConfig.ActiveStationSlots);
 
         private RotaryLayout rotaryLayout;
+        private VehicleTrafficEngine vehicleTraffic;
+        private PassengerTrafficEngine passengerTraffic;
         private int rotaryActiveTarget;
         private Transform passengerRoot;
         private Transform busRoot;
         private Transform stationRoot;
 
-        public int StationCapacity => ActiveStationSlots;
+        public int StationCapacity => stationSlots.Capacity;
 
-        public int OccupiedStationSlots
-        {
-            get
-            {
-                var count = 0;
-                for (var index = 0; index < stationOccupied.Length; index++)
-                {
-                    if (stationOccupied[index])
-                    {
-                        count++;
-                    }
-                }
-
-                return count;
-            }
-        }
+        public int OccupiedStationSlots => stationSlots.OccupiedSlots;
 
         public void BuildLevel(LevelData levelData, List<PassengerView> passengers, List<BusView> buses)
         {
@@ -81,8 +55,9 @@ namespace BusPuzzle
                     PassengerSecondPersonLocalZ,
                     PassengerThirdPersonLocalZ,
                     PassengerOuterPersonLocalZ));
-            passengerFlow.Configure(rotaryLayout);
             rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count);
+            passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
+            vehicleTraffic = new VehicleTrafficEngine(CreateVehicleTrafficSettings());
 
             ClearBoard();
             ResetStationSlots();
@@ -98,250 +73,97 @@ namespace BusPuzzle
             for (var index = 0; index < levelData.PassengerUnits.Count; index++)
             {
                 var passenger = PassengerView.Create(levelData.PassengerUnits[index], passengerRoot);
-                if (index < rotaryActiveTarget)
-                {
-                    AssignPassengerTraffic(passenger, index);
-                    SetPassengerTrafficPose(passenger);
-                }
-                else
-                {
-                    AssignPassengerFeeder(passenger, index - rotaryActiveTarget);
-                    SetPassengerFeederPose(passenger);
-                }
-
+                passengerTraffic.PlacePassenger(passenger, index);
                 passengers.Add(passenger);
             }
 
             for (var index = 0; index < levelData.Buses.Count; index++)
             {
                 var definition = levelData.Buses[index];
-                var bus = BusView.Create(definition, busRoot, CellSize);
-                bus.SetGridPosition(definition.GridPosition, GridToWorld(definition.GridPosition));
+                var bus = BusView.Create(definition, busRoot, BoardLayoutConfig.CellSize);
+                bus.SetGridPosition(definition.GridPosition, BoardLayoutConfig.GridToWorld(definition.GridPosition, definition.PositionOffsetCells));
                 buses.Add(bus);
             }
+
+            WarnIfBusesStartOverlapping(levelData, buses);
         }
 
         public void UpdatePassengerTraffic(IReadOnlyList<PassengerView> passengers, float deltaTime)
         {
-            passengerFlow.Advance(passengers, deltaTime);
-
-            for (var index = 0; index < passengers.Count; index++)
-            {
-                var passenger = passengers[index];
-                if (!passenger.CanCirculate)
-                {
-                    continue;
-                }
-
-                SetPassengerTrafficPose(passenger);
-            }
-
-            PromoteFeederPassengers(passengers);
+            GetPassengerTraffic().Advance(passengers, deltaTime);
         }
 
         public bool TryFindBoardingPassenger(IReadOnlyList<PassengerView> passengers, PuzzleColor color, out int passengerIndex)
         {
-            var bestDistance = float.MaxValue;
-            passengerIndex = -1;
+            return GetPassengerTraffic().TryFindBoardingPassenger(passengers, color, out passengerIndex);
+        }
 
-            for (var index = 0; index < passengers.Count; index++)
-            {
-                var passenger = passengers[index];
-                if (!passenger.CanCirculate || passenger.Color != color || !IsPassengerAtBoardingGate(passenger))
-                {
-                    continue;
-                }
+        public bool TryFindBoardingReservationPassenger(IReadOnlyList<PassengerView> passengers, PuzzleColor color, out int passengerIndex)
+        {
+            return GetPassengerTraffic().TryFindBoardingReservationPassenger(passengers, color, out passengerIndex);
+        }
 
-                var distance = Vector3.SqrMagnitude(passenger.transform.position - GetBoardingGatePosition());
-                if (distance >= bestDistance)
-                {
-                    continue;
-                }
-
-                bestDistance = distance;
-                passengerIndex = index;
-            }
-
-            return passengerIndex >= 0;
+        public bool IsPassengerReadyToBoard(PassengerView passenger)
+        {
+            return GetPassengerTraffic().IsPassengerReadyToBoard(passenger);
         }
 
         public bool HasPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
         {
-            for (var index = 0; index < passengers.Count; index++)
-            {
-                var passenger = passengers[index];
-                if (passenger.Color == color && passenger.gameObject.activeSelf)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return PassengerTrafficEngine.HasPassengerColor(passengers, color);
         }
 
         public bool TryReserveStationSlot(out int slotIndex, out Vector3 slotPosition)
         {
-            for (var index = 0; index < stationOccupied.Length; index++)
-            {
-                if (stationOccupied[index])
-                {
-                    continue;
-                }
-
-                stationOccupied[index] = true;
-                slotIndex = index;
-                slotPosition = GetStationPosition(index);
-                return true;
-            }
-
-            slotIndex = -1;
-            slotPosition = Vector3.zero;
-            return false;
+            return stationSlots.TryReserve(BoardLayoutConfig.GetStationPosition, out slotIndex, out slotPosition);
         }
 
         public void ReleaseStationSlot(int slotIndex)
         {
-            if (slotIndex < 0 || slotIndex >= stationOccupied.Length)
-            {
-                return;
-            }
-
-            stationOccupied[slotIndex] = false;
+            stationSlots.Release(slotIndex);
         }
 
         public bool IsAnyMoveAvailable(IReadOnlyList<BusView> buses)
         {
-            if (OccupiedStationSlots >= StationCapacity)
-            {
-                return false;
-            }
-
-            for (var index = 0; index < buses.Count; index++)
-            {
-                var bus = buses[index];
-                if (bus.IsOnBoard && !bus.IsMoving && IsPathClear(bus, buses, out _))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return GetVehicleTraffic().IsAnyMoveAvailable(buses, OccupiedStationSlots, StationCapacity);
         }
 
         public bool IsPathClear(BusView movingBus, IReadOnlyList<BusView> buses, out BusView blockingBus)
         {
-            blockingBus = null;
+            return IsPathClear(movingBus, buses, out blockingBus, out _);
+        }
 
-            var step = GridDirectionUtility.ToGridVector(movingBus.Direction);
-            var cell = movingBus.FrontCell + step;
-
-            while (IsInsideBoard(cell))
-            {
-                for (var index = 0; index < buses.Count; index++)
-                {
-                    var bus = buses[index];
-                    if (bus == movingBus || !bus.IsOnBoard || bus.IsDeparted)
-                    {
-                        continue;
-                    }
-
-                    if (bus.OccupiesCell(cell))
-                    {
-                        blockingBus = bus;
-                        return false;
-                    }
-                }
-
-                cell += step;
-            }
-
-            return true;
+        public bool IsPathClear(BusView movingBus, IReadOnlyList<BusView> buses, out BusView blockingBus, out Vector3 collisionPosition)
+        {
+            return GetVehicleTraffic().IsPathClear(movingBus, buses, out blockingBus, out collisionPosition);
         }
 
         public BusRouteStep[] BuildRouteToStation(BusView bus, Vector3 stationPosition)
         {
-            var step = GridDirectionUtility.ToGridVector(bus.Direction);
-            var exitCell = bus.FrontCell + step;
-
-            while (IsInsideBoard(exitCell))
-            {
-                exitCell += step;
-            }
-
-            var exitPosition = GridToWorld(exitCell);
-            exitPosition.y = bus.transform.position.y;
-            stationPosition.y = bus.transform.position.y;
-
-            var topRoadZ = GridTopZ + CellSize * 0.95f;
-            var leftRoadX = GridLeftX - CellSize * 0.95f;
-            var rightRoadX = GridRightX + CellSize * 0.95f;
-            var route = new List<BusRouteStep>();
-            var currentPosition = exitPosition;
-            var stationRotation = StationRotation;
-
-            AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(bus.Direction));
-
-            if (bus.Direction == GridDirection.Down)
-            {
-                var sideX = Mathf.Abs(exitPosition.x - leftRoadX) <= Mathf.Abs(exitPosition.x - rightRoadX)
-                    ? leftRoadX
-                    : rightRoadX;
-                var horizontalDirection = sideX < exitPosition.x ? GridDirection.Left : GridDirection.Right;
-                currentPosition = new Vector3(sideX, exitPosition.y, exitPosition.z);
-                AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(horizontalDirection));
-            }
-
-            if (Mathf.Abs(currentPosition.z - topRoadZ) > 0.01f)
-            {
-                AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(GridDirection.Up));
-                currentPosition = new Vector3(currentPosition.x, currentPosition.y, topRoadZ);
-                AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(GridDirection.Up));
-            }
-
-            if (Mathf.Abs(currentPosition.x - stationPosition.x) > 0.01f)
-            {
-                var horizontalDirection = stationPosition.x > currentPosition.x ? GridDirection.Right : GridDirection.Left;
-                AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(horizontalDirection));
-                currentPosition = new Vector3(stationPosition.x, currentPosition.y, topRoadZ);
-                AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(horizontalDirection));
-            }
-
-            var stationApproachPosition = stationPosition - StationForward * (CellSize * 0.62f);
-            var stationApproachRootPosition = bus.GetRootPositionForVisualCenter(stationApproachPosition, stationRotation);
-            var stationRootPosition = bus.GetRootPositionForVisualCenter(stationPosition, stationRotation);
-            AddRouteStep(route, currentPosition, GridDirectionUtility.ToRotation(GridDirection.Up));
-            AddRouteStep(route, stationApproachRootPosition, stationRotation);
-            AddRouteStep(route, stationRootPosition, stationRotation);
-            return route.ToArray();
+            return GetVehicleTraffic().BuildRouteToStation(bus, stationPosition);
         }
 
         public BusRouteStep[] BuildRouteFromStation(BusView bus)
         {
-            var route = new List<BusRouteStep>();
-            var startPosition = bus.transform.position;
-            var exitLaneDirection = Vector3.right;
-            var exitLaneRotation = Quaternion.LookRotation(exitLaneDirection, Vector3.up);
-            var stationExit = startPosition + StationForward * (CellSize * 2.20f);
-            var upperRoadEntry = stationExit + StationRight * (CellSize * 0.65f) + StationForward * (CellSize * 0.30f);
-            var upperRoadExit = upperRoadEntry + exitLaneDirection * (GridWorldWidth * 1.50f);
+            return GetVehicleTraffic().BuildRouteFromStation(bus);
+        }
 
-            AddRouteStep(route, stationExit, StationRotation);
-            AddRouteStep(route, upperRoadEntry, exitLaneRotation);
-            AddRouteStep(route, upperRoadExit, exitLaneRotation);
-            return route.ToArray();
+        public Vector3 GetStationCounterPosition(int slotIndex)
+        {
+            var slotPosition = BoardLayoutConfig.GetStationPosition(slotIndex);
+            return slotPosition -
+                BoardLayoutConfig.StationForward * (BoardLayoutConfig.StationSlotDepth * 0.5f + BoardLayoutConfig.StationCounterBelowSlotOffset) +
+                Vector3.up * BoardLayoutConfig.StationCounterY;
         }
 
         public Vector3 GetWorldDirection(BusView bus)
         {
-            return GridDirectionUtility.ToWorldVector(bus.Direction);
+            return bus != null ? bus.VehicleForwardWorld : Vector3.forward;
         }
 
         private void ResetStationSlots()
         {
-            for (var index = 0; index < stationOccupied.Length; index++)
-            {
-                stationOccupied[index] = false;
-            }
+            stationSlots.Reset();
         }
 
         private void ClearBoard()
@@ -367,12 +189,64 @@ namespace BusPuzzle
         private static RotaryRoadBuildSettings CreateRotaryRoadBuildSettings()
         {
             return new RotaryRoadBuildSettings(
-                RotaryCenterZ,
-                StationZ,
-                GridWorldWidth,
-                GridWorldDepth,
-                GridCenterZ,
+                BoardLayoutConfig.RotaryCenterZ,
+                BoardLayoutConfig.StationZ,
+                BoardLayoutConfig.GridWorldWidth,
+                BoardLayoutConfig.GridWorldDepth,
+                BoardLayoutConfig.GridCenterZ,
                 PassengerSetPivotOffset);
+        }
+
+        private static VehicleTrafficSettings CreateVehicleTrafficSettings()
+        {
+            return new VehicleTrafficSettings(
+                BoardLayoutConfig.CellSize,
+                BoardLayoutConfig.GridWorldWidth,
+                BoardLayoutConfig.GridWorldDepth,
+                BoardLayoutConfig.GridTopZ,
+                BoardLayoutConfig.GridBottomZ,
+                BoardLayoutConfig.GridLeftX,
+                BoardLayoutConfig.GridRightX,
+                BoardLayoutConfig.StationRotation,
+                BoardLayoutConfig.StationForward,
+                BoardLayoutConfig.StationRight);
+        }
+
+        private static PassengerTrafficSettings CreatePassengerTrafficSettings()
+        {
+            return new PassengerTrafficSettings(
+                BoardLayoutConfig.RotaryCenterZ,
+                PassengerUnitY,
+                FeederMergeDuration,
+                FeederQueueStepDuration,
+                FeederVacancyWindowDistance,
+                BoardingGateProgressWindow,
+                BoardingReservationProgressWindow,
+                new Vector4(
+                    PassengerInnerPersonLocalZ,
+                    PassengerSecondPersonLocalZ,
+                    PassengerThirdPersonLocalZ,
+                    PassengerOuterPersonLocalZ));
+        }
+
+        private VehicleTrafficEngine GetVehicleTraffic()
+        {
+            if (vehicleTraffic == null)
+            {
+                vehicleTraffic = new VehicleTrafficEngine(CreateVehicleTrafficSettings());
+            }
+
+            return vehicleTraffic;
+        }
+
+        private PassengerTrafficEngine GetPassengerTraffic()
+        {
+            if (passengerTraffic == null)
+            {
+                passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
+            }
+
+            return passengerTraffic;
         }
 
         private void CreateGround()
@@ -387,279 +261,61 @@ namespace BusPuzzle
 
         private void CreateGrid()
         {
-            ParkingGridBuilder.Create(transform, GridColumns, GridRows, CellSize, GridBottomZ);
+            ParkingGridBuilder.Create(
+                transform,
+                BoardLayoutConfig.GridColumns,
+                BoardLayoutConfig.GridRows,
+                BoardLayoutConfig.CellSize,
+                BoardLayoutConfig.GridBottomZ);
         }
 
         private void CreateStationSlots()
         {
             StationSlotBuilder.Create(
                 stationRoot,
-                FreeStationSlots,
-                ActiveStationSlots,
-                LockedStationSlots,
-                StationZ,
-                StationSlotSpacing,
-                StationSlotWidth,
-                StationSlotDepth,
-                CellSize,
-                StationRotation,
-                GetFreeStationPosition,
-                GetStationPosition,
-                GetLockedStationPosition);
+                BoardLayoutConfig.FreeStationSlots,
+                BoardLayoutConfig.ActiveStationSlots,
+                BoardLayoutConfig.LockedStationSlots,
+                BoardLayoutConfig.StationZ,
+                BoardLayoutConfig.StationSlotSpacing,
+                BoardLayoutConfig.StationSlotWidth,
+                BoardLayoutConfig.StationSlotDepth,
+                BoardLayoutConfig.CellSize,
+                BoardLayoutConfig.StationRotation,
+                BoardLayoutConfig.GetFreeStationPosition,
+                BoardLayoutConfig.GetStationPosition,
+                BoardLayoutConfig.GetLockedStationPosition);
         }
 
-        private static bool IsInsideBoard(Vector2Int cell)
+        private static void WarnIfBusesStartOverlapping(LevelData levelData, IReadOnlyList<BusView> buses)
         {
-            return cell.x >= 0 && cell.x < GridColumns && cell.y >= 0 && cell.y < GridRows;
-        }
+            for (var firstIndex = 0; firstIndex < buses.Count; firstIndex++)
+            {
+                var firstBus = buses[firstIndex];
+                if (firstBus == null)
+                {
+                    continue;
+                }
 
-        private static Vector3 GridToWorld(Vector2Int cell)
-        {
-            var x = (cell.x - (GridColumns - 1) * 0.5f) * CellSize;
-            var z = GridBottomZ + cell.y * CellSize;
-            return new Vector3(x, 0f, z);
-        }
+                for (var secondIndex = firstIndex + 1; secondIndex < buses.Count; secondIndex++)
+                {
+                    var secondBus = buses[secondIndex];
+                    if (secondBus == null || !firstBus.CurrentFootprint.Overlaps(secondBus.CurrentFootprint))
+                    {
+                        continue;
+                    }
 
-        private static void AddRouteStep(List<BusRouteStep> route, Vector3 position, Quaternion rotation)
-        {
-            route.Add(new BusRouteStep(position, rotation));
+                    Debug.LogWarning(
+                        $"{levelData.LevelName}: {PuzzlePalette.DisplayName(firstBus.Color)} {BusSizeUtility.DisplayName(firstBus.Size)} overlaps " +
+                        $"{PuzzlePalette.DisplayName(secondBus.Color)} {BusSizeUtility.DisplayName(secondBus.Size)} at start. " +
+                        "Tune positionOffsetCells or angleOffsetDegrees.");
+                }
+            }
         }
-
-        private static Vector3 GetStationPosition(int index)
-        {
-            var totalIndex = FreeStationSlots + index;
-            return GetStationPositionByTotalIndex(totalIndex);
-        }
-
-        private static Vector3 GetFreeStationPosition()
-        {
-            return GetStationPositionByTotalIndex(0);
-        }
-
-        private static Vector3 GetLockedStationPosition(int index)
-        {
-            var totalIndex = FreeStationSlots + ActiveStationSlots + index;
-            return GetStationPositionByTotalIndex(totalIndex);
-        }
-
-        private static Vector3 GetStationPositionByTotalIndex(int totalIndex)
-        {
-            var offset = (totalIndex - (TotalStationSlots - 1) * 0.5f) * StationSlotSpacing;
-            return new Vector3(offset, 0f, StationZ);
-        }
-
-        private static int TotalStationSlots => FreeStationSlots + ActiveStationSlots + LockedStationSlots;
-        private static float GridWorldWidth => GridColumns * CellSize;
-        private static float GridWorldDepth => GridRows * CellSize;
-        private static float GridCenterZ => GridBottomZ + (GridRows - 1) * CellSize * 0.5f;
-        private static float GridTopZ => GridBottomZ + (GridRows - 1) * CellSize;
-        private static float GridLeftX => (0 - (GridColumns - 1) * 0.5f) * CellSize;
-        private static float GridRightX => (GridColumns - 1 - (GridColumns - 1) * 0.5f) * CellSize;
-        private static Quaternion StationRotation => Quaternion.Euler(0f, StationYawDegrees, 0f);
-        private static Vector3 StationForward => StationRotation * Vector3.forward;
-        private static Vector3 StationRight => StationRotation * Vector3.right;
 
         private int GetStartingRotaryUnitCount(int passengerUnitCount)
         {
             return Mathf.Clamp(passengerUnitCount, 0, rotaryLayout.CapacityUnits);
-        }
-
-        private void AssignPassengerTraffic(PassengerView passenger, int rotarySlotIndex)
-        {
-            var clampedSlotIndex = Mathf.Clamp(rotarySlotIndex, 0, rotaryLayout.CapacityUnits - 1);
-            passengerFlow.AssignTraffic(passenger, clampedSlotIndex);
-        }
-
-        private void AssignPassengerFeeder(PassengerView passenger, int feederQueueIndex)
-        {
-            var side = feederQueueIndex % 2 == 0 ? -1 : 1;
-            var slot = feederQueueIndex / 2;
-            passenger.AssignFeeder(side, slot);
-        }
-
-        private void PromoteFeederPassengers(IReadOnlyList<PassengerView> passengers)
-        {
-            var targetCount = Mathf.Min(rotaryActiveTarget, passengers.Count);
-            if (CountRotaryAssignedPassengers(passengers) >= targetCount)
-            {
-                return;
-            }
-
-            TryPromoteFeederPassenger(passengers, -1);
-            if (CountRotaryAssignedPassengers(passengers) < targetCount)
-            {
-                TryPromoteFeederPassenger(passengers, 1);
-            }
-        }
-
-        private bool TryPromoteFeederPassenger(IReadOnlyList<PassengerView> passengers, int side)
-        {
-            if (!TryFindFeederPassenger(passengers, side, out var passenger))
-            {
-                return false;
-            }
-
-            if (!TryFindOpenRotarySlotAtFeeder(passengers, side, out var slotIndex))
-            {
-                return false;
-            }
-
-            var feederSlotIndex = passenger.FeederSlotIndex;
-            var mergePath = BuildFeederMergePath(side, feederSlotIndex, slotIndex);
-            AssignPassengerTraffic(passenger, slotIndex);
-            passenger.MoveAlongPoses(mergePath, FeederMergeDuration, () => SetPassengerTrafficPose(passenger));
-            AdvanceFeederQueue(passengers, side, feederSlotIndex);
-            return true;
-        }
-
-        private static int CountRotaryAssignedPassengers(IReadOnlyList<PassengerView> passengers)
-        {
-            var count = 0;
-            for (var index = 0; index < passengers.Count; index++)
-            {
-                var passenger = passengers[index];
-                if (passenger.IsAssignedToRotary)
-                {
-                    count++;
-                }
-            }
-
-            return count;
-        }
-
-        private static bool TryFindFeederPassenger(IReadOnlyList<PassengerView> passengers, int side, out PassengerView passenger)
-        {
-            passenger = null;
-            var bestSlot = int.MaxValue;
-
-            for (var index = 0; index < passengers.Count; index++)
-            {
-                var candidate = passengers[index];
-                if (!candidate.IsWaitingInFeeder || candidate.FeederSide != side || candidate.FeederSlotIndex >= bestSlot)
-                {
-                    continue;
-                }
-
-                passenger = candidate;
-                bestSlot = candidate.FeederSlotIndex;
-            }
-
-            return passenger != null;
-        }
-
-        private bool TryFindOpenRotarySlotAtFeeder(IReadOnlyList<PassengerView> passengers, int side, out int slotIndex)
-        {
-            slotIndex = -1;
-            var feederDistance = passengerFlow.GetProgressDistance(GetFeederJoinProgress(side));
-            var bestDistance = float.MaxValue;
-
-            for (var slot = 0; slot < rotaryLayout.CapacityUnits; slot++)
-            {
-                if (IsRotarySlotOccupied(passengers, slot))
-                {
-                    continue;
-                }
-
-                var vacancyDistance = passengerFlow.GetSlotDistance(slot);
-                var distanceToFeeder = passengerFlow.GetCircularDistance(vacancyDistance, feederDistance);
-                if (distanceToFeeder > FeederVacancyWindowDistance || distanceToFeeder >= bestDistance)
-                {
-                    continue;
-                }
-
-                bestDistance = distanceToFeeder;
-                slotIndex = slot;
-            }
-
-            return slotIndex >= 0;
-        }
-
-        private static bool IsRotarySlotOccupied(IReadOnlyList<PassengerView> passengers, int slot)
-        {
-            for (var index = 0; index < passengers.Count; index++)
-            {
-                var passenger = passengers[index];
-                if (passenger.IsAssignedToRotary && passenger.RotarySlotIndex == slot)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private void AdvanceFeederQueue(IReadOnlyList<PassengerView> passengers, int side, int removedSlotIndex)
-        {
-            for (var index = 0; index < passengers.Count; index++)
-            {
-                var passenger = passengers[index];
-                if (!passenger.IsWaitingInFeeder || passenger.FeederSide != side || passenger.FeederSlotIndex <= removedSlotIndex)
-                {
-                    continue;
-                }
-
-                passenger.AssignFeeder(side, passenger.FeederSlotIndex - 1);
-                var pose = GetFeederPose(side, passenger.FeederSlotIndex);
-                passenger.MoveToPose(pose.Position, pose.Rotation, FeederQueueStepDuration);
-            }
-        }
-
-        private void SetPassengerFeederPose(PassengerView passenger)
-        {
-            var pose = GetFeederPose(passenger.FeederSide, passenger.FeederSlotIndex);
-            passenger.SetPose(pose.Position, pose.Rotation);
-        }
-
-        private float GetFeederJoinProgress(int side)
-        {
-            return side < 0 ? rotaryLayout.Preset.LeftFeederProgress : rotaryLayout.Preset.RightFeederProgress;
-        }
-
-        private PassengerUnitRoadPose GetFeederPose(int side, int slotIndex)
-        {
-            return rotaryLayout.GetFeederPose(side, slotIndex, RotaryCenterZ, PassengerUnitY);
-        }
-
-        private PassengerUnitRoadPose[] BuildFeederMergePath(int side, int feederSlotIndex, int rotarySlotIndex)
-        {
-            const int PoseCount = 9;
-            var poses = new PassengerUnitRoadPose[PoseCount];
-            var feederPath = rotaryLayout.GetFeederPath(side);
-            var startDistance = rotaryLayout.GetFeederDistanceForSlot(side, feederSlotIndex);
-
-            for (var index = 0; index < PoseCount - 1; index++)
-            {
-                var t = index / (PoseCount - 2f);
-                var distance = Mathf.Lerp(startDistance, feederPath.Length, t);
-                poses[index] = rotaryLayout.GetFeederPoseByDistance(side, distance, RotaryCenterZ, PassengerUnitY);
-            }
-
-            poses[PoseCount - 1] = GetRotaryPoseByDistance(passengerFlow.GetPredictedSlotDistance(rotarySlotIndex, FeederMergeDuration));
-            return poses;
-        }
-
-        private PassengerUnitRoadPose GetRotaryPoseByDistance(float routeDistance)
-        {
-            return passengerFlow.GetPose(routeDistance, RotaryCenterZ, PassengerUnitY);
-        }
-
-        private Vector3 GetBoardingGatePosition()
-        {
-            var gateDistance = passengerFlow.GetProgressDistance(rotaryLayout.Preset.BoardingGateProgress);
-            return GetRotaryPoseByDistance(gateDistance).Position;
-        }
-
-        private bool IsPassengerAtBoardingGate(PassengerView passenger)
-        {
-            var gateDistance = passengerFlow.GetProgressDistance(rotaryLayout.Preset.BoardingGateProgress);
-            var gateWindow = passengerFlow.RoutePathLength * BoardingGateProgressWindow;
-            return passengerFlow.GetCircularDistance(passenger.RouteDistance, gateDistance) <= gateWindow;
-        }
-
-        private void SetPassengerTrafficPose(PassengerView passenger)
-        {
-            var pose = GetRotaryPoseByDistance(passenger.RouteDistance);
-            passenger.SetPose(pose);
         }
 
     }

@@ -35,21 +35,31 @@ namespace BusPuzzle
             return new Vector3(gridVector.x, 0f, gridVector.y);
         }
 
-        public static Quaternion ToRotation(GridDirection direction)
+        public static float ToYawDegrees(GridDirection direction)
         {
             switch (direction)
             {
                 case GridDirection.Up:
-                    return Quaternion.identity;
+                    return 0f;
                 case GridDirection.Right:
-                    return Quaternion.Euler(0f, 90f, 0f);
+                    return 90f;
                 case GridDirection.Down:
-                    return Quaternion.Euler(0f, 180f, 0f);
+                    return 180f;
                 case GridDirection.Left:
-                    return Quaternion.Euler(0f, -90f, 0f);
+                    return -90f;
                 default:
-                    return Quaternion.identity;
+                    return 0f;
             }
+        }
+
+        public static Quaternion ToRotation(GridDirection direction)
+        {
+            return Quaternion.Euler(0f, ToYawDegrees(direction), 0f);
+        }
+
+        public static Quaternion ToRotation(GridDirection direction, float angleOffsetDegrees)
+        {
+            return Quaternion.Euler(0f, ToYawDegrees(direction) + angleOffsetDegrees, 0f);
         }
 
         public static string DisplayName(GridDirection direction)

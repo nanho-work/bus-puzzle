@@ -13,9 +13,23 @@ MonoBehaviour:
   m_Name: Level01
   m_EditorClassIdentifier: 
   levelName: Downtown Warmup
+  difficultyProfile:
+    difficulty: 0
+    passengerFlowRule:
+      minMainGroupRatio: 0.45
+      maxMainGroupRatio: 0.7
+      minGroupUnits: 3
+      maxGroupUnits: 10
+      interferenceRatio: 0.22
+      preserveSolutionRoute: 1
+    targetVehicleCount: 12
+    targetColorCount: 10
+    parkingTension: 0.35
+    stationPressure: 0.3
+    requireSolutionRoute: 0
   roadPresetId: 2
   roadPresetAsset: {fileID: 11400000, guid: 9f0d8c6e4b6a4d62b1a42f07e9b1a003, type: 2}
-  rotaryUnitCapacity: 50
+  rotaryUnitCapacity: 40
   passengerUnits:
   - 0
   - 1
@@ -42,119 +56,137 @@ MonoBehaviour:
   - 4
   - 5
   - 0
-  - 1
   - 2
   - 3
-  - 4
-  - 5
-  - 0
   - 1
+  - 0
   - 2
   - 3
-  - 4
-  - 5
-  - 0
   - 1
+  - 0
   - 2
   - 3
-  - 4
-  - 5
-  - 0
   - 1
+  - 0
   - 2
-  - 3
-  - 4
+  - 0
+  - 0
+  - 6
+  - 7
+  - 8
+  - 9
   - 5
-  - 0
-  - 0
-  - 1
-  - 1
-  - 0
-  - 0
-  - 1
-  - 1
+  - 6
+  - 7
+  - 8
+  - 9
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 5
+  - 8
+  - 8
+  - 8
+  passengerFlowPlan:
+    enabled: 1
+    mode: 2
+    seed: 1001
+    minGroupUnits: 3
+    maxGroupUnits: 10
+    autoFillMissingCapacity: 1
+    groups: []
+    solutionRoute: []
   buses:
   - color: 0
-    size: 0
+    size: 2
     direction: 0
+    angleOffsetDegrees: -12
+    positionOffsetCells: {x: 0.08, y: 0.04}
     gridPosition:
       x: 5
-      y: 10
+      y: 9
   - color: 1
-    size: 0
+    size: 1
     direction: 0
+    angleOffsetDegrees: 10
     gridPosition:
-      x: 9
+      x: 8
       y: 10
   - color: 2
     size: 0
     direction: 3
+    angleOffsetDegrees: -8
     gridPosition:
       x: 2
       y: 8
   - color: 3
-    size: 0
+    size: 1
     direction: 1
-    gridPosition:
-      x: 11
-      y: 8
-  - color: 4
-    size: 0
-    direction: 2
-    gridPosition:
-      x: 5
-      y: 2
-  - color: 5
-    size: 0
-    direction: 2
-    gridPosition:
-      x: 9
-      y: 2
-  - color: 0
-    size: 0
-    direction: 1
-    gridPosition:
-      x: 6
-      y: 4
-  - color: 1
-    size: 0
-    direction: 3
-    gridPosition:
-      x: 7
-      y: 6
-  - color: 2
-    size: 0
-    direction: 0
-    gridPosition:
-      x: 12
-      y: 5
-  - color: 3
-    size: 0
-    direction: 2
-    gridPosition:
-      x: 1
-      y: 6
-  - color: 4
-    size: 0
-    direction: 1
-    gridPosition:
-      x: 3
-      y: 3
-  - color: 0
-    size: 0
-    direction: 0
-    gridPosition:
-      x: 3
-      y: 0
-  - color: 1
-    size: 0
-    direction: 0
-    gridPosition:
-      x: 11
-      y: 0
-  - color: 5
-    size: 0
-    direction: 3
+    angleOffsetDegrees: 8
     gridPosition:
       x: 10
       y: 7
+  - color: 4
+    size: 0
+    direction: 2
+    angleOffsetDegrees: -12
+    gridPosition:
+      x: 4
+      y: 4
+  - color: 5
+    size: 0
+    direction: 2
+    angleOffsetDegrees: 14
+    gridPosition:
+      x: 9
+      y: 3
+  - color: 2
+    size: 0
+    direction: 0
+    angleOffsetDegrees: -8
+    gridPosition:
+      x: 11
+      y: 5
+  - color: 6
+    size: 0
+    direction: 1
+    angleOffsetDegrees: -5
+    positionOffsetCells: {x: -0.22, y: -0.14}
+    gridPosition:
+      x: 4
+      y: 9
+  - color: 7
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 14
+    gridPosition:
+      x: 7
+      y: 7
+  - color: 8
+    size: 1
+    direction: 2
+    angleOffsetDegrees: -10
+    gridPosition:
+      x: 6
+      y: 3
+  - color: 9
+    size: 0
+    direction: 0
+    angleOffsetDegrees: 18
+    gridPosition:
+      x: 11
+      y: 8
+  - color: 5
+    size: 0
+    direction: 3
+    angleOffsetDegrees: -18
+    gridPosition:
+      x: 8
+      y: 6

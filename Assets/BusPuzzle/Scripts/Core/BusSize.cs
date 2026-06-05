@@ -31,7 +31,7 @@ namespace BusPuzzle
                 case BusSize.Small:
                     return 4;
                 case BusSize.Medium:
-                    return 6;
+                    return 7;
                 case BusSize.Large:
                     return 10;
                 default:
@@ -54,6 +54,21 @@ namespace BusPuzzle
             }
         }
 
+        public static float ToVisualLengthCells(BusSize size)
+        {
+            switch (size)
+            {
+                case BusSize.Small:
+                    return 1.0f;
+                case BusSize.Medium:
+                    return 1.5f;
+                case BusSize.Large:
+                    return 2.0f;
+                default:
+                    return 1.0f;
+            }
+        }
+
         public static int ToPeopleCapacity(BusSize size)
         {
             return ToPassengerUnits(size) * 4;
@@ -64,13 +79,13 @@ namespace BusPuzzle
             switch (size)
             {
                 case BusSize.Small:
-                    return "Small";
+                    return "Compact Van";
                 case BusSize.Medium:
-                    return "Medium";
+                    return "Freezer Truck";
                 case BusSize.Large:
-                    return "Large";
-                default:
                     return "Bus";
+                default:
+                    return "Vehicle";
             }
         }
     }

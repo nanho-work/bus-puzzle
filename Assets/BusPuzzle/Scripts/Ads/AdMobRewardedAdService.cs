@@ -53,6 +53,7 @@ namespace BusPuzzle
         {
             Preload(RewardedAdPlacement.StationSlotUnlock);
             Preload(RewardedAdPlacement.VipBusTeleport);
+            Preload(RewardedAdPlacement.BusColorShuffle);
         }
 
         public void Preload(RewardedAdPlacement placement)
@@ -101,6 +102,11 @@ namespace BusPuzzle
         public bool ShowVipBusTeleportAd(Action<RewardedAdResult> onCompleted)
         {
             return ShowRewardedAd(RewardedAdPlacement.VipBusTeleport, onCompleted);
+        }
+
+        public bool ShowBusColorShuffleAd(Action<RewardedAdResult> onCompleted)
+        {
+            return ShowRewardedAd(RewardedAdPlacement.BusColorShuffle, onCompleted);
         }
 
         private bool ShowRewardedAd(RewardedAdPlacement placement, Action<RewardedAdResult> onCompleted)

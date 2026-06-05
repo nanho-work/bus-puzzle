@@ -35,6 +35,7 @@ namespace BusPuzzle
             var appId = GetPlatformAppId(settings, report.summary.platform);
             var stationRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.StationSlotUnlock);
             var vipRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.VipBusTeleport);
+            var shuffleRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.BusColorShuffle);
 
             if (!AdMobSettings.LooksLikeAppId(appId))
             {
@@ -48,6 +49,7 @@ namespace BusPuzzle
 
             ValidateProductionRewardedAdUnitId(report.summary.platform, "station slot unlock", stationRewardedId);
             ValidateProductionRewardedAdUnitId(report.summary.platform, "VIP bus teleport", vipRewardedId);
+            ValidateProductionRewardedAdUnitId(report.summary.platform, "bus color shuffle", shuffleRewardedId);
 
             if (!HasAdMobCompilerDefine(report.summary.platform))
             {
@@ -69,8 +71,10 @@ namespace BusPuzzle
                 "AdMob settings loaded. " +
                 $"Android app: {settings.AndroidAppId}, Android station rewarded: {settings.AndroidRewardedProductionAdUnitId}, " +
                 $"Android VIP rewarded: {settings.AndroidVipRewardedProductionAdUnitId}, " +
+                $"Android shuffle rewarded: {settings.AndroidShuffleRewardedProductionAdUnitId}, " +
                 $"iOS app: {settings.IosAppId}, iOS station rewarded: {settings.IosRewardedProductionAdUnitId}, " +
-                $"iOS VIP rewarded: {settings.IosVipRewardedProductionAdUnitId}");
+                $"iOS VIP rewarded: {settings.IosVipRewardedProductionAdUnitId}, " +
+                $"iOS shuffle rewarded: {settings.IosShuffleRewardedProductionAdUnitId}");
         }
 
         private static bool IsDevelopmentBuild(BuildReport report)
@@ -98,6 +102,13 @@ namespace BusPuzzle
                 return target == BuildTarget.iOS
                     ? settings.IosVipRewardedProductionAdUnitId
                     : settings.AndroidVipRewardedProductionAdUnitId;
+            }
+
+            if (placement == RewardedAdPlacement.BusColorShuffle)
+            {
+                return target == BuildTarget.iOS
+                    ? settings.IosShuffleRewardedProductionAdUnitId
+                    : settings.AndroidShuffleRewardedProductionAdUnitId;
             }
 
             return target == BuildTarget.iOS

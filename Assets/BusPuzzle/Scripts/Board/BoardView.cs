@@ -43,6 +43,7 @@ namespace BusPuzzle
         private Transform busRoot;
         private Transform garageRoot;
         private Transform stationRoot;
+        private Transform themeRoot;
         private bool vipStationSlotOccupied;
 
         public int StationCapacity => stationSlots.Capacity;
@@ -100,6 +101,7 @@ namespace BusPuzzle
             garages.Clear();
             CreateRoots();
             CreateGround();
+            CreateTheme();
             CreatePassengerRotary();
             CreateGrid();
             CreateStationSlots();
@@ -294,6 +296,9 @@ namespace BusPuzzle
 
             stationRoot = new GameObject("Station Slots").transform;
             stationRoot.SetParent(transform, false);
+
+            themeRoot = new GameObject("Theme Decorations").transform;
+            themeRoot.SetParent(transform, false);
         }
 
         private BusView CreateBusView(BusDefinition definition)
@@ -369,6 +374,11 @@ namespace BusPuzzle
         private void CreateGround()
         {
             RotaryRoadBuilder.CreateGround(transform, rotaryLayout, CreateRotaryRoadBuildSettings());
+        }
+
+        private void CreateTheme()
+        {
+            CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings());
         }
 
         private void CreatePassengerRotary()

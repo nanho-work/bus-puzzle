@@ -5,7 +5,8 @@ namespace BusPuzzle
     public enum RewardedAdPlacement
     {
         StationSlotUnlock,
-        VipBusTeleport
+        VipBusTeleport,
+        BusColorShuffle
     }
 
     internal enum RewardedAdResult
@@ -30,5 +31,6 @@ namespace BusPuzzle
         void Preload(RewardedAdPlacement placement);
         bool ShowStationSlotUnlockAd(Action<RewardedAdResult> onCompleted);
         bool ShowVipBusTeleportAd(Action<RewardedAdResult> onCompleted);
+        bool ShowBusColorShuffleAd(Action<RewardedAdResult> onCompleted);
     }
 }

@@ -24,6 +24,8 @@ namespace BusPuzzle
         private const float StagePreloadStartDelay = 0.20f;
         private const int EndgameRemainingBusThreshold = 4;
         private const int VipTeleportAdLimitPerStage = 3;
+        private const int StageClearGoldReward = 30;
+        private const int MixShuffleGoldCost = 90;
         private const string GeneratedLevelSequenceResourcePath = "Levels/Generated/GeneratedLevelSequence";
         private const string ActiveLevelSequenceResourcePath = "Levels/LevelSequence";
         private const string StageGenerationConfigResourcePath = "Levels/StageGenerationConfig";
@@ -41,6 +43,7 @@ namespace BusPuzzle
         private IRewardedAdService rewardedAdService;
         private bool isStationUnlockAdInProgress;
         private bool isVipAdInProgress;
+        private bool isMixShuffleAdInProgress;
         private bool isVipSelectionMode;
         private int vipAdsWatchedThisStage;
         private int vipTeleportTickets;
@@ -71,6 +74,9 @@ namespace BusPuzzle
             uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
             uiController.VipTeleportRequested -= HandleVipTeleportRequested;
             uiController.VipTeleportConfirmed -= RequestVipBusTeleportAd;
+            uiController.MixShuffleRequested -= HandleMixShuffleRequested;
+            uiController.MixShuffleGoldConfirmed -= RequestMixShuffleGold;
+            uiController.MixShuffleConfirmed -= RequestMixShuffleAd;
 
             if (rewardedAdService != null)
             {
@@ -146,6 +152,9 @@ namespace BusPuzzle
             uiController.StationUnlockConfirmed += RequestStationSlotUnlock;
             uiController.VipTeleportRequested += HandleVipTeleportRequested;
             uiController.VipTeleportConfirmed += RequestVipBusTeleportAd;
+            uiController.MixShuffleRequested += HandleMixShuffleRequested;
+            uiController.MixShuffleGoldConfirmed += RequestMixShuffleGold;
+            uiController.MixShuffleConfirmed += RequestMixShuffleAd;
 
             rewardedAdService = RewardedAdServiceFactory.Create(AdMobSettings.Load());
             rewardedAdService.AvailabilityChanged += UpdateRewardedAdUi;
@@ -238,6 +247,7 @@ namespace BusPuzzle
         {
             boardingFlowController.Reset();
             ResetVipTeleportState();
+            ResetMixShuffleState();
             currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
             currentLevel = levelSequence.GetLevel(currentLevelIndex);
             var shouldValidateExitSequence = levelSequence == null ||
@@ -264,6 +274,7 @@ namespace BusPuzzle
             boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses);
             BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds());
             UpdateCounters();
+            UpdateGoldUi();
             UpdateRewardedAdUi();
 
             uiController.SetLevel(currentLevelIndex + 1, levelSequence.Count);
@@ -296,7 +307,7 @@ namespace BusPuzzle
         private void ShowStationUnlockPrompt()
         {
             if (gameState != GameState.Playing ||
-                isStationUnlockAdInProgress ||
+                IsAnyRewardedAdInProgress ||
                 boardView == null ||
                 !boardView.CanUnlockStationSlot ||
                 uiController == null)
@@ -319,7 +330,7 @@ namespace BusPuzzle
         private void RequestStationSlotUnlock()
         {
             if (gameState != GameState.Playing ||
-                isStationUnlockAdInProgress ||
+                IsAnyRewardedAdInProgress ||
                 boardView == null ||
                 !boardView.CanUnlockStationSlot ||
                 rewardedAdService == null)
@@ -378,7 +389,7 @@ namespace BusPuzzle
         private void ShowVipTeleportPrompt()
         {
             if (gameState != GameState.Playing ||
-                isVipAdInProgress ||
+                IsAnyRewardedAdInProgress ||
                 uiController == null ||
                 rewardedAdService == null ||
                 RemainingVipTeleportAds <= 0)
@@ -408,7 +419,7 @@ namespace BusPuzzle
         private void RequestVipBusTeleportAd()
         {
             if (gameState != GameState.Playing ||
-                isVipAdInProgress ||
+                IsAnyRewardedAdInProgress ||
                 rewardedAdService == null ||
                 RemainingVipTeleportAds <= 0 ||
                 !HasVipTeleportTarget())
@@ -454,7 +465,7 @@ namespace BusPuzzle
             isVipSelectionMode = true;
             ApplyVipHighlights();
             uiController.ShowInvalid("Choose VIP bus");
-            UpdateVipTeleportUi();
+            UpdateRewardedAdUi();
         }
 
         private void ExitVipSelectionMode()
@@ -463,7 +474,7 @@ namespace BusPuzzle
             ApplyVipHighlights();
             uiController.HideVipTeleportPrompt();
             uiController.ShowPlaying(GetCurrentLevelName());
-            UpdateVipTeleportUi();
+            UpdateRewardedAdUi();
         }
 
         private void ExitVipSelectionModeForEndState()
@@ -471,6 +482,7 @@ namespace BusPuzzle
             isVipSelectionMode = false;
             ApplyVipHighlights();
             uiController.HideVipTeleportPrompt();
+            uiController.HideMixShufflePrompt();
         }
 
         private void TryUseVipTeleport(BusView bus)
@@ -498,7 +510,7 @@ namespace BusPuzzle
             vipTeleportTickets = Mathf.Max(0, vipTeleportTickets - 1);
             isVipSelectionMode = false;
             ApplyVipHighlights();
-            UpdateVipTeleportUi();
+            UpdateRewardedAdUi();
         }
 
         private void ResetVipTeleportState()
@@ -509,6 +521,137 @@ namespace BusPuzzle
             vipTeleportTickets = 0;
             ApplyVipHighlights();
         }
+
+        private void HandleMixShuffleRequested()
+        {
+            if (gameState != GameState.Playing || isVipSelectionMode)
+            {
+                UpdateMixShuffleUi();
+                return;
+            }
+
+            ShowMixShufflePrompt();
+        }
+
+        private void ShowMixShufflePrompt()
+        {
+            if (gameState != GameState.Playing ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                uiController == null)
+            {
+                UpdateMixShuffleUi();
+                return;
+            }
+
+            if (!HasMixShuffleTarget())
+            {
+                uiController.ShowInvalid("No mix target");
+                UpdateMixShuffleUi();
+                return;
+            }
+
+            if (rewardedAdService != null && !rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle))
+            {
+                rewardedAdService.Preload(RewardedAdPlacement.BusColorShuffle);
+            }
+
+            uiController.ShowMixShufflePrompt(
+                UserEconomy.GoldBalance,
+                MixShuffleGoldCost,
+                UserEconomy.CanSpendGold(MixShuffleGoldCost),
+                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
+                isMixShuffleAdInProgress);
+        }
+
+        private void RequestMixShuffleGold()
+        {
+            if (gameState != GameState.Playing ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                !HasMixShuffleTarget())
+            {
+                UpdateMixShuffleUi();
+                return;
+            }
+
+            if (!UserEconomy.TrySpendGold(MixShuffleGoldCost))
+            {
+                uiController.ShowInvalid("Need Gold");
+                ShowMixShufflePrompt();
+                UpdateGoldUi();
+                UpdateMixShuffleUi();
+                return;
+            }
+
+            if (TryShuffleVisibleBusColors())
+            {
+                uiController.ShowInvalid("Mixed");
+                CheckBlocked();
+            }
+            else
+            {
+                UserEconomy.AddGold(MixShuffleGoldCost);
+                uiController.ShowInvalid("No mix target");
+            }
+
+            UpdateGoldUi();
+            UpdateRewardedAdUi();
+        }
+
+        private void RequestMixShuffleAd()
+        {
+            if (gameState != GameState.Playing ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                rewardedAdService == null ||
+                !HasMixShuffleTarget())
+            {
+                UpdateMixShuffleUi();
+                return;
+            }
+
+            isMixShuffleAdInProgress = true;
+            UpdateRewardedAdUi();
+
+            if (!rewardedAdService.ShowBusColorShuffleAd(HandleMixShuffleAdCompleted))
+            {
+                isMixShuffleAdInProgress = false;
+                UpdateRewardedAdUi();
+            }
+        }
+
+        private void HandleMixShuffleAdCompleted(RewardedAdResult result)
+        {
+            isMixShuffleAdInProgress = false;
+
+            if (result == RewardedAdResult.RewardEarned)
+            {
+                if (TryShuffleVisibleBusColors())
+                {
+                    uiController.ShowInvalid("Mixed");
+                    CheckBlocked();
+                }
+                else
+                {
+                    uiController.ShowInvalid("No mix target");
+                }
+            }
+
+            rewardedAdService?.Preload();
+            UpdateGoldUi();
+            UpdateRewardedAdUi();
+        }
+
+        private void ResetMixShuffleState()
+        {
+            isMixShuffleAdInProgress = false;
+        }
+
+        private bool IsAnyRewardedAdInProgress =>
+            isStationUnlockAdInProgress ||
+            isVipAdInProgress ||
+            isMixShuffleAdInProgress;
 
         private int RemainingVipTeleportAds => Mathf.Max(0, VipTeleportAdLimitPerStage - vipAdsWatchedThisStage);
 
@@ -545,6 +688,166 @@ namespace BusPuzzle
                     bus.SetVipHighlight(isVipSelectionMode && CanVipTeleportTarget(bus));
                 }
             }
+        }
+
+        private bool HasMixShuffleTarget()
+        {
+            return HasMixShuffleTarget(BusSize.Small) ||
+                HasMixShuffleTarget(BusSize.Medium) ||
+                HasMixShuffleTarget(BusSize.Large);
+        }
+
+        private bool HasMixShuffleTarget(BusSize size)
+        {
+            var hasFirstColor = false;
+            var firstColor = PuzzleColor.Red;
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                if (!IsMixShuffleCandidate(bus) || bus.Size != size)
+                {
+                    continue;
+                }
+
+                if (!hasFirstColor)
+                {
+                    firstColor = bus.Color;
+                    hasFirstColor = true;
+                    continue;
+                }
+
+                if (bus.Color != firstColor)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryShuffleVisibleBusColors()
+        {
+            var changed = false;
+            changed |= TryShuffleVisibleBusColors(BusSize.Small);
+            changed |= TryShuffleVisibleBusColors(BusSize.Medium);
+            changed |= TryShuffleVisibleBusColors(BusSize.Large);
+            return changed;
+        }
+
+        private bool TryShuffleVisibleBusColors(BusSize size)
+        {
+            var group = new List<BusView>();
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                if (IsMixShuffleCandidate(bus) && bus.Size == size)
+                {
+                    group.Add(bus);
+                }
+            }
+
+            if (group.Count < 2 || !HasDistinctColors(group))
+            {
+                return false;
+            }
+
+            var originalColors = new List<PuzzleColor>(group.Count);
+            var shuffledColors = new List<PuzzleColor>(group.Count);
+            for (var index = 0; index < group.Count; index++)
+            {
+                originalColors.Add(group[index].Color);
+                shuffledColors.Add(group[index].Color);
+            }
+
+            for (var attempt = 0; attempt < 10 && AreSameColors(originalColors, shuffledColors); attempt++)
+            {
+                ShuffleColors(shuffledColors);
+            }
+
+            for (var attempt = 0; attempt < group.Count && AreSameColors(originalColors, shuffledColors); attempt++)
+            {
+                RotateColors(shuffledColors);
+            }
+
+            if (AreSameColors(originalColors, shuffledColors))
+            {
+                return false;
+            }
+
+            for (var index = 0; index < group.Count; index++)
+            {
+                group[index].Recolor(shuffledColors[index]);
+            }
+
+            return true;
+        }
+
+        private static bool IsMixShuffleCandidate(BusView bus)
+        {
+            return bus != null &&
+                bus.IsOnBoard &&
+                !bus.IsMoving &&
+                !bus.IsDeparted;
+        }
+
+        private static bool HasDistinctColors(IReadOnlyList<BusView> group)
+        {
+            var firstColor = group[0].Color;
+            for (var index = 1; index < group.Count; index++)
+            {
+                if (group[index].Color != firstColor)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void ShuffleColors(List<PuzzleColor> colors)
+        {
+            for (var index = colors.Count - 1; index > 0; index--)
+            {
+                var swapIndex = Random.Range(0, index + 1);
+                var temp = colors[index];
+                colors[index] = colors[swapIndex];
+                colors[swapIndex] = temp;
+            }
+        }
+
+        private static void RotateColors(List<PuzzleColor> colors)
+        {
+            if (colors.Count < 2)
+            {
+                return;
+            }
+
+            var first = colors[0];
+            for (var index = 0; index < colors.Count - 1; index++)
+            {
+                colors[index] = colors[index + 1];
+            }
+
+            colors[colors.Count - 1] = first;
+        }
+
+        private static bool AreSameColors(IReadOnlyList<PuzzleColor> first, IReadOnlyList<PuzzleColor> second)
+        {
+            if (first.Count != second.Count)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < first.Count; index++)
+            {
+                if (first[index] != second[index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private void ScheduleStagePreload()
@@ -605,9 +908,13 @@ namespace BusPuzzle
 
             gameState = GameState.Cleared;
             ExitVipSelectionModeForEndState();
+            var goldReward = UserEconomy.TryGrantStageClearGold(currentLevelIndex + 1, StageClearGoldReward)
+                ? StageClearGoldReward
+                : 0;
             UpdateCounters();
+            UpdateGoldUi();
             UpdateRewardedAdUi();
-            uiController.ShowClear(currentLevelIndex + 1, currentLevelIndex + 1 < levelSequence.Count);
+            uiController.ShowClear(currentLevelIndex + 1, currentLevelIndex + 1 < levelSequence.Count, goldReward);
             EffectAudioPlayer.PlayVictory();
         }
 
@@ -688,10 +995,16 @@ namespace BusPuzzle
             UpdateRewardedAdUi();
         }
 
+        private void UpdateGoldUi()
+        {
+            uiController.SetGold(UserEconomy.GoldBalance);
+        }
+
         private void UpdateRewardedAdUi()
         {
             UpdateStationUnlockUi();
             UpdateVipTeleportUi();
+            UpdateMixShuffleUi();
         }
 
         private void UpdateStationUnlockUi()
@@ -727,6 +1040,27 @@ namespace BusPuzzle
                 canRequest,
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
                 isVipAdInProgress);
+        }
+
+        private void UpdateMixShuffleUi()
+        {
+            if (uiController == null)
+            {
+                return;
+            }
+
+            var canRequest = gameState == GameState.Playing &&
+                !isVipSelectionMode &&
+                !IsAnyRewardedAdInProgress &&
+                HasMixShuffleTarget();
+
+            uiController.SetMixShuffle(
+                canRequest,
+                UserEconomy.GoldBalance,
+                MixShuffleGoldCost,
+                UserEconomy.CanSpendGold(MixShuffleGoldCost),
+                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
+                isMixShuffleAdInProgress);
         }
 
         private bool IsPassengerFastForwardHeld()

@@ -124,6 +124,41 @@ namespace BusPuzzle
             SourceGarage = garage;
         }
 
+        public void Recolor(PuzzleColor newColor)
+        {
+            if (Color == newColor || !IsOnBoard || IsMoving || IsDeparted)
+            {
+                return;
+            }
+
+            StopVipHighlight();
+            ClearVisualChildren();
+            Color = newColor;
+            gameObject.name = $"{PuzzlePalette.DisplayName(Color)} {BusSizeUtility.DisplayName(Size)}";
+
+            usingModelVisual = CreateModelBody();
+            if (!usingModelVisual)
+            {
+                VehicleFallbackVisualBuilder.Create(
+                    Color,
+                    transform,
+                    VisualWidth,
+                    VisualHeight,
+                    VisualLength,
+                    VisualCharacterLength,
+                    VisualCenterZ,
+                    VisualFrontZ,
+                    VisualRearZ,
+                    cellSize);
+            }
+
+            GroundShadowBuilder.CreateVehicleShadow(transform, VisualWidth, VisualLength, VisualCenterZ, cellSize);
+            CreateArrow();
+            boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
+            UpdateBoardingCounter();
+            CreateUnitMarkers();
+        }
+
         public void SetVipHighlight(bool highlighted)
         {
             if (!highlighted)
@@ -399,6 +434,18 @@ namespace BusPuzzle
         private bool CreateModelBody()
         {
             return VehicleModelBuilder.Create(Size, Color, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize) != null;
+        }
+
+        private void ClearVisualChildren()
+        {
+            directionArrow = null;
+            vipHighlight = null;
+            boardingCounter = null;
+
+            for (var index = transform.childCount - 1; index >= 0; index--)
+            {
+                Destroy(transform.GetChild(index).gameObject);
+            }
         }
 
         private void CreateArrow()

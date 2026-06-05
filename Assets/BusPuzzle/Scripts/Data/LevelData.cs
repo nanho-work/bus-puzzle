@@ -139,10 +139,33 @@ namespace BusPuzzle
         {
             if (resolvedPassengerUnitsCache == null)
             {
-                resolvedPassengerUnitsCache = LevelPassengerBuilder.BuildPassengerUnits(DifficultyProfile, passengerFlowPlan, passengerUnits, AllVehicles);
+                resolvedPassengerUnitsCache = LevelPassengerBuilder.BuildPassengerUnits(
+                    DifficultyProfile,
+                    passengerFlowPlan,
+                    passengerUnits,
+                    AllVehicles,
+                    RotaryStartCapacity,
+                    GetStartingVisibleVehicles());
             }
 
             return resolvedPassengerUnitsCache;
+        }
+
+        private IReadOnlyList<BusDefinition> GetStartingVisibleVehicles()
+        {
+            var vehicles = new List<BusDefinition>();
+            if (buses != null)
+            {
+                vehicles.AddRange(buses);
+            }
+
+            var allGarages = Garages;
+            for (var garageIndex = 0; garageIndex < allGarages.Count; garageIndex++)
+            {
+                vehicles.Add(allGarages[garageIndex].FrontVehicle);
+            }
+
+            return vehicles;
         }
 
         private IReadOnlyList<BusDefinition> GetAllVehicles()

@@ -64,6 +64,11 @@ namespace BusPuzzle
             return ShowRewardedAd(RewardedAdPlacement.VipBusTeleport, AdMobSettings.VipBusTeleportRewardType, onCompleted);
         }
 
+        public bool ShowBusColorShuffleAd(Action<RewardedAdResult> onCompleted)
+        {
+            return ShowRewardedAd(RewardedAdPlacement.BusColorShuffle, AdMobSettings.BusColorShuffleRewardType, onCompleted);
+        }
+
         private bool ShowRewardedAd(RewardedAdPlacement placement, string rewardType, Action<RewardedAdResult> onCompleted)
         {
             if (!IsReady)

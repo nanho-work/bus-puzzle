@@ -9,7 +9,7 @@ namespace BusPuzzle
 {
     public static class RuntimeGeneratedLevelCache
     {
-        private const int CacheVersion = 4;
+        private const int CacheVersion = 5;
         private const string CacheDirectoryName = "generated-stage-cache";
 
         public static bool TryLoad(StageGenerationConfig config, StageGenerationRequest request, out LevelData level)

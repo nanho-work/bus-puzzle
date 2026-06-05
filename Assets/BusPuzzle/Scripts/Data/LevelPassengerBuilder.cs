@@ -8,7 +8,9 @@ namespace BusPuzzle
             LevelDifficultyProfile difficultyProfile,
             PassengerFlowPlan flowPlan,
             IReadOnlyList<PuzzleColor> fallbackUnits,
-            IReadOnlyList<BusDefinition> buses)
+            IReadOnlyList<BusDefinition> buses,
+            int openingWindowUnitCount = 0,
+            IReadOnlyList<BusDefinition> openingWindowVehicles = null)
         {
             if (flowPlan == null || !flowPlan.Enabled)
             {
@@ -20,6 +22,14 @@ namespace BusPuzzle
             if (flowPlan.AutoFillMissingCapacity)
             {
                 AppendMissingCapacity(units, buses, flowPlan.MaxGroupUnits);
+            }
+
+            if (flowPlan.Mode == PassengerFlowPlanMode.SolutionRoute)
+            {
+                BalanceOpeningWindowColors(
+                    units,
+                    openingWindowVehicles ?? buses,
+                    openingWindowUnitCount);
             }
 
             return units.Count > 0 ? units : CopyUnits(fallbackUnits);
@@ -341,6 +351,26 @@ namespace BusPuzzle
             return counts;
         }
 
+        private static Dictionary<PuzzleColor, int> CountPassengerUnitsByColor(
+            IReadOnlyList<PuzzleColor> units,
+            int startIndex,
+            int count)
+        {
+            var counts = new Dictionary<PuzzleColor, int>();
+            if (units == null || count <= 0)
+            {
+                return counts;
+            }
+
+            var endIndex = UnityEngine.Mathf.Min(units.Count, startIndex + count);
+            for (var index = UnityEngine.Mathf.Max(0, startIndex); index < endIndex; index++)
+            {
+                AddCount(counts, units[index], 1);
+            }
+
+            return counts;
+        }
+
         private static Dictionary<PuzzleColor, int> CountBusCapacityByColor(IReadOnlyList<BusDefinition> buses)
         {
             var counts = new Dictionary<PuzzleColor, int>();
@@ -355,6 +385,118 @@ namespace BusPuzzle
             }
 
             return counts;
+        }
+
+        private static void BalanceOpeningWindowColors(
+            List<PuzzleColor> units,
+            IReadOnlyList<BusDefinition> vehicles,
+            int openingWindowUnitCount)
+        {
+            if (units == null || units.Count == 0 || vehicles == null || vehicles.Count == 0 || openingWindowUnitCount <= 0)
+            {
+                return;
+            }
+
+            var openingWindow = UnityEngine.Mathf.Clamp(openingWindowUnitCount, 0, units.Count);
+            if (openingWindow <= 1)
+            {
+                return;
+            }
+
+            var colorOrder = GetColorOrderFromBuses(vehicles);
+            if (colorOrder.Count <= 1)
+            {
+                return;
+            }
+
+            var totalCounts = CountPassengerUnitsByColor(units);
+            var requiredCounts = BuildOpeningRequiredCounts(colorOrder, totalCounts, openingWindow);
+            var openingCounts = CountPassengerUnitsByColor(units, 0, openingWindow);
+
+            for (var colorIndex = 0; colorIndex < colorOrder.Count; colorIndex++)
+            {
+                var color = colorOrder[colorIndex];
+                requiredCounts.TryGetValue(color, out var requiredUnits);
+                openingCounts.TryGetValue(color, out var currentUnits);
+
+                while (currentUnits < requiredUnits)
+                {
+                    var sourceIndex = FindNextColorIndex(units, color, openingWindow);
+                    var replacementIndex = FindOpeningReplacementIndex(units, openingCounts, requiredCounts, openingWindow);
+                    if (sourceIndex < 0 || replacementIndex < 0)
+                    {
+                        break;
+                    }
+
+                    var replacedColor = units[replacementIndex];
+                    units[replacementIndex] = color;
+                    units[sourceIndex] = replacedColor;
+
+                    AddCount(openingCounts, color, 1);
+                    AddCount(openingCounts, replacedColor, -1);
+                    openingCounts.TryGetValue(color, out currentUnits);
+                }
+            }
+        }
+
+        private static Dictionary<PuzzleColor, int> BuildOpeningRequiredCounts(
+            IReadOnlyList<PuzzleColor> colorOrder,
+            IReadOnlyDictionary<PuzzleColor, int> totalCounts,
+            int openingWindow)
+        {
+            var requiredCounts = new Dictionary<PuzzleColor, int>();
+            if (colorOrder == null || colorOrder.Count == 0 || totalCounts == null)
+            {
+                return requiredCounts;
+            }
+
+            var targetUnitsPerColor = UnityEngine.Mathf.Clamp(openingWindow / colorOrder.Count, 1, 4);
+            for (var index = 0; index < colorOrder.Count; index++)
+            {
+                var color = colorOrder[index];
+                totalCounts.TryGetValue(color, out var totalUnits);
+                requiredCounts[color] = UnityEngine.Mathf.Min(totalUnits, targetUnitsPerColor);
+            }
+
+            return requiredCounts;
+        }
+
+        private static int FindNextColorIndex(IReadOnlyList<PuzzleColor> units, PuzzleColor color, int startIndex)
+        {
+            if (units == null)
+            {
+                return -1;
+            }
+
+            for (var index = UnityEngine.Mathf.Max(0, startIndex); index < units.Count; index++)
+            {
+                if (units[index] == color)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private static int FindOpeningReplacementIndex(
+            IReadOnlyList<PuzzleColor> units,
+            IReadOnlyDictionary<PuzzleColor, int> openingCounts,
+            IReadOnlyDictionary<PuzzleColor, int> requiredCounts,
+            int openingWindow)
+        {
+            for (var index = openingWindow - 1; index >= 0; index--)
+            {
+                var color = units[index];
+                openingCounts.TryGetValue(color, out var currentUnits);
+                requiredCounts.TryGetValue(color, out var requiredUnits);
+                if (currentUnits > requiredUnits)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
         }
 
         private static void AppendSplitGroups(List<PuzzleColor> units, PuzzleColor color, int unitCount, int groupSize)

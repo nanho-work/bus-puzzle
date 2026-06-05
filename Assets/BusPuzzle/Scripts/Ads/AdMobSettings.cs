@@ -12,6 +12,7 @@ namespace BusPuzzle
         public const string IosRewardedTestAdUnitId = "ca-app-pub-3940256099942544/1712485313";
         public const string StationSlotUnlockRewardType = "station_slot_unlock";
         public const string VipBusTeleportRewardType = "vip_bus_teleport";
+        public const string BusColorShuffleRewardType = "bus_color_shuffle";
 
         [SerializeField] private bool useProductionAdsInRelease = true;
         [SerializeField] private string androidAppId = "ca-app-pub-5773331970563455~5379288524";
@@ -20,6 +21,8 @@ namespace BusPuzzle
         [SerializeField] private string iosRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
         [SerializeField] private string androidVipRewardedProductionAdUnitId = "";
         [SerializeField] private string iosVipRewardedProductionAdUnitId = "";
+        [SerializeField] private string androidShuffleRewardedProductionAdUnitId = "";
+        [SerializeField] private string iosShuffleRewardedProductionAdUnitId = "";
 
         public bool UseProductionAdsInRelease => useProductionAdsInRelease;
         public string AndroidAppId => androidAppId;
@@ -28,6 +31,8 @@ namespace BusPuzzle
         public string IosRewardedProductionAdUnitId => iosRewardedProductionAdUnitId;
         public string AndroidVipRewardedProductionAdUnitId => androidVipRewardedProductionAdUnitId;
         public string IosVipRewardedProductionAdUnitId => iosVipRewardedProductionAdUnitId;
+        public string AndroidShuffleRewardedProductionAdUnitId => androidShuffleRewardedProductionAdUnitId;
+        public string IosShuffleRewardedProductionAdUnitId => iosShuffleRewardedProductionAdUnitId;
 
         public static AdMobSettings Load()
         {
@@ -76,12 +81,38 @@ namespace BusPuzzle
         public string GetProductionRewardedAdUnitId(RewardedAdPlacement placement)
         {
 #if UNITY_ANDROID
-            return placement == RewardedAdPlacement.VipBusTeleport ? androidVipRewardedProductionAdUnitId : androidRewardedProductionAdUnitId;
+            return GetAndroidProductionRewardedAdUnitId(placement);
 #elif UNITY_IOS
-            return placement == RewardedAdPlacement.VipBusTeleport ? iosVipRewardedProductionAdUnitId : iosRewardedProductionAdUnitId;
+            return GetIosProductionRewardedAdUnitId(placement);
 #else
             return string.Empty;
 #endif
+        }
+
+        private string GetAndroidProductionRewardedAdUnitId(RewardedAdPlacement placement)
+        {
+            switch (placement)
+            {
+                case RewardedAdPlacement.VipBusTeleport:
+                    return androidVipRewardedProductionAdUnitId;
+                case RewardedAdPlacement.BusColorShuffle:
+                    return androidShuffleRewardedProductionAdUnitId;
+                default:
+                    return androidRewardedProductionAdUnitId;
+            }
+        }
+
+        private string GetIosProductionRewardedAdUnitId(RewardedAdPlacement placement)
+        {
+            switch (placement)
+            {
+                case RewardedAdPlacement.VipBusTeleport:
+                    return iosVipRewardedProductionAdUnitId;
+                case RewardedAdPlacement.BusColorShuffle:
+                    return iosShuffleRewardedProductionAdUnitId;
+                default:
+                    return iosRewardedProductionAdUnitId;
+            }
         }
 
         public string GetTestRewardedAdUnitId()

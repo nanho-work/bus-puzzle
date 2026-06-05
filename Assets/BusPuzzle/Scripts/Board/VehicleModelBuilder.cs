@@ -56,6 +56,7 @@ namespace BusPuzzle
             CreateBox("Compact Lower Body", parent, materials.Body, new Vector3(0f, height * 0.33f, centerZ - length * 0.01f), new Vector3(width * 0.80f, height * 0.42f, length * 0.80f));
             CreateBox("Compact Hood", parent, materials.BodyLight, new Vector3(0f, height * 0.48f, frontZ - length * 0.20f), new Vector3(width * 0.64f, height * 0.13f, length * 0.20f));
             CreateBox("Compact Roof", parent, materials.BodyLight, new Vector3(0f, height * 0.63f, centerZ - length * 0.02f), new Vector3(width * 0.58f, height * 0.23f, length * 0.42f));
+            CreateBodyLightLift(parent, materials, "Compact", width, height, centerZ, length, 0.28f, 0.36f, 0.52f);
             CreateBox("Compact Top Glass", parent, materials.Glass, new Vector3(0f, height * 0.765f, centerZ + length * 0.015f), new Vector3(width * 0.48f, height * 0.030f, length * 0.28f));
             CreateBox("Compact Windshield", parent, materials.Glass, new Vector3(0f, height * 0.58f, frontZ - length * 0.18f), new Vector3(width * 0.42f, height * 0.035f, length * 0.062f));
             CreateBox("Compact Rear Glass", parent, materials.Glass, new Vector3(0f, height * 0.53f, rearZ + length * 0.12f), new Vector3(width * 0.35f, height * 0.030f, length * 0.050f));
@@ -83,11 +84,13 @@ namespace BusPuzzle
 
             CreateBox("Cargo Box", parent, materials.Body, new Vector3(0f, height * 0.52f, boxCenterZ), new Vector3(width * 0.80f, height * 0.74f, length * 0.55f));
             CreateBox("Cargo Top Highlight", parent, materials.BodyLight, new Vector3(0f, height * 0.92f, boxCenterZ), new Vector3(width * 0.68f, height * 0.038f, length * 0.45f));
+            CreateBodyLightLift(parent, materials, "Truck Cargo", width, height, boxCenterZ, length, 0.32f, 0.46f, 0.44f);
             CreateBox("Cargo Side Rail Left", parent, materials.Trim, new Vector3(-width * 0.415f, height * 0.66f, boxCenterZ), new Vector3(width * 0.020f, height * 0.060f, length * 0.42f));
             CreateBox("Cargo Side Rail Right", parent, materials.Trim, new Vector3(width * 0.415f, height * 0.66f, boxCenterZ), new Vector3(width * 0.020f, height * 0.060f, length * 0.42f));
             CreateBox("Cargo Rear Door Seam", parent, materials.Trim, new Vector3(0f, height * 0.54f, rearZ + length * 0.07f), new Vector3(width * 0.58f, height * 0.035f, length * 0.020f));
             CreateBox("Cab Base", parent, materials.BodyDark, new Vector3(0f, height * 0.34f, cabCenterZ), new Vector3(width * 0.70f, height * 0.42f, length * 0.28f));
             CreateBox("Cab Roof", parent, materials.Body, new Vector3(0f, height * 0.64f, cabCenterZ - length * 0.015f), new Vector3(width * 0.60f, height * 0.20f, length * 0.20f));
+            CreateBodyLightLift(parent, materials, "Truck Cab", width, height, cabCenterZ, length, 0.28f, 0.30f, 0.20f);
             CreateBox("Cab Windshield", parent, materials.Glass, new Vector3(0f, height * 0.66f, frontZ - length * 0.12f), new Vector3(width * 0.42f, height * 0.034f, length * 0.060f));
             CreateSideWindows("Cab Side Windows", parent, materials.Glass, width, height * 0.53f, cabCenterZ + length * 0.015f, length * 0.16f, 1);
             CreateBox("Freezer Unit", parent, materials.DetailLight, new Vector3(0f, height * 0.99f, boxCenterZ + length * 0.19f), new Vector3(width * 0.36f, height * 0.12f, length * 0.070f));
@@ -114,6 +117,7 @@ namespace BusPuzzle
             CreateBox("Bus Lower Body", parent, materials.Body, new Vector3(0f, height * 0.39f, centerZ), new Vector3(width * 0.84f, height * 0.54f, length * 0.86f));
             CreateBox("Bus Upper Body", parent, materials.BodyLight, new Vector3(0f, height * 0.68f, centerZ - length * 0.02f), new Vector3(width * 0.76f, height * 0.24f, length * 0.76f));
             CreateBox("Bus Roof Cap", parent, materials.BodyLight, new Vector3(0f, height * 0.84f, centerZ - length * 0.03f), new Vector3(width * 0.64f, height * 0.070f, length * 0.66f));
+            CreateBodyLightLift(parent, materials, "Bus", width, height, centerZ, length, 0.28f, 0.44f, 0.70f);
             CreateBox("Destination Sign", parent, materials.Bumper, new Vector3(0f, height * 0.70f, frontZ - length * 0.13f), new Vector3(width * 0.39f, height * 0.045f, length * 0.038f));
             CreateBox("Bus Windshield", parent, materials.Glass, new Vector3(0f, height * 0.58f, frontZ - length * 0.105f), new Vector3(width * 0.46f, height * 0.040f, length * 0.064f));
             CreateBox("Rear Window", parent, materials.Glass, new Vector3(0f, height * 0.57f, rearZ + length * 0.095f), new Vector3(width * 0.38f, height * 0.032f, length * 0.050f));
@@ -174,6 +178,48 @@ namespace BusPuzzle
         {
             CreateBox($"{name} Left", parent, material, new Vector3(-width * 0.425f - SideDetailInset, y, centerZ), new Vector3(width * 0.018f, width * 0.060f, totalLength));
             CreateBox($"{name} Right", parent, material, new Vector3(width * 0.425f + SideDetailInset, y, centerZ), new Vector3(width * 0.018f, width * 0.060f, totalLength));
+        }
+
+        private static void CreateBodyLightLift(
+            Transform parent,
+            VehicleMaterials materials,
+            string name,
+            float width,
+            float height,
+            float centerZ,
+            float length,
+            float bottomYFactor,
+            float heightFactor,
+            float lengthFactor)
+        {
+            var sideX = width * 0.432f + SideDetailInset * 1.5f;
+            var lowerY = height * (bottomYFactor + heightFactor * 0.32f);
+            var upperY = height * (bottomYFactor + heightFactor * 0.70f);
+            var liftLength = length * lengthFactor;
+            CreateBox(
+                $"{name} Left Lower Light Lift",
+                parent,
+                materials.BodyLift,
+                new Vector3(-sideX, lowerY, centerZ + length * 0.02f),
+                new Vector3(width * 0.014f, height * heightFactor * 0.58f, liftLength));
+            CreateBox(
+                $"{name} Right Lower Light Lift",
+                parent,
+                materials.BodyLift,
+                new Vector3(sideX, lowerY, centerZ + length * 0.02f),
+                new Vector3(width * 0.014f, height * heightFactor * 0.58f, liftLength));
+            CreateBox(
+                $"{name} Left Upper Light Fade",
+                parent,
+                materials.BodyLiftSoft,
+                new Vector3(-sideX - width * 0.002f, upperY, centerZ + length * 0.03f),
+                new Vector3(width * 0.010f, height * heightFactor * 0.34f, liftLength * 0.82f));
+            CreateBox(
+                $"{name} Right Upper Light Fade",
+                parent,
+                materials.BodyLiftSoft,
+                new Vector3(sideX + width * 0.002f, upperY, centerZ + length * 0.03f),
+                new Vector3(width * 0.010f, height * heightFactor * 0.34f, liftLength * 0.82f));
         }
 
         private static void CreateBumpers(
@@ -277,14 +323,16 @@ namespace BusPuzzle
             public readonly Material HeadLight;
             public readonly Material TailLight;
             public readonly Material Trim;
+            public readonly Material BodyLift;
+            public readonly Material BodyLiftSoft;
 
             public VehicleMaterials(PuzzleColor color)
             {
                 var bodyColor = PuzzlePalette.ToColor(color);
-                Body = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body", bodyColor, 0.58f);
-                BodyDark = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Dark", PuzzlePalette.Darken(bodyColor, 0.16f), 0.50f);
-                BodyLight = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Light", Color.Lerp(bodyColor, Color.white, 0.18f), 0.64f);
-                Glass = CreateLitMaterial("Vehicle Glass", new Color(0.09f, 0.19f, 0.30f), 0.78f);
+                Body = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body", bodyColor, 0.72f);
+                BodyDark = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Dark", PuzzlePalette.Darken(bodyColor, 0.16f), 0.62f);
+                BodyLight = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Light", Color.Lerp(bodyColor, Color.white, 0.18f), 0.78f);
+                Glass = CreateLitMaterial("Vehicle Glass", new Color(0.09f, 0.19f, 0.30f), 0.88f);
                 Wheel = PuzzlePalette.CreateSolidMaterial("Vehicle Wheel", new Color(0.035f, 0.038f, 0.045f));
                 WheelHub = PuzzlePalette.CreateSolidMaterial("Vehicle Wheel Hub", new Color(0.72f, 0.76f, 0.78f));
                 DetailLight = PuzzlePalette.CreateSolidMaterial("Vehicle Light Detail", new Color(0.86f, 0.91f, 0.94f));
@@ -292,6 +340,8 @@ namespace BusPuzzle
                 HeadLight = PuzzlePalette.CreateSolidMaterial("Vehicle Headlight", new Color(1.00f, 0.94f, 0.64f));
                 TailLight = PuzzlePalette.CreateSolidMaterial("Vehicle Tail Light", new Color(0.90f, 0.12f, 0.10f));
                 Trim = PuzzlePalette.CreateSolidMaterial("Vehicle Trim", Color.Lerp(bodyColor, Color.white, 0.40f));
+                BodyLift = PuzzlePalette.CreateTransparentMaterial("Vehicle Body Light Lift", WithAlpha(Color.Lerp(bodyColor, Color.white, 0.30f), 0.18f));
+                BodyLiftSoft = PuzzlePalette.CreateTransparentMaterial("Vehicle Body Soft Light Lift", WithAlpha(Color.Lerp(bodyColor, Color.white, 0.42f), 0.10f));
             }
 
             private static Material CreateLitMaterial(string name, Color color, float smoothness)
@@ -321,6 +371,11 @@ namespace BusPuzzle
                 }
 
                 return material;
+            }
+
+            private static Color WithAlpha(Color color, float alpha)
+            {
+                return new Color(color.r, color.g, color.b, alpha);
             }
         }
     }

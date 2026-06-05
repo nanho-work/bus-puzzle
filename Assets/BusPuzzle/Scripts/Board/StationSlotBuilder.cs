@@ -150,6 +150,9 @@ namespace BusPuzzle
             float cellSize,
             Quaternion stationRotation)
         {
+            const float VipVisualInset = 0.018f;
+            var vipSlotWidth = slotWidth - VipVisualInset;
+            var vipSlotDepth = slotDepth - VipVisualInset;
             var vipAuraMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Warm Aura", new Color(1.00f, 0.86f, 0.20f, 0.13f));
             var vipGlowMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Gold Glow", new Color(1.00f, 0.78f, 0.18f, 0.24f));
             var vipEdgeMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Soft Gold Edge", new Color(1.00f, 0.84f, 0.22f, 0.48f));
@@ -165,8 +168,8 @@ namespace BusPuzzle
                 "Vip Station Warm Aura",
                 root,
                 position + Vector3.down * 0.041f,
-                new Vector2(slotWidth + BayShadowPadding * 0.70f, slotDepth + BayShadowPadding * 0.70f),
-                slotWidth * 0.19f,
+                new Vector2(vipSlotWidth + BayShadowPadding * 0.18f, vipSlotDepth + BayShadowPadding * 0.18f),
+                vipSlotWidth * 0.18f,
                 vipAuraMaterial,
                 stationRotation);
 
@@ -174,8 +177,8 @@ namespace BusPuzzle
                 "Vip Station Gold Glow",
                 root,
                 position + Vector3.down * 0.035f,
-                new Vector2(slotWidth + BayShadowPadding * 0.42f, slotDepth + BayShadowPadding * 0.42f),
-                slotWidth * 0.18f,
+                new Vector2(vipSlotWidth + BayShadowPadding * 0.08f, vipSlotDepth + BayShadowPadding * 0.08f),
+                vipSlotWidth * 0.17f,
                 vipGlowMaterial,
                 stationRotation);
 
@@ -183,8 +186,8 @@ namespace BusPuzzle
                 "Vip Station Gold Edge",
                 root,
                 position + Vector3.down * 0.031f,
-                new Vector2(slotWidth - BayInset * 0.10f, slotDepth - BayInset * 0.10f),
-                slotWidth * 0.17f,
+                new Vector2(vipSlotWidth - BayInset * 0.12f, vipSlotDepth - BayInset * 0.12f),
+                vipSlotWidth * 0.16f,
                 vipEdgeMaterial,
                 stationRotation);
 
@@ -192,8 +195,8 @@ namespace BusPuzzle
                 "Vip Station Outer Gold Rim",
                 root,
                 position + Vector3.down * 0.026f,
-                new Vector2(slotWidth - BayInset * 0.18f, slotDepth - BayInset * 0.18f),
-                slotWidth * 0.16f,
+                new Vector2(vipSlotWidth - BayInset * 0.20f, vipSlotDepth - BayInset * 0.20f),
+                vipSlotWidth * 0.15f,
                 vipOuterRimMaterial,
                 stationRotation);
 
@@ -201,8 +204,8 @@ namespace BusPuzzle
                 "Vip Station Inner Cream Rim",
                 root,
                 position + Vector3.down * 0.020f,
-                new Vector2(slotWidth - BayInset * 0.62f, slotDepth - BayInset * 0.62f),
-                slotWidth * 0.15f,
+                new Vector2(vipSlotWidth - BayInset * 0.66f, vipSlotDepth - BayInset * 0.66f),
+                vipSlotWidth * 0.14f,
                 vipInnerRimMaterial,
                 stationRotation);
 
@@ -210,8 +213,8 @@ namespace BusPuzzle
                 "Vip Station Gold Interior",
                 root,
                 position + Vector3.down * 0.014f,
-                new Vector2(slotWidth - BayInset * 1.14f, slotDepth - BayInset * 1.14f),
-                slotWidth * 0.14f,
+                new Vector2(vipSlotWidth - BayInset * 1.18f, vipSlotDepth - BayInset * 1.18f),
+                vipSlotWidth * 0.13f,
                 vipInteriorMaterial,
                 stationRotation);
 
@@ -219,31 +222,31 @@ namespace BusPuzzle
                 "Vip Station Diagonal Sheen",
                 root,
                 position + Vector3.down * 0.009f,
-                new Vector2(slotWidth * 0.12f, slotDepth * 0.88f),
+                new Vector2(vipSlotWidth * 0.11f, vipSlotDepth * 0.82f),
                 vipSheenMaterial,
                 stationRotation * Quaternion.Euler(0f, -23f, 0f));
 
             BoardGeometry.CreateFlatRect(
                 "Vip Station Top Light Streak",
                 root,
-                position + Vector3.up * 0.010f + stationRotation * new Vector3(-slotWidth * 0.14f, 0f, slotDepth * 0.19f),
-                new Vector2(slotWidth * 0.44f, 0.018f),
+                position + Vector3.up * 0.010f + stationRotation * new Vector3(-vipSlotWidth * 0.14f, 0f, vipSlotDepth * 0.19f),
+                new Vector2(vipSlotWidth * 0.40f, 0.016f),
                 vipLightStreakMaterial,
                 stationRotation * Quaternion.Euler(0f, -22f, 0f));
 
             BoardGeometry.CreateFlatRect(
                 "Vip Station Bottom Light Streak",
                 root,
-                position + Vector3.up * 0.011f + stationRotation * new Vector3(slotWidth * 0.12f, 0f, -slotDepth * 0.18f),
-                new Vector2(slotWidth * 0.32f, 0.014f),
+                position + Vector3.up * 0.011f + stationRotation * new Vector3(vipSlotWidth * 0.12f, 0f, -vipSlotDepth * 0.18f),
+                new Vector2(vipSlotWidth * 0.30f, 0.012f),
                 vipLightStreakMaterial,
                 stationRotation * Quaternion.Euler(0f, -22f, 0f));
 
             BoardGeometry.CreateFlatRect(
                 "Vip Station Gold Stop Line",
                 root,
-                position + Vector3.down * 0.002f - stationRotation * Vector3.forward * (slotDepth * 0.34f),
-                new Vector2(slotWidth * 0.52f, 0.022f),
+                position + Vector3.down * 0.002f - stationRotation * Vector3.forward * (vipSlotDepth * 0.34f),
+                new Vector2(vipSlotWidth * 0.48f, 0.020f),
                 vipOuterRimMaterial,
                 stationRotation);
 
@@ -251,8 +254,8 @@ namespace BusPuzzle
                 "Vip Station Inner Badge",
                 root,
                 position + Vector3.up * 0.004f,
-                new Vector2(slotWidth - 0.095f, slotDepth - 0.095f),
-                slotWidth * 0.13f,
+                new Vector2(vipSlotWidth - 0.104f, vipSlotDepth - 0.104f),
+                vipSlotWidth * 0.12f,
                 vipInteriorMaterial,
                 stationRotation);
 
@@ -262,7 +265,7 @@ namespace BusPuzzle
                 position + stationRotation * new Vector3(0.010f, 0f, -0.012f),
                 "V\nI\nP",
                 vipLabelShadowColor,
-                Mathf.Max(cellSize * 0.091f, slotWidth * 0.098f),
+                Mathf.Max(cellSize * 0.086f, vipSlotWidth * 0.094f),
                 stationRotation,
                 FontStyle.Bold,
                 52);
@@ -273,7 +276,7 @@ namespace BusPuzzle
                 position,
                 "V\nI\nP",
                 vipLabelColor,
-                Mathf.Max(cellSize * 0.091f, slotWidth * 0.098f),
+                Mathf.Max(cellSize * 0.086f, vipSlotWidth * 0.094f),
                 stationRotation,
                 FontStyle.Bold,
                 52);

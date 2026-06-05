@@ -4,6 +4,9 @@ namespace BusPuzzle
 {
     internal static class VehicleDirectionArrow
     {
+        private const float WidthScale = 0.74f;
+        private const float LengthScale = 0.52f;
+
         public static GameObject Create(Transform parent, float visualWidth, float visualLength, float visualHeight, float visualCenterZ, float cellSize)
         {
             var arrowMaterial = PuzzlePalette.CreateSolidMaterial("White Direction Arrow", UnityEngine.Color.white);
@@ -13,7 +16,7 @@ namespace BusPuzzle
             arrow.transform.localRotation = Quaternion.identity;
 
             var meshFilter = arrow.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = CreateArrowMesh(visualWidth * 0.82f, visualLength * 0.58f);
+            meshFilter.sharedMesh = CreateArrowMesh(visualWidth * WidthScale, visualLength * LengthScale);
 
             var meshRenderer = arrow.AddComponent<MeshRenderer>();
             meshRenderer.sharedMaterial = arrowMaterial;

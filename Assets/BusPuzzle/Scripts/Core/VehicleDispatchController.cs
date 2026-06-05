@@ -7,7 +7,7 @@ namespace BusPuzzle
     {
         private readonly BoardView boardView;
         private readonly GameUiController uiController;
-        private readonly IReadOnlyList<BusView> buses;
+        private readonly List<BusView> buses;
         private readonly Action updateCounters;
         private readonly Action startBoardingResolver;
         private readonly Action checkBlocked;
@@ -16,7 +16,7 @@ namespace BusPuzzle
         public VehicleDispatchController(
             BoardView boardView,
             GameUiController uiController,
-            IReadOnlyList<BusView> buses,
+            List<BusView> buses,
             Action updateCounters,
             Action startBoardingResolver,
             Action checkBlocked,
@@ -67,6 +67,42 @@ namespace BusPuzzle
                 startBoardingResolver();
                 checkBlocked();
             });
+            boardView.TryAdvanceGarageAfterLaunch(bus, buses);
+
+            return true;
+        }
+
+        public bool TryVipTeleport(BusView bus)
+        {
+            if (!CanLaunchBus(bus))
+            {
+                return false;
+            }
+
+            if (!boardView.TryReserveVipStationSlot(out var stationSlotIndex, out var stationPosition))
+            {
+                uiController.ShowInvalid("VIP busy");
+                checkBlocked();
+                return false;
+            }
+
+            updateCounters();
+            uiController.ShowInvalid($"{PuzzlePalette.DisplayName(bus.Color)} VIP");
+
+            var counterPosition = boardView.GetStationCounterPosition(stationSlotIndex);
+            bus.TeleportToStation(
+                stationPosition,
+                BoardLayoutConfig.StationRotation,
+                stationSlotIndex,
+                counterPosition,
+                () =>
+                {
+                    updateCounters();
+                    uiController.ShowPlaying(getCurrentLevelName());
+                    startBoardingResolver();
+                    checkBlocked();
+                });
+            boardView.TryAdvanceGarageAfterLaunch(bus, buses);
 
             return true;
         }

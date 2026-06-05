@@ -55,7 +55,11 @@ namespace BusPuzzle
             this.settings = settings;
         }
 
-        public bool IsAnyMoveAvailable(IReadOnlyList<BusView> buses, int occupiedStationSlots, int stationCapacity)
+        public bool IsAnyMoveAvailable(
+            IReadOnlyList<BusView> buses,
+            IReadOnlyList<GarageView> garages,
+            int occupiedStationSlots,
+            int stationCapacity)
         {
             if (occupiedStationSlots >= stationCapacity)
             {
@@ -65,7 +69,7 @@ namespace BusPuzzle
             for (var index = 0; index < buses.Count; index++)
             {
                 var bus = buses[index];
-                if (bus.IsOnBoard && !bus.IsMoving && IsPathClear(bus, buses, out _, out _))
+                if (bus.IsOnBoard && !bus.IsMoving && IsPathClear(bus, buses, garages, out _, out _))
                 {
                     return true;
                 }
@@ -74,7 +78,12 @@ namespace BusPuzzle
             return false;
         }
 
-        public bool IsPathClear(BusView movingBus, IReadOnlyList<BusView> buses, out BusView blockingBus, out Vector3 collisionPosition)
+        public bool IsPathClear(
+            BusView movingBus,
+            IReadOnlyList<BusView> buses,
+            IReadOnlyList<GarageView> garages,
+            out BusView blockingBus,
+            out Vector3 collisionPosition)
         {
             blockingBus = null;
             collisionPosition = movingBus != null ? movingBus.transform.position : Vector3.zero;
@@ -109,12 +118,18 @@ namespace BusPuzzle
                         continue;
                     }
 
-                    if (footprint.Overlaps(bus.CurrentFootprint, settings.CellSize * VehiclePathCollisionClearanceFactor))
+                    if (footprint.IsWithinPadding(bus.CurrentFootprint, settings.CellSize * VehiclePathCollisionClearanceFactor))
                     {
                         blockingBus = bus;
                         collisionPosition = GetBlockedCollisionPosition(movingBus, worldDirection, distance);
                         return false;
                     }
+                }
+
+                if (IsBlockedByGarage(footprint, garages))
+                {
+                    collisionPosition = GetBlockedCollisionPosition(movingBus, worldDirection, distance);
+                    return false;
                 }
             }
 
@@ -230,6 +245,30 @@ namespace BusPuzzle
             var direction = worldDirection.sqrMagnitude > 0.0001f ? worldDirection.normalized : bus.VehicleForwardWorld;
             var safeDistance = Mathf.Max(settings.CellSize * 0.24f, blockedDistance - settings.CellSize * VehiclePathCollisionBackoffFactor);
             return bus.transform.position + direction * safeDistance;
+        }
+
+        private bool IsBlockedByGarage(VehicleFootprint footprint, IReadOnlyList<GarageView> garages)
+        {
+            if (garages == null)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < garages.Count; index++)
+            {
+                var garage = garages[index];
+                if (garage == null || !garage.IsActiveObstacle)
+                {
+                    continue;
+                }
+
+                if (footprint.IsWithinPadding(garage.CurrentFootprint, settings.CellSize * VehiclePathCollisionClearanceFactor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void AddRouteStep(List<BusRouteStep> route, Vector3 position, Quaternion rotation)

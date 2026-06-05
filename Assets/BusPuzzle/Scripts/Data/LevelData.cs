@@ -18,8 +18,10 @@ namespace BusPuzzle
         [SerializeField] private List<PuzzleColor> passengerUnits = new List<PuzzleColor>();
         [SerializeField] private PassengerFlowPlan passengerFlowPlan = new PassengerFlowPlan();
         [SerializeField] private List<BusDefinition> buses = new List<BusDefinition>();
+        [SerializeField] private List<GarageDefinition> garages = new List<GarageDefinition>();
 
         [NonSerialized] private List<PuzzleColor> resolvedPassengerUnitsCache;
+        [NonSerialized] private List<BusDefinition> allVehiclesCache;
 
         public string LevelName => levelName;
         public LevelDifficultyProfile DifficultyProfile => difficultyProfile != null && difficultyProfile.HasUsableValues
@@ -32,8 +34,12 @@ namespace BusPuzzle
         public IReadOnlyList<PuzzleColor> PassengerUnits => GetResolvedPassengerUnits();
         public PassengerFlowPlan PassengerFlowPlan => passengerFlowPlan;
         public IReadOnlyList<BusDefinition> Buses => buses;
+        public IReadOnlyList<GarageDefinition> Garages => garages ?? EmptyGarages;
+        public IReadOnlyList<BusDefinition> AllVehicles => GetAllVehicles();
         public int PassengerUnitCount => PassengerUnits.Count;
         public int PassengerPeopleCount => PassengerUnits.Count * 4;
+
+        private static readonly IReadOnlyList<GarageDefinition> EmptyGarages = Array.Empty<GarageDefinition>();
 
         public bool TryGetCapacityMismatchMessage(out string message)
         {
@@ -52,6 +58,16 @@ namespace BusPuzzle
             {
                 AddCount(capacityCounts, buses[index].Color, buses[index].CapacityUnits);
                 AddColor(colors, buses[index].Color);
+            }
+
+            var allGarages = Garages;
+            for (var garageIndex = 0; garageIndex < allGarages.Count; garageIndex++)
+            {
+                foreach (var garageVehicle in allGarages[garageIndex].EnumerateVehicles())
+                {
+                    AddCount(capacityCounts, garageVehicle.Color, garageVehicle.CapacityUnits);
+                    AddColor(colors, garageVehicle.Color);
+                }
             }
 
             var mismatches = new List<string>();
@@ -84,7 +100,8 @@ namespace BusPuzzle
             IEnumerable<PuzzleColor> units,
             IEnumerable<BusDefinition> busDefinitions,
             int newRotaryUnitCapacity = MaxRotaryUnitCapacity,
-            RotaryRoadPresetId newRoadPresetId = RotaryRoadPresetId.Large)
+            RotaryRoadPresetId newRoadPresetId = RotaryRoadPresetId.Large,
+            IEnumerable<GarageDefinition> garageDefinitions = null)
         {
             levelName = newLevelName;
             difficultyProfile = LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
@@ -92,6 +109,7 @@ namespace BusPuzzle
             rotaryUnitCapacity = Mathf.Clamp(newRotaryUnitCapacity, MinRotaryUnitCapacity, MaxRotaryUnitCapacity);
             passengerUnits = new List<PuzzleColor>(units);
             buses = new List<BusDefinition>(busDefinitions);
+            garages = garageDefinitions != null ? new List<GarageDefinition>(garageDefinitions) : new List<GarageDefinition>();
             passengerFlowPlan = new PassengerFlowPlan();
             InvalidatePassengerCache();
         }
@@ -103,7 +121,8 @@ namespace BusPuzzle
             IEnumerable<BusDefinition> busDefinitions,
             int newRotaryUnitCapacity = MaxRotaryUnitCapacity,
             RotaryRoadPresetId newRoadPresetId = RotaryRoadPresetId.Large,
-            IEnumerable<PuzzleColor> fallbackUnits = null)
+            IEnumerable<PuzzleColor> fallbackUnits = null,
+            IEnumerable<GarageDefinition> garageDefinitions = null)
         {
             levelName = newLevelName;
             difficultyProfile = newDifficultyProfile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
@@ -112,6 +131,7 @@ namespace BusPuzzle
             passengerUnits = fallbackUnits != null ? new List<PuzzleColor>(fallbackUnits) : new List<PuzzleColor>();
             passengerFlowPlan = newPassengerFlowPlan ?? new PassengerFlowPlan();
             buses = new List<BusDefinition>(busDefinitions);
+            garages = garageDefinitions != null ? new List<GarageDefinition>(garageDefinitions) : new List<GarageDefinition>();
             InvalidatePassengerCache();
         }
 
@@ -119,10 +139,33 @@ namespace BusPuzzle
         {
             if (resolvedPassengerUnitsCache == null)
             {
-                resolvedPassengerUnitsCache = LevelPassengerBuilder.BuildPassengerUnits(DifficultyProfile, passengerFlowPlan, passengerUnits, buses);
+                resolvedPassengerUnitsCache = LevelPassengerBuilder.BuildPassengerUnits(DifficultyProfile, passengerFlowPlan, passengerUnits, AllVehicles);
             }
 
             return resolvedPassengerUnitsCache;
+        }
+
+        private IReadOnlyList<BusDefinition> GetAllVehicles()
+        {
+            if (allVehiclesCache == null)
+            {
+                allVehiclesCache = new List<BusDefinition>();
+                if (buses != null)
+                {
+                    allVehiclesCache.AddRange(buses);
+                }
+
+                var allGarages = Garages;
+                for (var garageIndex = 0; garageIndex < allGarages.Count; garageIndex++)
+                {
+                    foreach (var garageVehicle in allGarages[garageIndex].EnumerateVehicles())
+                    {
+                        allVehiclesCache.Add(garageVehicle);
+                    }
+                }
+            }
+
+            return allVehiclesCache;
         }
 
         private void OnValidate()
@@ -133,6 +176,7 @@ namespace BusPuzzle
         private void InvalidatePassengerCache()
         {
             resolvedPassengerUnitsCache = null;
+            allVehiclesCache = null;
         }
 
         private static void AddCount(Dictionary<PuzzleColor, int> counts, PuzzleColor color, int amount)

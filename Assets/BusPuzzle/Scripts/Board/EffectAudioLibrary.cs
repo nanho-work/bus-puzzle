@@ -7,12 +7,20 @@ namespace BusPuzzle
     {
         [SerializeField] private AudioClip collisionClip = null;
         [SerializeField] private AudioClip boardingClip = null;
+        [SerializeField] private AudioClip victoryClip = null;
+        [SerializeField] private AudioClip failClip = null;
         [SerializeField, Range(0f, 1f)] private float collisionVolume = 0.80f;
         [SerializeField, Range(0f, 1f)] private float boardingVolume = 0.55f;
+        [SerializeField, Range(0f, 1f)] private float victoryVolume = 0.85f;
+        [SerializeField, Range(0f, 1f)] private float failVolume = 0.85f;
 
         public AudioClip CollisionClip => collisionClip;
         public AudioClip BoardingClip => boardingClip;
+        public AudioClip VictoryClip => victoryClip;
+        public AudioClip FailClip => failClip;
         public float CollisionVolume => collisionVolume;
         public float BoardingVolume => boardingVolume;
+        public float VictoryVolume => victoryVolume;
+        public float FailVolume => failVolume;
     }
 }

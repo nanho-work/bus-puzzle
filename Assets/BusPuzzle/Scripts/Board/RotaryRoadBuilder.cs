@@ -34,23 +34,34 @@ namespace BusPuzzle
         private static readonly Color RailColor = new Color(0.96f, 0.98f, 1.00f);
         private static readonly Color RailShadowColor = new Color(0.24f, 0.28f, 0.34f);
         private static readonly Color GateMarkerColor = new Color(0.90f, 0.69f, 0.10f);
+        private const float FeederRoadScreenExitExtension = 1.55f;
 
         public static void CreateGround(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
         {
+            var feederTopZ = settings.RotaryCenterZ + GetMaxFeederY(layout) + layout.RoadWidth;
+            const float floorBottomZ = -5.10f;
+            var floorTopZ = Mathf.Max(4.78f, feederTopZ + FeederRoadScreenExitExtension + 0.42f);
+            var floorDepth = floorTopZ - floorBottomZ;
+            var floorCenterZ = (floorBottomZ + floorTopZ) * 0.5f;
+
             BoardGeometry.CreateFlatRect(
                 "Terminal Floor",
                 parent,
-                new Vector3(0f, -0.120f, -0.52f),
-                new Vector2(5.85f, 9.15f),
+                new Vector3(0f, -0.120f, floorCenterZ),
+                new Vector2(5.85f, floorDepth),
                 PuzzlePalette.CreateSolidMaterial("Terminal Floor", new Color(0.63f, 0.69f, 0.75f)));
 
-            var rotaryDistrictSize = new Vector2(layout.OuterRadiusX * 2f + 0.46f, layout.OuterRadiusZ * 2f + 0.86f);
-            var rotaryDistrictCenter = new Vector3(0f, -0.095f, settings.RotaryCenterZ - 0.06f);
+            var feederHalfWidth = GetMaxAbsFeederX(layout) + layout.RoadWidth * 0.5f + 0.24f;
+            var rotaryDistrictWidth = Mathf.Max(layout.OuterRadiusX * 2f + 0.46f, feederHalfWidth * 2f);
+            var rotaryDistrictBottomZ = settings.RotaryCenterZ - layout.OuterRadiusZ - 0.58f;
+            var rotaryDistrictTopZ = feederTopZ + 0.26f;
+            var rotaryDistrictDepth = rotaryDistrictTopZ - rotaryDistrictBottomZ;
+            var rotaryDistrictCenter = new Vector3(0f, -0.095f, (rotaryDistrictBottomZ + rotaryDistrictTopZ) * 0.5f);
             BoardGeometry.CreateFlatRect(
                 "Passenger Rotary District",
                 parent,
                 rotaryDistrictCenter,
-                rotaryDistrictSize,
+                new Vector2(rotaryDistrictWidth, rotaryDistrictDepth),
                 PuzzlePalette.CreateSolidMaterial("Passenger Rotary District", new Color(0.70f, 0.75f, 0.80f)));
 
             BoardGeometry.CreateFlatRect(
@@ -105,7 +116,7 @@ namespace BusPuzzle
         private static void CreateFeederLane(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, int side)
         {
             var name = side < 0 ? "Left Passenger Feeder" : "Right Passenger Feeder";
-            var feederPath = layout.GetFeederPath(side);
+            var feederPath = CreateRenderedFeederPath(layout.GetFeederPath(side));
             var laneMaterial = PuzzlePalette.CreateSolidMaterial(name, new Color(0.43f, 0.47f, 0.55f));
             var railMaterial = PuzzlePalette.CreateSolidMaterial($"{name} Guardrail", new Color(0.88f, 0.92f, 0.96f));
             var railShadowMaterial = PuzzlePalette.CreateSolidMaterial($"{name} Guardrail Shadow", new Color(0.25f, 0.29f, 0.35f));
@@ -118,6 +129,75 @@ namespace BusPuzzle
             BoardGeometry.CreateOpenPathBand($"{name} Outer Rail", parent, layout, feederPath, settings.RotaryCenterZ, -0.024f, outerOffset, outerOffset + railWidth, railMaterial);
             BoardGeometry.CreateOpenPathBand($"{name} Inner Rail Shadow", parent, layout, feederPath, settings.RotaryCenterZ, -0.042f, innerOffset - railWidth - 0.018f, innerOffset + 0.004f, railShadowMaterial);
             BoardGeometry.CreateOpenPathBand($"{name} Inner Rail", parent, layout, feederPath, settings.RotaryCenterZ, -0.024f, innerOffset - railWidth, innerOffset, railMaterial);
+        }
+
+        private static FeederRoadPath CreateRenderedFeederPath(FeederRoadPath path)
+        {
+            if (path == null || path.Points.Length < 2)
+            {
+                return path;
+            }
+
+            var start = path.Points[0];
+            var next = path.Points[1];
+            var extensionDirection = start - next;
+            if (extensionDirection.sqrMagnitude < 0.0001f)
+            {
+                extensionDirection = Vector2.up;
+            }
+
+            extensionDirection.Normalize();
+
+            var points = new Vector2[path.Points.Length + 1];
+            points[0] = start + extensionDirection * FeederRoadScreenExitExtension;
+            for (var index = 0; index < path.Points.Length; index++)
+            {
+                points[index + 1] = path.Points[index];
+            }
+
+            return new FeederRoadPath(points);
+        }
+
+        private static float GetMaxAbsFeederX(RotaryLayout layout)
+        {
+            return Mathf.Max(GetMaxAbsPathX(layout.LeftFeederPath), GetMaxAbsPathX(layout.RightFeederPath));
+        }
+
+        private static float GetMaxFeederY(RotaryLayout layout)
+        {
+            return Mathf.Max(GetMaxPathY(layout.LeftFeederPath), GetMaxPathY(layout.RightFeederPath));
+        }
+
+        private static float GetMaxAbsPathX(FeederRoadPath path)
+        {
+            if (path == null)
+            {
+                return 0f;
+            }
+
+            var max = 0f;
+            for (var index = 0; index < path.Points.Length; index++)
+            {
+                max = Mathf.Max(max, Mathf.Abs(path.Points[index].x));
+            }
+
+            return max;
+        }
+
+        private static float GetMaxPathY(FeederRoadPath path)
+        {
+            if (path == null)
+            {
+                return 0f;
+            }
+
+            var max = 0f;
+            for (var index = 0; index < path.Points.Length; index++)
+            {
+                max = Mathf.Max(max, path.Points[index].y);
+            }
+
+            return max;
         }
 
         private static void CreateBoardingGate(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)

@@ -73,12 +73,20 @@ namespace BusPuzzle
             return passenger != null && passenger.IsReservedForBoarding && IsPassengerAtBoardingGate(passenger);
         }
 
-        public static bool HasPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
+        public static bool HasRotaryPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
         {
+            if (passengers == null)
+            {
+                return false;
+            }
+
             for (var index = 0; index < passengers.Count; index++)
             {
                 var passenger = passengers[index];
-                if (passenger.Color == color && passenger.gameObject.activeSelf)
+                if (passenger != null &&
+                    passenger.Color == color &&
+                    passenger.gameObject.activeSelf &&
+                    passenger.IsAssignedToRotary)
                 {
                     return true;
                 }

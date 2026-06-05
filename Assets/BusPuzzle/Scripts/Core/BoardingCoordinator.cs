@@ -29,7 +29,7 @@ namespace BusPuzzle
         {
             var reservedAny = false;
 
-            for (var slotIndex = 0; slotIndex < boardView.StationCapacity; slotIndex++)
+            for (var slotIndex = BoardView.VipStationSlotIndex; slotIndex < boardView.StationCapacity; slotIndex++)
             {
                 var bus = BoardingRuleEngine.FindStationBusAtSlot(buses, slotIndex);
                 if (bus == null)
@@ -66,7 +66,7 @@ namespace BusPuzzle
 
         public bool CanReserveAny(BoardView boardView, IReadOnlyList<BusView> buses, IReadOnlyList<PassengerView> passengers)
         {
-            for (var slotIndex = 0; slotIndex < boardView.StationCapacity; slotIndex++)
+            for (var slotIndex = BoardView.VipStationSlotIndex; slotIndex < boardView.StationCapacity; slotIndex++)
             {
                 var bus = BoardingRuleEngine.FindStationBusAtSlot(buses, slotIndex);
                 if (bus == null || !bus.HasAvailableBoardingSeat)

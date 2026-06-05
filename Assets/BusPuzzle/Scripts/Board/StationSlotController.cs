@@ -5,21 +5,31 @@ namespace BusPuzzle
 {
     internal sealed class StationSlotController
     {
+        private readonly int initialCapacity;
         private readonly bool[] occupiedSlots;
+        private int capacity;
 
-        public StationSlotController(int capacity)
+        public StationSlotController(int initialCapacity, int maxCapacity)
         {
-            occupiedSlots = new bool[Mathf.Max(0, capacity)];
+            this.initialCapacity = Mathf.Clamp(initialCapacity, 0, Mathf.Max(0, maxCapacity));
+            occupiedSlots = new bool[Mathf.Max(this.initialCapacity, maxCapacity)];
+            capacity = this.initialCapacity;
         }
 
-        public int Capacity => occupiedSlots.Length;
+        public int Capacity => capacity;
+
+        public int MaxCapacity => occupiedSlots.Length;
+
+        public int LockedSlots => Mathf.Max(0, MaxCapacity - Capacity);
+
+        public bool CanUnlock => Capacity < MaxCapacity;
 
         public int OccupiedSlots
         {
             get
             {
                 var count = 0;
-                for (var index = 0; index < occupiedSlots.Length; index++)
+                for (var index = 0; index < capacity; index++)
                 {
                     if (occupiedSlots[index])
                     {
@@ -37,11 +47,24 @@ namespace BusPuzzle
             {
                 occupiedSlots[index] = false;
             }
+
+            capacity = initialCapacity;
+        }
+
+        public bool TryUnlock()
+        {
+            if (!CanUnlock)
+            {
+                return false;
+            }
+
+            capacity++;
+            return true;
         }
 
         public bool TryReserve(Func<int, Vector3> getSlotPosition, out int slotIndex, out Vector3 slotPosition)
         {
-            for (var index = 0; index < occupiedSlots.Length; index++)
+            for (var index = 0; index < capacity; index++)
             {
                 if (occupiedSlots[index])
                 {

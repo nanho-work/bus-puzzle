@@ -97,12 +97,16 @@ namespace BusPuzzle
                 boardingCoordinator.CanReserveAny(boardView, buses, circulatingPassengerUnits);
         }
 
-        public bool HasStationBusThatCanEventuallyBoard()
+        public bool HasStationBusThatCanBoardRotaryPassenger()
         {
             for (var index = 0; index < buses.Count; index++)
             {
                 var bus = buses[index];
-                if (bus.IsParkedAtStation && !bus.IsDeparted && bus.HasAvailableBoardingSeat && boardView.HasPassengerColor(circulatingPassengerUnits, bus.Color))
+                if (bus != null &&
+                    bus.IsParkedAtStation &&
+                    !bus.IsDeparted &&
+                    bus.HasAvailableBoardingSeat &&
+                    boardView.HasRotaryPassengerColor(circulatingPassengerUnits, bus.Color))
                 {
                     return true;
                 }
@@ -200,7 +204,7 @@ namespace BusPuzzle
 
         private bool TryFindDepartingBus(out BusView departingBus)
         {
-            for (var slotIndex = 0; slotIndex < boardView.StationCapacity; slotIndex++)
+            for (var slotIndex = BoardView.VipStationSlotIndex; slotIndex < boardView.StationCapacity; slotIndex++)
             {
                 for (var busIndex = 0; busIndex < buses.Count; busIndex++)
                 {

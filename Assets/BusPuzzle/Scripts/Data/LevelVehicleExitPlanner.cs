@@ -63,6 +63,16 @@ namespace BusPuzzle
             IReadOnlyList<bool> active,
             out int blockingIndex)
         {
+            return IsPathClear(movingIndex, buses, active, null, out blockingIndex);
+        }
+
+        public static bool IsPathClear(
+            int movingIndex,
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<bool> active,
+            IReadOnlyList<GarageDefinition> activeGarages,
+            out int blockingIndex)
+        {
             blockingIndex = -1;
             if (buses == null || movingIndex < 0 || movingIndex >= buses.Count)
             {
@@ -99,15 +109,45 @@ namespace BusPuzzle
                         continue;
                     }
 
-                    if (footprint.Overlaps(BoardLayoutConfig.GetVehicleFootprintCells(buses[index]), CollisionClearanceCells))
+                    if (footprint.IsWithinPadding(BoardLayoutConfig.GetVehicleFootprintCells(buses[index]), CollisionClearanceCells))
                     {
                         blockingIndex = index;
                         return false;
                     }
                 }
+
+                if (IntersectsGarageObstacle(footprint, activeGarages))
+                {
+                    blockingIndex = -1;
+                    return false;
+                }
             }
 
             return true;
+        }
+
+        private static bool IntersectsGarageObstacle(VehicleFootprint footprint, IReadOnlyList<GarageDefinition> activeGarages)
+        {
+            if (activeGarages == null)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < activeGarages.Count; index++)
+            {
+                var garageFootprint = new VehicleFootprint(
+                    new Vector3(activeGarages[index].GridPosition.x, 0f, activeGarages[index].GridPosition.y),
+                    Vector3.right,
+                    Vector3.forward,
+                    0.45f,
+                    0.45f);
+                if (footprint.IsWithinPadding(garageFootprint, CollisionClearanceCells))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsActive(IReadOnlyList<bool> active, int index)

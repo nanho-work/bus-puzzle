@@ -13,20 +13,20 @@ namespace BusPuzzle
         public const float CellSize = 0.31f;
         public const float GridBottomZ = -4.17f;
         public const float StationZ = 0.66f;
-        public const float StationSlotSpacing = 0.44f;
-        public const float StationSlotWidth = 0.29f;
-        public const float StationSlotDepth = 0.62f;
+        public const float StationSlotSpacing = 0.47f;
+        public const float StationSlotWidth = 0.325f;
+        public const float StationSlotDepth = 0.70f;
         public const float StationYawDegrees = 7f;
         public const float StationCounterBelowSlotOffset = 0.12f;
         public const float StationCounterY = 0.12f;
         public const float RotaryCenterZ = 2.42f;
 
-        public const float VehicleVisualScale = 0.80f;
+        public const float VehicleVisualScale = 0.92f;
         public const float VehicleVisualWidthCells = 0.72f * VehicleVisualScale;
         public const float VehicleVisualHeightCells = 0.90f * VehicleVisualScale;
-        public const float VehicleFootprintWidthFactor = 0.88f;
-        public const float VehicleFootprintLengthFactor = 0.90f;
-        public const float VehicleNearPaddingCells = 0.035f;
+        public const float VehicleFootprintWidthFactor = 0.96f;
+        public const float VehicleFootprintLengthFactor = 0.96f;
+        public const float VehicleNearPaddingCells = 0.10f;
 
         public static int TotalStationSlots => FreeStationSlots + ActiveStationSlots + LockedStationSlots;
         public static float GridWorldWidth => GridColumns * CellSize;

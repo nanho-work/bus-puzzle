@@ -71,7 +71,10 @@ namespace BusPuzzle
         private const float MaxRecommendedPositionOffsetCells = 0.45f;
         private const float MaxRecommendedAngleOffsetDegrees = 35f;
 
-        public static LevelValidationReport Validate(LevelData levelData)
+        public static LevelValidationReport Validate(
+            LevelData levelData,
+            bool validateVehicleExitSequence = true,
+            int vehicleExitSolutionLimit = 256)
         {
             var report = new LevelValidationReport();
             if (levelData == null)
@@ -82,15 +85,21 @@ namespace BusPuzzle
 
             var passengers = levelData.PassengerUnits;
             var buses = levelData.Buses;
+            var allVehicles = levelData.AllVehicles;
             var profile = levelData.DifficultyProfile;
 
-            ValidateBasicCounts(report, passengers, buses);
+            ValidateBasicCounts(report, passengers, allVehicles);
             ValidateCapacityMatch(report, levelData);
-            ValidateDifficultyProfile(report, profile, levelData.PassengerFlowPlan, passengers, buses);
-            ValidateSolutionRoute(report, levelData.PassengerFlowPlan, buses);
+            ValidateDifficultyProfile(report, profile, levelData.PassengerFlowPlan, passengers, allVehicles);
+            ValidateSolutionRoute(report, levelData.PassengerFlowPlan, allVehicles);
             ValidatePassengerRuns(report, profile, passengers);
             ValidateVehiclePlacement(report, buses);
-            ValidateVehicleExitSequence(report, profile, buses);
+            ValidateGaragePlacement(report, levelData.Garages, buses);
+            if (validateVehicleExitSequence)
+            {
+                ValidateVehicleExitSequence(report, profile, buses, levelData.Garages, vehicleExitSolutionLimit);
+            }
+
             return report;
         }
 
@@ -277,14 +286,17 @@ namespace BusPuzzle
         private static void ValidateVehicleExitSequence(
             LevelValidationReport report,
             LevelDifficultyProfile profile,
-            IReadOnlyList<BusDefinition> buses)
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<GarageDefinition> garages,
+            int solutionCountLimit)
         {
-            if (buses == null || buses.Count == 0)
+            if ((buses == null || buses.Count == 0) && (garages == null || garages.Count == 0))
             {
                 return;
             }
 
-            if (LevelVehicleExitPlanner.TryFindExitOrder(buses, out _, out var stuckIndices))
+            var analysis = StageSolutionAnalyzer.Analyze(buses, garages, solutionCountLimit);
+            if (analysis.IsSolvable)
             {
                 return;
             }
@@ -294,8 +306,64 @@ namespace BusPuzzle
                 : LevelValidationSeverity.Warning;
             report.Add(
                 severity,
-                $"No complete vehicle exit sequence found. Stuck vehicles: {DescribeVehicleIndices(buses, stuckIndices)}.");
+                "No complete vehicle exit sequence found.");
         }
+
+        private static void ValidateGaragePlacement(
+            LevelValidationReport report,
+            IReadOnlyList<GarageDefinition> garages,
+            IReadOnlyList<BusDefinition> buses)
+        {
+            if (garages == null || garages.Count == 0)
+            {
+                return;
+            }
+
+            for (var index = 0; index < garages.Count; index++)
+            {
+                var garage = garages[index];
+                if (!BoardLayoutConfig.IsInsideGrid(garage.GridPosition))
+                {
+                    report.Add(
+                        LevelValidationSeverity.Error,
+                        $"Garage #{index + 1} starts outside the {BoardLayoutConfig.GridColumns}x{BoardLayoutConfig.GridRows} parking grid at {garage.GridPosition}.");
+                }
+
+                if (!BoardLayoutConfig.IsInsideGrid(garage.FrontVehicleGridPosition))
+                {
+                    report.Add(
+                        LevelValidationSeverity.Error,
+                        $"Garage #{index + 1} front vehicle cell {garage.FrontVehicleGridPosition} is outside the parking grid.");
+                }
+
+                if (garage.QueuedVehicleCount == 0)
+                {
+                    report.Add(LevelValidationSeverity.Warning, $"Garage #{index + 1} has no queued vehicles.");
+                }
+
+                var garageFootprint = GetGarageFootprint(garage);
+                var visibleBuses = buses ?? EmptyBuses;
+                for (var busIndex = 0; busIndex < visibleBuses.Count; busIndex++)
+                {
+                    if (garageFootprint.Overlaps(GetDefinitionFootprint(visibleBuses[busIndex])))
+                    {
+                        report.Add(
+                            LevelValidationSeverity.Error,
+                            $"Garage #{index + 1} overlaps vehicle #{busIndex + 1} {DescribeVehicle(visibleBuses[busIndex])}.");
+                    }
+                }
+
+                for (var otherIndex = index + 1; otherIndex < garages.Count; otherIndex++)
+                {
+                    if (garageFootprint.Overlaps(GetGarageFootprint(garages[otherIndex])))
+                    {
+                        report.Add(LevelValidationSeverity.Error, $"Garage #{index + 1} overlaps garage #{otherIndex + 1}.");
+                    }
+                }
+            }
+        }
+
+        private static readonly IReadOnlyList<BusDefinition> EmptyBuses = new BusDefinition[0];
 
         private static void ValidateVehicleGridCell(LevelValidationReport report, BusDefinition bus, int index)
         {
@@ -347,6 +415,16 @@ namespace BusPuzzle
         private static VehicleFootprint GetDefinitionFootprint(BusDefinition bus)
         {
             return BoardLayoutConfig.GetVehicleFootprintCells(bus);
+        }
+
+        private static VehicleFootprint GetGarageFootprint(GarageDefinition garage)
+        {
+            return new VehicleFootprint(
+                new Vector3(garage.GridPosition.x, 0f, garage.GridPosition.y),
+                Vector3.right,
+                Vector3.forward,
+                0.45f,
+                0.45f);
         }
 
         private static string DescribeVehicle(BusDefinition bus)

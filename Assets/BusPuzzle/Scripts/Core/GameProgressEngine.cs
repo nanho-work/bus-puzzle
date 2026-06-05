@@ -18,7 +18,8 @@ namespace BusPuzzle
         public readonly bool HasMovingBus;
         public readonly bool HasReadyDeparture;
         public readonly bool HasReadyBoardingNow;
-        public readonly bool HasStationBusThatCanEventuallyBoard;
+        public readonly bool HasStationBusThatCanBoardRotaryPassenger;
+        public readonly bool IsStationFull;
         public readonly bool HasAnyMoveAvailable;
 
         public GameProgressSnapshot(
@@ -30,7 +31,8 @@ namespace BusPuzzle
             bool hasMovingBus,
             bool hasReadyDeparture,
             bool hasReadyBoardingNow,
-            bool hasStationBusThatCanEventuallyBoard,
+            bool hasStationBusThatCanBoardRotaryPassenger,
+            bool isStationFull,
             bool hasAnyMoveAvailable)
         {
             IsPlaying = isPlaying;
@@ -41,7 +43,8 @@ namespace BusPuzzle
             HasMovingBus = hasMovingBus;
             HasReadyDeparture = hasReadyDeparture;
             HasReadyBoardingNow = hasReadyBoardingNow;
-            HasStationBusThatCanEventuallyBoard = hasStationBusThatCanEventuallyBoard;
+            HasStationBusThatCanBoardRotaryPassenger = hasStationBusThatCanBoardRotaryPassenger;
+            IsStationFull = isStationFull;
             HasAnyMoveAvailable = hasAnyMoveAvailable;
         }
     }
@@ -84,12 +87,17 @@ namespace BusPuzzle
                 return GameProgressDecision.Continue;
             }
 
-            if (snapshot.HasReadyBoardingNow)
+            if (snapshot.HasReadyBoardingNow || snapshot.HasReadyDeparture)
             {
                 return GameProgressDecision.StartBoardingResolver;
             }
 
-            if (snapshot.HasStationBusThatCanEventuallyBoard || snapshot.HasAnyMoveAvailable)
+            if (snapshot.IsStationFull && !snapshot.HasStationBusThatCanBoardRotaryPassenger)
+            {
+                return GameProgressDecision.Fail;
+            }
+
+            if (snapshot.HasAnyMoveAvailable || snapshot.HasStationBusThatCanBoardRotaryPassenger)
             {
                 return GameProgressDecision.Continue;
             }

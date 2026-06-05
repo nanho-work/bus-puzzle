@@ -29,6 +29,18 @@ namespace BusPuzzle
             return bus != null;
         }
 
+        public bool TryTakeStationUnlockTap(out StationSlotUnlockTarget unlockTarget)
+        {
+            unlockTarget = null;
+            if (!TryGetPointerDown(out var screenPosition, out var pointerId) || IsPointerOverUi(pointerId))
+            {
+                return false;
+            }
+
+            unlockTarget = TryGetStationUnlockTargetAtScreenPosition(screenPosition);
+            return unlockTarget != null;
+        }
+
         public bool IsPassengerFastForwardHeld()
         {
             if (!TryGetHeldPointer(out var screenPosition, out var pointerId) || IsPointerOverUi(pointerId))
@@ -55,6 +67,28 @@ namespace BusPuzzle
                 if (bus != null)
                 {
                     return bus;
+                }
+            }
+
+            return null;
+        }
+
+        private StationSlotUnlockTarget TryGetStationUnlockTargetAtScreenPosition(Vector2 screenPosition)
+        {
+            if (gameCamera == null)
+            {
+                return null;
+            }
+
+            var ray = gameCamera.ScreenPointToRay(screenPosition);
+            var hits = Physics.RaycastAll(ray, 100f);
+
+            foreach (var hit in hits)
+            {
+                var target = hit.collider.GetComponentInParent<StationSlotUnlockTarget>();
+                if (target != null)
+                {
+                    return target;
                 }
             }
 

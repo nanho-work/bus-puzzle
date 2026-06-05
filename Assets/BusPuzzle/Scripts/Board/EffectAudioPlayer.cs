@@ -19,6 +19,16 @@ namespace BusPuzzle
             Play(GetLibrary()?.BoardingClip, GetLibrary()?.BoardingVolume ?? 0f);
         }
 
+        public static void PlayVictory()
+        {
+            Play(GetLibrary()?.VictoryClip, GetLibrary()?.VictoryVolume ?? 0f);
+        }
+
+        public static void PlayFail()
+        {
+            Play(GetLibrary()?.FailClip, GetLibrary()?.FailVolume ?? 0f);
+        }
+
         private static EffectAudioLibrary GetLibrary()
         {
             if (library == null)
@@ -31,7 +41,7 @@ namespace BusPuzzle
 
         private static void Play(AudioClip clip, float volume)
         {
-            if (clip == null || volume <= 0.001f)
+            if (!UserPreferences.EffectSoundEnabled || clip == null || volume <= 0.001f)
             {
                 return;
             }

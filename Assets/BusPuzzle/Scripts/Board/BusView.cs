@@ -10,7 +10,9 @@ namespace BusPuzzle
 
         private Coroutine motionRoutine;
         private Coroutine hitShakeRoutine;
+        private Coroutine vipHighlightRoutine;
         private GameObject directionArrow;
+        private GameObject vipHighlight;
         private VehicleBoardingCounter boardingCounter;
         private Vector3 hitShakeStartPosition;
         private Quaternion hitShakeStartRotation;
@@ -32,6 +34,7 @@ namespace BusPuzzle
         public bool IsDeparted { get; private set; }
         public bool IsDeparting { get; private set; }
         public bool IsMoving => motionRoutine != null || hitShakeRoutine != null;
+        internal GarageView SourceGarage { get; private set; }
         public int CapacityUnits => BusSizeUtility.ToPassengerUnits(Size);
         public int CapacityPeople => BusSizeUtility.ToPeopleCapacity(Size);
         public int BoardedUnits => boardedUnits;
@@ -83,6 +86,7 @@ namespace BusPuzzle
             IsParkedAtStation = false;
             IsDeparted = false;
             IsDeparting = false;
+            SourceGarage = null;
 
             transform.rotation = definition.Rotation;
 
@@ -102,6 +106,7 @@ namespace BusPuzzle
                     cellSize);
             }
 
+            GroundShadowBuilder.CreateVehicleShadow(transform, VisualWidth, VisualLength, VisualCenterZ, cellSize);
             CreateArrow();
             boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
             UpdateBoardingCounter();
@@ -112,6 +117,26 @@ namespace BusPuzzle
         {
             GridPosition = gridPosition;
             transform.position = worldPosition;
+        }
+
+        internal void SetSourceGarage(GarageView garage)
+        {
+            SourceGarage = garage;
+        }
+
+        public void SetVipHighlight(bool highlighted)
+        {
+            if (!highlighted)
+            {
+                StopVipHighlight();
+                return;
+            }
+
+            EnsureVipHighlight();
+            if (vipHighlightRoutine == null && gameObject.activeInHierarchy)
+            {
+                vipHighlightRoutine = StartCoroutine(VipHighlightRoutine());
+            }
         }
 
         public Vector3 GetRootPositionForVisualCenter(Vector3 visualCenterPosition, GridDirection facingDirection)
@@ -154,6 +179,7 @@ namespace BusPuzzle
 
         public void MoveToStation(BusRouteStep[] route, int stationSlotIndex, Vector3 counterWorldPosition, Action onComplete)
         {
+            StopVipHighlight();
             boardingCounter?.SetWorldPosition(counterWorldPosition);
             if (route == null || route.Length == 0)
             {
@@ -177,6 +203,23 @@ namespace BusPuzzle
                 ShowBoardingCounter();
                 onComplete?.Invoke();
             }));
+        }
+
+        public void TeleportToStation(Vector3 stationVisualCenterPosition, Quaternion stationRotation, int stationSlotIndex, Vector3 counterWorldPosition, Action onComplete)
+        {
+            StopMotion();
+            StopVipHighlight();
+
+            var rootPosition = GetRootPositionForVisualCenter(stationVisualCenterPosition, stationRotation);
+            transform.SetPositionAndRotation(rootPosition, stationRotation);
+
+            boardingCounter?.SetWorldPosition(counterWorldPosition);
+            IsOnBoard = false;
+            IsParkedAtStation = true;
+            StationSlotIndex = stationSlotIndex;
+            HideDirectionArrow();
+            ShowBoardingCounter();
+            onComplete?.Invoke();
         }
 
         public void BounceBlocked(Vector3 worldDirection, Action onComplete)
@@ -252,6 +295,7 @@ namespace BusPuzzle
             }
 
             StopMotion();
+            StopVipHighlight();
             HideBoardingCounter();
             IsDeparting = true;
             motionRoutine = StartCoroutine(DepartRoutine(route, onStationCleared, onComplete));
@@ -283,6 +327,54 @@ namespace BusPuzzle
 
             StopCoroutine(motionRoutine);
             motionRoutine = null;
+        }
+
+        private void EnsureVipHighlight()
+        {
+            if (vipHighlight != null)
+            {
+                vipHighlight.SetActive(true);
+                return;
+            }
+
+            var material = PuzzlePalette.CreateSolidMaterial("VIP Bus Select Highlight", new Color(1.00f, 0.78f, 0.16f));
+            vipHighlight = BoardGeometry.CreateFlatRoundedRect(
+                "VIP Select Highlight",
+                transform,
+                Vector3.zero,
+                new Vector2(VisualWidth + cellSize * 0.20f, VisualLength + cellSize * 0.18f),
+                cellSize * 0.12f,
+                material);
+            vipHighlight.transform.localPosition = new Vector3(0f, 0.018f, VisualCenterZ);
+            vipHighlight.transform.localRotation = Quaternion.identity;
+            vipHighlight.SetActive(true);
+        }
+
+        private void StopVipHighlight()
+        {
+            if (vipHighlightRoutine != null)
+            {
+                StopCoroutine(vipHighlightRoutine);
+                vipHighlightRoutine = null;
+            }
+
+            if (vipHighlight != null)
+            {
+                vipHighlight.SetActive(false);
+            }
+        }
+
+        private IEnumerator VipHighlightRoutine()
+        {
+            while (true)
+            {
+                if (vipHighlight != null)
+                {
+                    vipHighlight.SetActive(Mathf.PingPong(Time.time * 4.4f, 1f) > 0.28f);
+                }
+
+                yield return null;
+            }
         }
 
         private void PlayHitShake(Vector3 worldDirection)

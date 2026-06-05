@@ -106,9 +106,9 @@ namespace BusPuzzle
             return boardingSelector.IsPassengerReadyToBoard(passenger);
         }
 
-        public static bool HasPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
+        public static bool HasRotaryPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
         {
-            return PassengerBoardingSelector.HasPassengerColor(passengers, color);
+            return PassengerBoardingSelector.HasRotaryPassengerColor(passengers, color);
         }
 
         private void AssignPassengerTraffic(PassengerView passenger, int rotarySlotIndex)

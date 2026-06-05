@@ -214,14 +214,21 @@ namespace BusPuzzle
             var outerRoadOffset = roadWidth - passengerSetPivotOffset;
             var joinPoint = joinSample.Point + joinSample.Outward * Mathf.Max(0.05f, outerRoadOffset - 0.015f);
             var laneLength = Mathf.Max(1.05f, preset.FeederRowsPerStack * preset.FeederRowSpacing + passengerSetRoadWidth);
-            var start = joinPoint + joinSample.Outward * laneLength;
-            var mid = joinPoint + joinSample.Outward * (laneLength * 0.48f);
+            var sideSign = side < 0 ? -1f : 1f;
+            var laneX = sideSign * (rotaryPath.RadiusX + roadWidth * 1.05f + 0.16f);
+            var start = new Vector2(laneX, joinPoint.y + laneLength * 0.82f);
+            var verticalEnd = new Vector2(laneX, joinPoint.y + laneLength * 0.24f);
+            var joinOverlap = joinPoint - joinSample.Outward * Mathf.Min(0.085f, roadWidth * 0.18f);
+            var approach = new Vector2(
+                Mathf.Lerp(laneX, joinPoint.x, 0.68f),
+                joinPoint.y + laneLength * 0.06f);
 
             return new FeederRoadPath(new[]
             {
                 start,
-                mid,
-                joinPoint
+                verticalEnd,
+                approach,
+                joinOverlap
             });
         }
     }

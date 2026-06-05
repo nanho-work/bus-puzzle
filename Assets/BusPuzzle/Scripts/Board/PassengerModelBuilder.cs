@@ -4,14 +4,13 @@ namespace BusPuzzle
 {
     internal static class PassengerModelBuilder
     {
-        private const float PassengerVisualScale = 1.20f;
+        private const float PassengerVisualScale = 1.26f;
 
         public static PassengerModel Create(PuzzleColor color, Transform parent)
         {
             var bodyMaterial = PuzzlePalette.CreateMaterial(color, "Passenger Unit");
             var headMaterial = bodyMaterial;
             var legMaterial = PuzzlePalette.CreateSolidMaterial("Passenger Legs", PuzzlePalette.Darken(PuzzlePalette.ToColor(color), 0.18f));
-            var shadowMaterial = PuzzlePalette.CreateSolidMaterial("Passenger Soft Shadow", new Color(0.24f, 0.28f, 0.31f));
             var offsets = new[]
             {
                 new Vector3(0f, 0f, -0.155f * PassengerVisualScale),
@@ -26,7 +25,7 @@ namespace BusPuzzle
 
             for (var index = 0; index < offsets.Length; index++)
             {
-                personRoots[index] = CreatePerson(index, parent, offsets[index], bodyMaterial, headMaterial, legMaterial, shadowMaterial, leftLegs, rightLegs);
+                personRoots[index] = CreatePerson(index, parent, offsets[index], bodyMaterial, headMaterial, legMaterial, leftLegs, rightLegs);
             }
 
             return new PassengerModel(personRoots, offsets, leftLegs, rightLegs);
@@ -39,7 +38,6 @@ namespace BusPuzzle
             Material bodyMaterial,
             Material headMaterial,
             Material legMaterial,
-            Material shadowMaterial,
             Transform[] leftLegs,
             Transform[] rightLegs)
         {
@@ -47,12 +45,11 @@ namespace BusPuzzle
             personRoot.SetParent(parent, false);
             personRoot.localPosition = rootPosition;
 
-            var shadow = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            shadow.name = "Ground Shadow";
-            shadow.transform.SetParent(personRoot, false);
-            shadow.transform.localPosition = new Vector3(0f, 0.010f * PassengerVisualScale, 0f);
-            shadow.transform.localScale = new Vector3(0.070f, 0.012f, 0.052f) * PassengerVisualScale;
-            shadow.GetComponent<Renderer>().sharedMaterial = shadowMaterial;
+            GroundShadowBuilder.CreatePassengerShadow(
+                personRoot,
+                new Vector3(0f, 0.006f * PassengerVisualScale, 0.002f * PassengerVisualScale),
+                0.145f * PassengerVisualScale,
+                0.095f * PassengerVisualScale);
 
             var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             body.name = "Body";

@@ -5,7 +5,7 @@ namespace BusPuzzle
 {
     public static class LevelGenerator
     {
-        private const int MaxGenerationAttempts = 80;
+        private const int DefaultMaxGenerationAttempts = 80;
         private const int MaxPlacementAttemptsPerVehicle = 420;
 
         private static readonly PuzzleColor[] ColorPool =
@@ -45,19 +45,89 @@ namespace BusPuzzle
             return level;
         }
 
+        public static LevelData CreateRuntimeStage(
+            StageGenerationRequest request,
+            GarageGenerationRule garageRule,
+            int candidateOffset = 0,
+            int vehicleGenerationAttempts = DefaultMaxGenerationAttempts,
+            bool useSolutionAnalyzer = true)
+        {
+            var level = ScriptableObject.CreateInstance<LevelData>();
+            level.hideFlags = HideFlags.DontSave;
+
+            var seed = request.Seed + candidateOffset * 7919;
+            var random = new System.Random(seed);
+            var colors = PickColorSet(request.Profile.TargetColorCount);
+            var garages = BuildGarages(request, garageRule, random, colors);
+            var garageVehicleCount = CountGarageVehicles(garages);
+            var regularVehicleTarget = Mathf.Max(4, request.Profile.TargetVehicleCount - garageVehicleCount);
+            var buses = BuildVehicles(
+                request.Profile,
+                seed + 313,
+                regularVehicleTarget,
+                garages,
+                vehicleGenerationAttempts,
+                useSolutionAnalyzer);
+            var flowPlan = BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
+
+            level.ConfigureWithPassengerFlowPlan(
+                $"Stage {request.StageNumber:000} {request.Difficulty}",
+                request.Profile,
+                flowPlan,
+                buses,
+                GetRotaryCapacity(request.Difficulty),
+                request.RoadPresetId,
+                null,
+                garages);
+
+            return level;
+        }
+
         public static List<BusDefinition> BuildVehicles(LevelDifficultyProfile profile, int seed)
         {
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            return BuildVehicles(profile, seed, profile.TargetVehicleCount, null);
+        }
 
-            var targetVehicleCount = profile.TargetVehicleCount;
+        public static List<BusDefinition> BuildVehicles(
+            LevelDifficultyProfile profile,
+            int seed,
+            int targetVehicleCount,
+            IReadOnlyList<GarageDefinition> garages)
+        {
+            return BuildVehicles(profile, seed, targetVehicleCount, garages, DefaultMaxGenerationAttempts);
+        }
+
+        public static List<BusDefinition> BuildVehicles(
+            LevelDifficultyProfile profile,
+            int seed,
+            int targetVehicleCount,
+            IReadOnlyList<GarageDefinition> garages,
+            int maxGenerationAttempts)
+        {
+            return BuildVehicles(profile, seed, targetVehicleCount, garages, maxGenerationAttempts, true);
+        }
+
+        public static List<BusDefinition> BuildVehicles(
+            LevelDifficultyProfile profile,
+            int seed,
+            int targetVehicleCount,
+            IReadOnlyList<GarageDefinition> garages,
+            int maxGenerationAttempts,
+            bool useSolutionAnalyzer)
+        {
+            profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+
+            targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 50);
+            maxGenerationAttempts = Mathf.Clamp(maxGenerationAttempts, 1, DefaultMaxGenerationAttempts);
             var bestVehicles = new List<BusDefinition>();
             var bestExitCount = -1;
 
-            for (var attempt = 0; attempt < MaxGenerationAttempts; attempt++)
+            for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
             {
                 var random = new System.Random(seed + attempt * 9973);
-                var vehicles = TryBuildVehicleSet(profile, random, targetVehicleCount);
-                if (LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out var exitOrder, out _))
+                var vehicles = TryBuildVehicleSet(profile, random, targetVehicleCount, garages);
+                if (HasPlayableExitOrder(vehicles, garages, useSolutionAnalyzer, out var exitOrder))
                 {
                     return vehicles;
                 }
@@ -72,6 +142,21 @@ namespace BusPuzzle
             return bestVehicles;
         }
 
+        private static bool HasPlayableExitOrder(
+            IReadOnlyList<BusDefinition> vehicles,
+            IReadOnlyList<GarageDefinition> garages,
+            bool useSolutionAnalyzer,
+            out List<int> exitOrder)
+        {
+            LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out exitOrder, out _);
+            if (!useSolutionAnalyzer)
+            {
+                return vehicles != null && vehicles.Count > 0 && exitOrder.Count == vehicles.Count;
+            }
+
+            return StageSolutionAnalyzer.Analyze(vehicles, garages, 2).IsSolvable;
+        }
+
         public static PassengerFlowPlan BuildPassengerFlowPlan(
             LevelDifficultyProfile profile,
             IReadOnlyList<BusDefinition> buses,
@@ -79,7 +164,21 @@ namespace BusPuzzle
         {
             var flowPlan = new PassengerFlowPlan();
             var solutionRoute = BuildSolutionRoute(profile, buses);
-            flowPlan.ConfigureRatioByDifficultyWithSolutionRoute(solutionRoute, seed, true);
+            var rule = GetPassengerFlowRule(profile);
+            flowPlan.ConfigureSolutionRoute(solutionRoute, rule.MinGroupUnits, rule.MaxGroupUnits, true, seed);
+            return flowPlan;
+        }
+
+        public static PassengerFlowPlan BuildPassengerFlowPlan(
+            LevelDifficultyProfile profile,
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<GarageDefinition> garages,
+            int seed)
+        {
+            var flowPlan = new PassengerFlowPlan();
+            var solutionRoute = BuildSolutionRoute(profile, buses, garages);
+            var rule = GetPassengerFlowRule(profile);
+            flowPlan.ConfigureSolutionRoute(solutionRoute, rule.MinGroupUnits, rule.MaxGroupUnits, true, seed);
             return flowPlan;
         }
 
@@ -112,14 +211,15 @@ namespace BusPuzzle
         private static List<BusDefinition> TryBuildVehicleSet(
             LevelDifficultyProfile profile,
             System.Random random,
-            int targetVehicleCount)
+            int targetVehicleCount,
+            IReadOnlyList<GarageDefinition> garages)
         {
             var vehicles = new List<BusDefinition>();
             var colors = PickColorSet(profile.TargetColorCount);
 
             for (var vehicleIndex = 0; vehicleIndex < targetVehicleCount; vehicleIndex++)
             {
-                if (!TryPlaceVehicle(profile, random, vehicles, colors, vehicleIndex, out var vehicle))
+                if (!TryPlaceVehicle(profile, random, vehicles, colors, garages, vehicleIndex, out var vehicle))
                 {
                     continue;
                 }
@@ -135,6 +235,7 @@ namespace BusPuzzle
             System.Random random,
             IReadOnlyList<BusDefinition> placedVehicles,
             IReadOnlyList<PuzzleColor> colors,
+            IReadOnlyList<GarageDefinition> garages,
             int vehicleIndex,
             out BusDefinition vehicle)
         {
@@ -148,7 +249,7 @@ namespace BusPuzzle
                 var positionOffset = PickPositionOffset(profile.ParkingTension, random);
                 var candidate = new BusDefinition(color, size, direction, position, angleOffsetDegrees, positionOffset);
 
-                if (IsPlaceable(candidate, placedVehicles))
+                if (IsPlaceable(candidate, placedVehicles, garages))
                 {
                     vehicle = candidate;
                     return true;
@@ -159,7 +260,10 @@ namespace BusPuzzle
             return false;
         }
 
-        private static bool IsPlaceable(BusDefinition candidate, IReadOnlyList<BusDefinition> placedVehicles)
+        private static bool IsPlaceable(
+            BusDefinition candidate,
+            IReadOnlyList<BusDefinition> placedVehicles,
+            IReadOnlyList<GarageDefinition> garages)
         {
             if (!BoardLayoutConfig.IsInsideGrid(candidate.GridPosition) || IsNearBoardEdge(candidate))
             {
@@ -170,13 +274,45 @@ namespace BusPuzzle
             for (var index = 0; index < placedVehicles.Count; index++)
             {
                 var otherFootprint = BoardLayoutConfig.GetVehicleFootprintCells(placedVehicles[index]);
-                if (candidateFootprint.Overlaps(otherFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
+                if (candidateFootprint.IsWithinPadding(otherFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
+                {
+                    return false;
+                }
+
+                if (CreatesMutualPathBlock(candidate, placedVehicles[index]))
                 {
                     return false;
                 }
             }
 
+            if (garages != null)
+            {
+                for (var index = 0; index < garages.Count; index++)
+                {
+                    if (candidateFootprint.IsWithinPadding(GetGarageFootprint(garages[index]), BoardLayoutConfig.VehicleNearPaddingCells) ||
+                        candidateFootprint.IsWithinPadding(BoardLayoutConfig.GetVehicleFootprintCells(garages[index].FrontVehicle), BoardLayoutConfig.VehicleNearPaddingCells))
+                    {
+                        return false;
+                    }
+
+                    if (CreatesMutualPathBlock(candidate, garages[index].FrontVehicle))
+                    {
+                        return false;
+                    }
+                }
+            }
+
             return true;
+        }
+
+        private static bool CreatesMutualPathBlock(BusDefinition first, BusDefinition second)
+        {
+            var pair = new List<BusDefinition> { first, second };
+            var active = new[] { true, true };
+            return !LevelVehicleExitPlanner.IsPathClear(0, pair, active, out var firstBlockingIndex) &&
+                firstBlockingIndex == 1 &&
+                !LevelVehicleExitPlanner.IsPathClear(1, pair, active, out var secondBlockingIndex) &&
+                secondBlockingIndex == 0;
         }
 
         private static bool IsNearBoardEdge(BusDefinition vehicle)
@@ -210,6 +346,38 @@ namespace BusPuzzle
             return route;
         }
 
+        private static List<SolutionBusStepDefinition> BuildSolutionRoute(
+            LevelDifficultyProfile profile,
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<GarageDefinition> garages)
+        {
+            var route = new List<SolutionBusStepDefinition>();
+            var state = SolutionRouteState.Create(buses, garages);
+
+            var removedAny = true;
+            while (removedAny && state.HasActiveVehicles)
+            {
+                removedAny = false;
+
+                for (var index = 0; index < state.Vehicles.Count; index++)
+                {
+                    if (!state.Active[index] ||
+                        !LevelVehicleExitPlanner.IsPathClear(index, state.Vehicles, state.Active, state.ActiveGarageObstacles, out _))
+                    {
+                        continue;
+                    }
+
+                    var bus = state.Vehicles[index];
+                    route.Add(new SolutionBusStepDefinition(bus.Color, bus.Size, GetPreferredGroupUnits(profile, bus)));
+                    state.RemoveVehicle(index);
+                    removedAny = true;
+                }
+            }
+
+            AppendMissingRouteVehicles(profile, route, state);
+            return route;
+        }
+
         private static List<int> BuildCompleteOrder(int count, IReadOnlyList<int> preferredOrder)
         {
             var indices = new List<int>();
@@ -238,10 +406,44 @@ namespace BusPuzzle
 
         private static int GetPreferredGroupUnits(LevelDifficultyProfile profile, BusDefinition bus)
         {
-            var rule = profile != null
+            var rule = GetPassengerFlowRule(profile);
+            return Mathf.Clamp(bus.CapacityUnits, rule.MinGroupUnits, rule.MaxGroupUnits);
+        }
+
+        private static PassengerFlowDifficultyRule GetPassengerFlowRule(LevelDifficultyProfile profile)
+        {
+            return profile != null
                 ? profile.PassengerFlowRule
                 : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal).PassengerFlowRule;
-            return Mathf.Clamp(bus.CapacityUnits, rule.MinGroupUnits, rule.MaxGroupUnits);
+        }
+
+        private static void AppendMissingRouteVehicles(
+            LevelDifficultyProfile profile,
+            List<SolutionBusStepDefinition> route,
+            SolutionRouteState state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < state.Vehicles.Count; index++)
+            {
+                if (!state.Active[index])
+                {
+                    continue;
+                }
+
+                var bus = state.Vehicles[index];
+                route.Add(new SolutionBusStepDefinition(bus.Color, bus.Size, GetPreferredGroupUnits(profile, bus)));
+            }
+
+            var queuedVehicles = state.GetQueuedGarageVehicles();
+            for (var index = 0; index < queuedVehicles.Count; index++)
+            {
+                var bus = queuedVehicles[index];
+                route.Add(new SolutionBusStepDefinition(bus.Color, bus.Size, GetPreferredGroupUnits(profile, bus)));
+            }
         }
 
         private static List<PuzzleColor> PickColorSet(int targetColorCount)
@@ -316,6 +518,293 @@ namespace BusPuzzle
             return new Vector2(
                 Mathf.Lerp(-maxOffset, maxOffset, (float)random.NextDouble()),
                 Mathf.Lerp(-maxOffset, maxOffset, (float)random.NextDouble()));
+        }
+
+        private static List<GarageDefinition> BuildGarages(
+            StageGenerationRequest request,
+            GarageGenerationRule garageRule,
+            System.Random random,
+            IReadOnlyList<PuzzleColor> colors)
+        {
+            var garages = new List<GarageDefinition>();
+            if (request.GarageCount <= 0 || garageRule == null || !garageRule.Enabled)
+            {
+                return garages;
+            }
+
+            var vehicleCursor = 0;
+            for (var garageIndex = 0; garageIndex < request.GarageCount; garageIndex++)
+            {
+                if (!TryPlaceGarage(request, garageRule, random, colors, garages, ref vehicleCursor, out var garage))
+                {
+                    continue;
+                }
+
+                garages.Add(garage);
+            }
+
+            return garages;
+        }
+
+        private static bool TryPlaceGarage(
+            StageGenerationRequest request,
+            GarageGenerationRule garageRule,
+            System.Random random,
+            IReadOnlyList<PuzzleColor> colors,
+            IReadOnlyList<GarageDefinition> placedGarages,
+            ref int vehicleCursor,
+            out GarageDefinition garage)
+        {
+            for (var attempt = 0; attempt < MaxPlacementAttemptsPerVehicle; attempt++)
+            {
+                var localVehicleCursor = vehicleCursor;
+                var exitDirection = PickDirection(random);
+                var garageCell = PickGarageGridPosition(exitDirection, random);
+                var frontCell = garageCell + GridDirectionUtility.ToGridVector(exitDirection);
+                if (!BoardLayoutConfig.IsInsideGrid(frontCell))
+                {
+                    continue;
+                }
+
+                var frontVehicle = CreateGarageVehicle(request, random, colors, localVehicleCursor++, exitDirection, frontCell);
+                var queuedCount = random.Next(garageRule.MinQueuedVehiclesPerGarage, garageRule.MaxQueuedVehiclesPerGarage + 1);
+                var queuedVehicles = new List<BusDefinition>();
+                for (var queueIndex = 0; queueIndex < queuedCount; queueIndex++)
+                {
+                    queuedVehicles.Add(CreateGarageVehicle(request, random, colors, localVehicleCursor++, exitDirection, frontCell));
+                }
+
+                var candidate = new GarageDefinition(garageCell, exitDirection, frontVehicle, queuedVehicles);
+                if (IsGaragePlaceable(candidate, placedGarages))
+                {
+                    vehicleCursor = localVehicleCursor;
+                    garage = candidate;
+                    return true;
+                }
+            }
+
+            garage = default;
+            return false;
+        }
+
+        private static BusDefinition CreateGarageVehicle(
+            StageGenerationRequest request,
+            System.Random random,
+            IReadOnlyList<PuzzleColor> colors,
+            int vehicleIndex,
+            GridDirection exitDirection,
+            Vector2Int frontCell)
+        {
+            var color = colors[vehicleIndex % colors.Count];
+            var size = PickSize(request.Difficulty, random);
+            var angleOffset = PickAngleOffset(request.Profile, random) * 0.35f;
+            return new BusDefinition(color, size, exitDirection, frontCell, angleOffset, Vector2.zero);
+        }
+
+        private static Vector2Int PickGarageGridPosition(GridDirection exitDirection, System.Random random)
+        {
+            var margin = 1;
+            var x = random.Next(margin, BoardLayoutConfig.GridColumns - margin);
+            var y = random.Next(margin, BoardLayoutConfig.GridRows - margin);
+            var cell = new Vector2Int(x, y);
+
+            if (exitDirection == GridDirection.Left)
+            {
+                cell.x = Mathf.Max(1, cell.x);
+            }
+            else if (exitDirection == GridDirection.Right)
+            {
+                cell.x = Mathf.Min(BoardLayoutConfig.GridColumns - 2, cell.x);
+            }
+            else if (exitDirection == GridDirection.Down)
+            {
+                cell.y = Mathf.Max(1, cell.y);
+            }
+            else if (exitDirection == GridDirection.Up)
+            {
+                cell.y = Mathf.Min(BoardLayoutConfig.GridRows - 2, cell.y);
+            }
+
+            return cell;
+        }
+
+        private static bool IsGaragePlaceable(GarageDefinition candidate, IReadOnlyList<GarageDefinition> placedGarages)
+        {
+            var garageFootprint = GetGarageFootprint(candidate);
+            var frontFootprint = BoardLayoutConfig.GetVehicleFootprintCells(candidate.FrontVehicle);
+            if (garageFootprint.Overlaps(frontFootprint))
+            {
+                return false;
+            }
+
+            for (var index = 0; index < placedGarages.Count; index++)
+            {
+                var placedGarageFootprint = GetGarageFootprint(placedGarages[index]);
+                var placedFrontFootprint = BoardLayoutConfig.GetVehicleFootprintCells(placedGarages[index].FrontVehicle);
+                if (garageFootprint.IsWithinPadding(placedGarageFootprint, BoardLayoutConfig.VehicleNearPaddingCells) ||
+                    garageFootprint.IsWithinPadding(placedFrontFootprint, BoardLayoutConfig.VehicleNearPaddingCells) ||
+                    frontFootprint.IsWithinPadding(placedGarageFootprint, BoardLayoutConfig.VehicleNearPaddingCells) ||
+                    frontFootprint.IsWithinPadding(placedFrontFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static VehicleFootprint GetGarageFootprint(GarageDefinition garage)
+        {
+            return new VehicleFootprint(
+                new Vector3(garage.GridPosition.x, 0f, garage.GridPosition.y),
+                Vector3.right,
+                Vector3.forward,
+                0.45f,
+                0.45f);
+        }
+
+        private static int CountGarageVehicles(IReadOnlyList<GarageDefinition> garages)
+        {
+            var count = 0;
+            if (garages == null)
+            {
+                return count;
+            }
+
+            for (var index = 0; index < garages.Count; index++)
+            {
+                count += garages[index].TotalVehicleCount;
+            }
+
+            return count;
+        }
+
+        private sealed class SolutionRouteState
+        {
+            public readonly List<BusDefinition> Vehicles = new List<BusDefinition>();
+            public readonly List<GarageDefinition> ActiveGarageObstacles = new List<GarageDefinition>();
+            public bool[] Active;
+
+            private readonly int[] garageIndexByVehicle;
+            private readonly List<GarageDefinition> garages = new List<GarageDefinition>();
+            private readonly List<Queue<BusDefinition>> garageQueues = new List<Queue<BusDefinition>>();
+
+            private SolutionRouteState(int vehicleCount)
+            {
+                Active = new bool[vehicleCount];
+                garageIndexByVehicle = new int[vehicleCount];
+                for (var index = 0; index < garageIndexByVehicle.Length; index++)
+                {
+                    garageIndexByVehicle[index] = -1;
+                }
+            }
+
+            public bool HasActiveVehicles
+            {
+                get
+                {
+                    for (var index = 0; index < Active.Length; index++)
+                    {
+                        if (Active[index])
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+            }
+
+            public static SolutionRouteState Create(
+                IReadOnlyList<BusDefinition> buses,
+                IReadOnlyList<GarageDefinition> garages)
+            {
+                var busCount = buses != null ? buses.Count : 0;
+                var garageCount = garages != null ? garages.Count : 0;
+                var state = new SolutionRouteState(busCount + garageCount);
+
+                if (buses != null)
+                {
+                    for (var index = 0; index < buses.Count; index++)
+                    {
+                        state.Vehicles.Add(buses[index]);
+                        state.Active[index] = true;
+                    }
+                }
+
+                if (garages != null)
+                {
+                    for (var garageIndex = 0; garageIndex < garages.Count; garageIndex++)
+                    {
+                        var garage = garages[garageIndex];
+                        var vehicleIndex = state.Vehicles.Count;
+                        state.Vehicles.Add(garage.FrontVehicle);
+                        state.Active[vehicleIndex] = true;
+                        state.garageIndexByVehicle[vehicleIndex] = garageIndex;
+                        state.garages.Add(garage);
+                        state.garageQueues.Add(new Queue<BusDefinition>(garage.QueuedVehicles));
+                        state.ActiveGarageObstacles.Add(garage);
+                    }
+                }
+
+                return state;
+            }
+
+            public void RemoveVehicle(int vehicleIndex)
+            {
+                var garageIndex = garageIndexByVehicle[vehicleIndex];
+                if (garageIndex < 0)
+                {
+                    Active[vehicleIndex] = false;
+                    return;
+                }
+
+                var queue = garageQueues[garageIndex];
+                if (queue.Count == 0)
+                {
+                    Active[vehicleIndex] = false;
+                    RemoveGarageObstacle(garageIndex);
+                    return;
+                }
+
+                Vehicles[vehicleIndex] = queue.Dequeue();
+                if (queue.Count == 0)
+                {
+                    RemoveGarageObstacle(garageIndex);
+                }
+            }
+
+            public List<BusDefinition> GetQueuedGarageVehicles()
+            {
+                var queuedVehicles = new List<BusDefinition>();
+                for (var garageIndex = 0; garageIndex < garageQueues.Count; garageIndex++)
+                {
+                    foreach (var bus in garageQueues[garageIndex])
+                    {
+                        queuedVehicles.Add(bus);
+                    }
+                }
+
+                return queuedVehicles;
+            }
+
+            private void RemoveGarageObstacle(int garageIndex)
+            {
+                if (garageIndex < 0 || garageIndex >= garages.Count)
+                {
+                    return;
+                }
+
+                var garagePosition = garages[garageIndex].GridPosition;
+                for (var index = ActiveGarageObstacles.Count - 1; index >= 0; index--)
+                {
+                    if (ActiveGarageObstacles[index].GridPosition == garagePosition)
+                    {
+                        ActiveGarageObstacles.RemoveAt(index);
+                        return;
+                    }
+                }
+            }
         }
     }
 }

@@ -32,7 +32,6 @@ namespace BusPuzzle
             var slotShadowMaterial = PuzzlePalette.CreateSolidMaterial("Station Slot Shadow", new Color(0.23f, 0.27f, 0.34f));
             var slotOutlineMaterial = PuzzlePalette.CreateSolidMaterial("Station Slot Line", new Color(0.72f, 0.77f, 0.86f));
             var lockedMaterial = PuzzlePalette.CreateSolidMaterial("Locked Ad Slot", new Color(0.31f, 0.35f, 0.44f));
-            var freeMaterial = PuzzlePalette.CreateSolidMaterial("Vip Station Badge", new Color(0.86f, 0.63f, 0.08f));
             var totalStationSlots = freeSlotCount + activeSlotCount + lockedSlotCount;
             var platformWidth = (totalStationSlots - 1) * slotSpacing + slotWidth + PlatformBaseExtraWidth;
             var platformDepth = slotDepth + PlatformBaseExtraDepth;
@@ -46,7 +45,7 @@ namespace BusPuzzle
                 platformMaterial);
 
             CreateBayDividers(stationRoot, totalStationSlots, slotSpacing, slotDepth, stationZ, stationRotation, dividerMaterial);
-            CreateVipStationSlot(stationRoot, getFreeStationPosition(), slotWidth, slotDepth, cellSize, stationRotation, freeMaterial, slotOutlineMaterial, slotShadowMaterial);
+            CreateVipStationSlot(stationRoot, getFreeStationPosition(), slotWidth, slotDepth, cellSize, stationRotation);
 
             for (var index = 0; index < activeSlotCount; index++)
             {
@@ -55,7 +54,7 @@ namespace BusPuzzle
 
             for (var index = 0; index < lockedSlotCount; index++)
             {
-                CreateLockedStationSlot(stationRoot, $"Ad Locked Slot {index + 1}", getLockedStationPosition(index), slotWidth, slotDepth, cellSize, stationRotation, slotOutlineMaterial, lockedMaterial, slotShadowMaterial);
+                CreateLockedStationSlot(stationRoot, $"Ad Locked Slot {index + 1}", index, getLockedStationPosition(index), slotWidth, slotDepth, cellSize, stationRotation, slotOutlineMaterial, lockedMaterial, slotShadowMaterial);
             }
         }
 
@@ -125,6 +124,7 @@ namespace BusPuzzle
         private static void CreateLockedStationSlot(
             Transform root,
             string name,
+            int lockedSlotIndex,
             Vector3 position,
             float slotWidth,
             float slotDepth,
@@ -137,8 +137,9 @@ namespace BusPuzzle
             CreateStationSlotOutline(root, name, position, slotWidth, slotDepth, stationRotation, outlineMaterial, lockedMaterial, shadowMaterial);
 
             var plusMaterial = PuzzlePalette.CreateSolidMaterial("Slot Plus", new Color(0.24f, 0.90f, 0.42f));
-            CreatePlusBar(root, $"{name} Plus Vertical", position, new Vector3(0.046f, 0.04f, 0.18f), stationRotation, plusMaterial);
-            CreatePlusBar(root, $"{name} Plus Horizontal", position, new Vector3(0.16f, 0.04f, 0.046f), stationRotation, plusMaterial);
+            CreatePlusBar(root, $"{name} Plus Vertical", position, new Vector3(slotWidth * 0.16f, 0.04f, slotDepth * 0.29f), stationRotation, plusMaterial);
+            CreatePlusBar(root, $"{name} Plus Horizontal", position, new Vector3(slotWidth * 0.55f, 0.04f, slotDepth * 0.075f), stationRotation, plusMaterial);
+            CreateUnlockTouchTarget(root, $"{name} Touch Target", lockedSlotIndex, position, slotWidth, slotDepth, cellSize, stationRotation);
         }
 
         private static void CreateVipStationSlot(
@@ -147,25 +148,147 @@ namespace BusPuzzle
             float slotWidth,
             float slotDepth,
             float cellSize,
-            Quaternion stationRotation,
-            Material vipMaterial,
-            Material outlineMaterial,
-            Material shadowMaterial)
+            Quaternion stationRotation)
         {
-            CreateStationSlotOutline(root, "Vip Station Slot", position, slotWidth, slotDepth, stationRotation, outlineMaterial, vipMaterial, shadowMaterial);
+            var vipAuraMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Warm Aura", new Color(1.00f, 0.86f, 0.20f, 0.13f));
+            var vipGlowMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Gold Glow", new Color(1.00f, 0.78f, 0.18f, 0.24f));
+            var vipEdgeMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Soft Gold Edge", new Color(1.00f, 0.84f, 0.22f, 0.48f));
+            var vipOuterRimMaterial = PuzzlePalette.CreateSolidMaterial("Vip Station Outer Gold Rim", new Color(0.95f, 0.62f, 0.00f));
+            var vipInnerRimMaterial = PuzzlePalette.CreateSolidMaterial("Vip Station Cream Gold Rim", new Color(1.00f, 0.90f, 0.36f));
+            var vipInteriorMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Gold Interior", new Color(1.00f, 0.91f, 0.50f, 0.58f));
+            var vipSheenMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Diagonal Sheen", new Color(1.00f, 0.98f, 0.78f, 0.26f));
+            var vipLightStreakMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Light Streak", new Color(1.00f, 0.98f, 0.76f, 0.54f));
+            var vipLabelColor = new Color(1.00f, 0.70f, 0.00f);
+            var vipLabelShadowColor = new Color(0.42f, 0.25f, 0.00f, 0.58f);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Station Warm Aura",
+                root,
+                position + Vector3.down * 0.041f,
+                new Vector2(slotWidth + BayShadowPadding * 0.70f, slotDepth + BayShadowPadding * 0.70f),
+                slotWidth * 0.19f,
+                vipAuraMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Station Gold Glow",
+                root,
+                position + Vector3.down * 0.035f,
+                new Vector2(slotWidth + BayShadowPadding * 0.42f, slotDepth + BayShadowPadding * 0.42f),
+                slotWidth * 0.18f,
+                vipGlowMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Station Gold Edge",
+                root,
+                position + Vector3.down * 0.031f,
+                new Vector2(slotWidth - BayInset * 0.10f, slotDepth - BayInset * 0.10f),
+                slotWidth * 0.17f,
+                vipEdgeMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Station Outer Gold Rim",
+                root,
+                position + Vector3.down * 0.026f,
+                new Vector2(slotWidth - BayInset * 0.18f, slotDepth - BayInset * 0.18f),
+                slotWidth * 0.16f,
+                vipOuterRimMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Station Inner Cream Rim",
+                root,
+                position + Vector3.down * 0.020f,
+                new Vector2(slotWidth - BayInset * 0.62f, slotDepth - BayInset * 0.62f),
+                slotWidth * 0.15f,
+                vipInnerRimMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Station Gold Interior",
+                root,
+                position + Vector3.down * 0.014f,
+                new Vector2(slotWidth - BayInset * 1.14f, slotDepth - BayInset * 1.14f),
+                slotWidth * 0.14f,
+                vipInteriorMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRect(
+                "Vip Station Diagonal Sheen",
+                root,
+                position + Vector3.down * 0.009f,
+                new Vector2(slotWidth * 0.12f, slotDepth * 0.88f),
+                vipSheenMaterial,
+                stationRotation * Quaternion.Euler(0f, -23f, 0f));
+
+            BoardGeometry.CreateFlatRect(
+                "Vip Station Top Light Streak",
+                root,
+                position + Vector3.up * 0.010f + stationRotation * new Vector3(-slotWidth * 0.14f, 0f, slotDepth * 0.19f),
+                new Vector2(slotWidth * 0.44f, 0.018f),
+                vipLightStreakMaterial,
+                stationRotation * Quaternion.Euler(0f, -22f, 0f));
+
+            BoardGeometry.CreateFlatRect(
+                "Vip Station Bottom Light Streak",
+                root,
+                position + Vector3.up * 0.011f + stationRotation * new Vector3(slotWidth * 0.12f, 0f, -slotDepth * 0.18f),
+                new Vector2(slotWidth * 0.32f, 0.014f),
+                vipLightStreakMaterial,
+                stationRotation * Quaternion.Euler(0f, -22f, 0f));
+
+            BoardGeometry.CreateFlatRect(
+                "Vip Station Gold Stop Line",
+                root,
+                position + Vector3.down * 0.002f - stationRotation * Vector3.forward * (slotDepth * 0.34f),
+                new Vector2(slotWidth * 0.52f, 0.022f),
+                vipOuterRimMaterial,
+                stationRotation);
+
             BoardGeometry.CreateFlatRoundedRect(
                 "Vip Station Inner Badge",
                 root,
-                position + Vector3.down * 0.004f,
-                new Vector2(slotWidth - 0.075f, slotDepth - 0.075f),
+                position + Vector3.up * 0.004f,
+                new Vector2(slotWidth - 0.095f, slotDepth - 0.095f),
                 slotWidth * 0.13f,
-                vipMaterial,
+                vipInteriorMaterial,
                 stationRotation);
 
-            CreateStationLabel(root, "Vip Station Label", position, "V\nI\nP", new Color(0.34f, 0.25f, 0.04f), cellSize * 0.083f, stationRotation);
+            CreateStationLabel(
+                root,
+                "Vip Station Label Shadow",
+                position + stationRotation * new Vector3(0.010f, 0f, -0.012f),
+                "V\nI\nP",
+                vipLabelShadowColor,
+                Mathf.Max(cellSize * 0.091f, slotWidth * 0.098f),
+                stationRotation,
+                FontStyle.Bold,
+                52);
+
+            CreateStationLabel(
+                root,
+                "Vip Station Label",
+                position,
+                "V\nI\nP",
+                vipLabelColor,
+                Mathf.Max(cellSize * 0.091f, slotWidth * 0.098f),
+                stationRotation,
+                FontStyle.Bold,
+                52);
         }
 
-        private static void CreateStationLabel(Transform root, string name, Vector3 position, string label, Color color, float characterSize, Quaternion stationRotation)
+        private static void CreateStationLabel(
+            Transform root,
+            string name,
+            Vector3 position,
+            string label,
+            Color color,
+            float characterSize,
+            Quaternion stationRotation,
+            FontStyle fontStyle = FontStyle.Normal,
+            int fontSize = 48)
         {
             var labelObject = new GameObject(name);
             labelObject.transform.SetParent(root, false);
@@ -178,7 +301,8 @@ namespace BusPuzzle
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
             text.characterSize = characterSize;
-            text.fontSize = 48;
+            text.fontSize = fontSize;
+            text.fontStyle = fontStyle;
             text.color = color;
 
             var renderer = labelObject.GetComponent<MeshRenderer>();
@@ -195,6 +319,27 @@ namespace BusPuzzle
                 new Vector2(scale.x, scale.z),
                 material,
                 stationRotation);
+        }
+
+        private static void CreateUnlockTouchTarget(
+            Transform root,
+            string name,
+            int lockedSlotIndex,
+            Vector3 position,
+            float slotWidth,
+            float slotDepth,
+            float cellSize,
+            Quaternion stationRotation)
+        {
+            var targetObject = new GameObject(name);
+            targetObject.transform.SetParent(root, false);
+            targetObject.transform.SetPositionAndRotation(position + Vector3.up * (cellSize * 0.18f), stationRotation);
+
+            var collider = targetObject.AddComponent<BoxCollider>();
+            collider.size = new Vector3(slotWidth * 1.45f, cellSize * 0.36f, slotDepth * 1.12f);
+            collider.center = Vector3.zero;
+
+            targetObject.AddComponent<StationSlotUnlockTarget>().Initialize(lockedSlotIndex);
         }
     }
 }

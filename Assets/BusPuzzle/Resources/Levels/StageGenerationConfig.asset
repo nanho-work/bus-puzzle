@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9061ec0a61c04f65868e40d63e0606ce, type: 3}
+  m_Name: StageGenerationConfig
+  m_EditorClassIdentifier: 
+  generatedStageCount: 50
+  baseSeed: 10000
+  candidateAttemptsPerStage: 80
+  runtimeCandidateAttemptsPerStage: 2
+  runtimeVehicleGenerationAttempts: 8
+  solutionCountLimit: 256
+  runtimePreloadAheadCount: 3
+  difficultyPattern:
+  - 0
+  - 0
+  - 0
+  - 1
+  - 2
+  normalRule:
+    difficulty: 0
+    earlyVehicleCount: 25
+    lateVehicleCount: 38
+    earlyColorCount: 5
+    lateColorCount: 8
+    earlyParkingTension: 0.3
+    lateParkingTension: 0.55
+    earlyStationPressure: 0.25
+    lateStationPressure: 0.52
+    minSolutionCount: 80
+    maxSolutionCount: 256
+    requireSolutionRoute: 0
+  hardRule:
+    difficulty: 1
+    earlyVehicleCount: 28
+    lateVehicleCount: 42
+    earlyColorCount: 6
+    lateColorCount: 9
+    earlyParkingTension: 0.45
+    lateParkingTension: 0.68
+    earlyStationPressure: 0.4
+    lateStationPressure: 0.68
+    minSolutionCount: 18
+    maxSolutionCount: 96
+    requireSolutionRoute: 1
+  superHardRule:
+    difficulty: 2
+    earlyVehicleCount: 32
+    lateVehicleCount: 50
+    earlyColorCount: 7
+    lateColorCount: 10
+    earlyParkingTension: 0.58
+    lateParkingTension: 0.82
+    earlyStationPressure: 0.55
+    lateStationPressure: 0.82
+    minSolutionCount: 1
+    maxSolutionCount: 24
+    requireSolutionRoute: 1
+  superHardGarageRule:
+    enabled: 1
+    earlyMinGarageCount: 1
+    earlyMaxGarageCount: 2
+    lateMinGarageCount: 3
+    lateMaxGarageCount: 5
+    minQueuedVehiclesPerGarage: 1
+    maxQueuedVehiclesPerGarage: 4

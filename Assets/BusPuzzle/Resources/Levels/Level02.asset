@@ -13,6 +13,20 @@ MonoBehaviour:
   m_Name: Level02
   m_EditorClassIdentifier: 
   levelName: Crosswalk Mix
+  difficultyProfile:
+    difficulty: 1
+    passengerFlowRule:
+      minMainGroupRatio: 0.25
+      maxMainGroupRatio: 0.5
+      minGroupUnits: 2
+      maxGroupUnits: 7
+      interferenceRatio: 0.38
+      preserveSolutionRoute: 1
+    targetVehicleCount: 4
+    targetColorCount: 4
+    parkingTension: 0.4
+    stationPressure: 0.45
+    requireSolutionRoute: 0
   roadPresetId: 0
   roadPresetAsset: {fileID: 11400000, guid: 9f0d8c6e4b6a4d62b1a42f07e9b1a001, type: 2}
   rotaryUnitCapacity: 30
@@ -36,6 +50,15 @@ MonoBehaviour:
   - 1
   - 2
   - 0
+  passengerFlowPlan:
+    enabled: 0
+    mode: 0
+    seed: 2001
+    minGroupUnits: 2
+    maxGroupUnits: 7
+    autoFillMissingCapacity: 1
+    groups: []
+    solutionRoute: []
   buses:
   - color: 0
     size: 1

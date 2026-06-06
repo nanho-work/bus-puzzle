@@ -8,8 +8,6 @@ namespace BusPuzzle
     {
         private const string FeedbackEmailAddress = "support@buspuzzle.app";
         private const string PrivacyPolicyUrl = "https://buspuzzle.app/privacy";
-        private const string HeaderMenuIconResource = "UI/Boosters/re";
-        private const string HeaderSettingsIconResource = "UI/Boosters/set";
         private const string VipBoosterIconResource = "UI/Boosters/booster_vip";
         private const string MixBoosterIconResource = "UI/Boosters/booster_mix";
         private const string GoldIconResource = "UI/Boosters/gold";
@@ -18,6 +16,9 @@ namespace BusPuzzle
         private const int HeaderGoldFontSize = 34;
         private const float BoosterIconSize = 144f;
 
+        private RectTransform safeAreaRoot;
+        private Rect lastSafeArea;
+        private Vector2Int lastScreenSize;
         private Text levelText;
         private Text goldText;
         private Text statusText;
@@ -29,9 +30,14 @@ namespace BusPuzzle
         private Button vipButton;
         private Button mixButton;
         private Button nextButton;
+        private Text nextButtonText;
         private RectTransform settingsPanel;
         private RectTransform clearPrompt;
         private Text clearPromptText;
+        private RectTransform failPrompt;
+        private Text failPromptText;
+        private RectTransform exitPrompt;
+        private Text exitPromptText;
         private Toggle effectSoundToggle;
         private Toggle mainSoundToggle;
         private Toggle vibrationToggle;
@@ -48,11 +54,12 @@ namespace BusPuzzle
         private Button mixShuffleConfirmButton;
         private Text mixShuffleWatchButtonText;
         private static Sprite roundedPanelSprite;
+        private static Sprite circleSprite;
         private static Sprite runtimeGoldIconSprite;
 
         public event Action RestartRequested;
-        public event Action HomeRequested;
         public event Action NextLevelRequested;
+        public event Action ExitConfirmed;
         public event Action StationUnlockConfirmed;
         public event Action VipTeleportRequested;
         public event Action VipTeleportConfirmed;
@@ -77,6 +84,11 @@ namespace BusPuzzle
             var controller = uiObject.GetComponent<GameUiController>();
             controller.BuildLayout();
             return controller;
+        }
+
+        private void LateUpdate()
+        {
+            UpdateSafeArea();
         }
 
         public void SetLevel(int levelNumber, int totalLevels)
@@ -259,8 +271,11 @@ namespace BusPuzzle
         public void ShowPlaying(string levelName)
         {
             statusText.text = string.Empty;
+            SetRestartButtonInteractable(true);
             HideSettingsPanel();
             HideClearPrompt();
+            HideFailPrompt();
+            HideExitPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -278,6 +293,7 @@ namespace BusPuzzle
         public void ShowClear(int levelNumber, bool hasNextLevel, int goldReward)
         {
             statusText.text = hasNextLevel ? "Clear" : "All Clear";
+            SetRestartButtonInteractable(false);
             SetStationUnlock(0, false, false, false);
             SetVipTeleport(0, false, false, false, false, false);
             SetMixShuffle(false, 0, 0, false, false, false);
@@ -285,14 +301,18 @@ namespace BusPuzzle
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
+            HideFailPrompt();
+            HideExitPrompt();
             ShowClearPrompt(levelNumber, hasNextLevel, goldReward);
         }
 
         public void ShowFailed()
         {
             statusText.text = "Failed";
+            SetRestartButtonInteractable(true);
             HideSettingsPanel();
             HideClearPrompt();
+            HideExitPrompt();
             if (nextButton != null)
             {
                 nextButton.interactable = false;
@@ -304,6 +324,29 @@ namespace BusPuzzle
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
+            ShowFailPrompt();
+        }
+
+        public void ShowExitPrompt()
+        {
+            if (exitPrompt == null)
+            {
+                return;
+            }
+
+            HideSettingsPanel();
+            HideStationUnlockPrompt();
+            HideVipTeleportPrompt();
+            HideMixShufflePrompt();
+            exitPrompt.gameObject.SetActive(true);
+        }
+
+        private void SetRestartButtonInteractable(bool isInteractable)
+        {
+            if (menuButton != null)
+            {
+                menuButton.interactable = isInteractable;
+            }
         }
     }
 }

@@ -80,11 +80,13 @@ Rewarded ads are configured through `Assets/BusPuzzle/Resources/Ads/AdMobSetting
 Current known IDs:
 
 - Android app ID: `ca-app-pub-5773331970563455~5379288524`
-- Android station rewarded production ad unit ID: missing, needs the `/...` rewarded unit ID from AdMob
-- Android VIP rewarded production ad unit ID: missing, needs the `/...` rewarded unit ID from AdMob
-- iOS app ID: currently Google's test app ID, needs the production `~...` app ID from AdMob before release
+- Android station rewarded production ad unit ID: `ca-app-pub-5773331970563455/3872285640`
+- Android VIP rewarded production ad unit ID: `ca-app-pub-5773331970563455/3872285640`
+- Android shuffle rewarded production ad unit ID: `ca-app-pub-5773331970563455/3872285640`
+- iOS app ID: `ca-app-pub-5773331970563455~7947262028`
 - iOS station rewarded production ad unit ID: `ca-app-pub-5773331970563455/7771471978`
-- iOS VIP rewarded production ad unit ID: missing, needs the `/...` rewarded unit ID from AdMob
+- iOS VIP rewarded production ad unit ID: `ca-app-pub-5773331970563455/7771471978`
+- iOS shuffle rewarded production ad unit ID: `ca-app-pub-5773331970563455/7771471978`
 
 If Unity cannot download OpenUPM packages, the project falls back to a compile error until package resolution succeeds; this is intentional so ad builds do not silently ship in mock mode.
 

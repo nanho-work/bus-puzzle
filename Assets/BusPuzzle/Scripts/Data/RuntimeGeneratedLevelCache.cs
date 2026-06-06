@@ -9,7 +9,7 @@ namespace BusPuzzle
 {
     public static class RuntimeGeneratedLevelCache
     {
-        private const int CacheVersion = 5;
+        private const int CacheVersion = 6;
         private const string CacheDirectoryName = "generated-stage-cache";
 
         public static bool TryLoad(StageGenerationConfig config, StageGenerationRequest request, out LevelData level)
@@ -36,7 +36,13 @@ namespace BusPuzzle
                 }
 
                 level = payload.ToLevel(request);
-                return level != null;
+                if (!IsCachedLevelUsable(level))
+                {
+                    level = null;
+                    return false;
+                }
+
+                return true;
             }
             catch (Exception exception)
             {
@@ -72,6 +78,21 @@ namespace BusPuzzle
                 Application.persistentDataPath,
                 CacheDirectoryName,
                 $"stage_{stageNumber:000}_{CreateStableHash(signature):x16}.json");
+        }
+
+        private static bool IsCachedLevelUsable(LevelData level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            if (LevelValidator.Validate(level, false).HasErrors)
+            {
+                return false;
+            }
+
+            return StageSolutionAnalyzer.Analyze(level.Buses, level.Garages, 1).IsSolvable;
         }
 
         private static string CreateSignature(StageGenerationConfig config, StageGenerationRequest request)

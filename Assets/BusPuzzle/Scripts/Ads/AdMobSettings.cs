@@ -16,13 +16,13 @@ namespace BusPuzzle
 
         [SerializeField] private bool useProductionAdsInRelease = true;
         [SerializeField] private string androidAppId = "ca-app-pub-5773331970563455~5379288524";
-        [SerializeField] private string iosAppId = IosTestAppId;
-        [SerializeField] private string androidRewardedProductionAdUnitId = "";
+        [SerializeField] private string iosAppId = "ca-app-pub-5773331970563455~7947262028";
+        [SerializeField] private string androidRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/3872285640";
         [SerializeField] private string iosRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
-        [SerializeField] private string androidVipRewardedProductionAdUnitId = "";
-        [SerializeField] private string iosVipRewardedProductionAdUnitId = "";
-        [SerializeField] private string androidShuffleRewardedProductionAdUnitId = "";
-        [SerializeField] private string iosShuffleRewardedProductionAdUnitId = "";
+        [SerializeField] private string androidVipRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/3872285640";
+        [SerializeField] private string iosVipRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
+        [SerializeField] private string androidShuffleRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/3872285640";
+        [SerializeField] private string iosShuffleRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
 
         public bool UseProductionAdsInRelease => useProductionAdsInRelease;
         public string AndroidAppId => androidAppId;

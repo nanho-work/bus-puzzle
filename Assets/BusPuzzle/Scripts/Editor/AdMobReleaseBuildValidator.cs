@@ -11,6 +11,7 @@ namespace BusPuzzle
     public sealed class AdMobReleaseBuildValidator : IPreprocessBuildWithReport
     {
         private const string AdMobScriptingDefine = "BUS_PUZZLE_ADMOB";
+        private const string GoogleMobileAdsSettingsPath = "Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset";
 
         public int callbackOrder => 0;
 
@@ -47,6 +48,7 @@ namespace BusPuzzle
                 throw new BuildFailedException("Release build is still configured with Google's test AdMob app ID.");
             }
 
+            ValidateGoogleMobileAdsSettings(report.summary.platform, appId);
             ValidateProductionRewardedAdUnitId(report.summary.platform, "station slot unlock", stationRewardedId);
             ValidateProductionRewardedAdUnitId(report.summary.platform, "VIP bus teleport", vipRewardedId);
             ValidateProductionRewardedAdUnitId(report.summary.platform, "bus color shuffle", shuffleRewardedId);
@@ -127,6 +129,47 @@ namespace BusPuzzle
             {
                 throw new BuildFailedException($"Release build is still configured with Google's rewarded test ad unit ID for {label}.");
             }
+        }
+
+        private static void ValidateGoogleMobileAdsSettings(BuildTarget target, string expectedAppId)
+        {
+            if (!File.Exists(GoogleMobileAdsSettingsPath))
+            {
+                throw new BuildFailedException($"Google Mobile Ads settings asset is missing: {GoogleMobileAdsSettingsPath}");
+            }
+
+            var settings = File.ReadAllText(GoogleMobileAdsSettingsPath);
+            var fieldName = target == BuildTarget.iOS ? "adMobIOSAppId" : "adMobAndroidAppId";
+            var configuredAppId = ReadYamlField(settings, fieldName);
+            if (configuredAppId != expectedAppId)
+            {
+                throw new BuildFailedException(
+                    $"Google Mobile Ads {fieldName} does not match AdMobSettings for {target}. " +
+                    $"Expected {expectedAppId}, found {configuredAppId}.");
+            }
+
+            if (AdMobSettings.IsGoogleTestAdUnitId(configuredAppId))
+            {
+                throw new BuildFailedException($"Google Mobile Ads {fieldName} is still configured with Google's test app ID.");
+            }
+        }
+
+        private static string ReadYamlField(string contents, string fieldName)
+        {
+            using var reader = new StringReader(contents);
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                var trimmed = line.Trim();
+                if (!trimmed.StartsWith(fieldName + ":", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return trimmed.Substring(fieldName.Length + 1).Trim();
+            }
+
+            return string.Empty;
         }
 
         private static bool HasAdMobScriptingDefine(BuildTarget target)

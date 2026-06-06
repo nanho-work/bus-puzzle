@@ -127,7 +127,7 @@ namespace BusPuzzle
         [SerializeField, Range(1, 500)] private int generatedStageCount = 50;
         [SerializeField] private int baseSeed = 10000;
         [SerializeField, Range(1, 300)] private int candidateAttemptsPerStage = 80;
-        [SerializeField, Range(1, 20)] private int runtimeCandidateAttemptsPerStage = 2;
+        [SerializeField, Range(1, 20)] private int runtimeCandidateAttemptsPerStage = 8;
         [SerializeField, Range(1, 80)] private int runtimeVehicleGenerationAttempts = 8;
         [SerializeField, Range(1, 512)] private int solutionCountLimit = 256;
         [SerializeField, Range(0, 10)] private int runtimePreloadAheadCount = 3;

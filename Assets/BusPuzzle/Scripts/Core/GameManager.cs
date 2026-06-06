@@ -55,7 +55,11 @@ namespace BusPuzzle
 
             EnsureSceneDependencies();
             ConfigureControllers();
-            LoadLevel(Mathf.Max(0, startingLevelIndex));
+            BackgroundMusicPlayer.ApplyPreferences();
+            var initialLevelIndex = startingLevelIndex > 0
+                ? startingLevelIndex
+                : UserProgress.GetLastStageIndex(levelSequence.Count);
+            LoadLevel(initialLevelIndex);
         }
 
         private void OnDestroy()
@@ -69,8 +73,8 @@ namespace BusPuzzle
             }
 
             uiController.RestartRequested -= RestartLevel;
-            uiController.HomeRequested -= LoadHome;
             uiController.NextLevelRequested -= LoadNextLevel;
+            uiController.ExitConfirmed -= QuitApplication;
             uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
             uiController.VipTeleportRequested -= HandleVipTeleportRequested;
             uiController.VipTeleportConfirmed -= RequestVipBusTeleportAd;
@@ -86,6 +90,12 @@ namespace BusPuzzle
 
         private void Update()
         {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                ShowExitPrompt();
+                return;
+            }
+
             if (gameState != GameState.Playing)
             {
                 return;
@@ -147,8 +157,8 @@ namespace BusPuzzle
             }
 
             uiController.RestartRequested += RestartLevel;
-            uiController.HomeRequested += LoadHome;
             uiController.NextLevelRequested += LoadNextLevel;
+            uiController.ExitConfirmed += QuitApplication;
             uiController.StationUnlockConfirmed += RequestStationSlotUnlock;
             uiController.VipTeleportRequested += HandleVipTeleportRequested;
             uiController.VipTeleportConfirmed += RequestVipBusTeleportAd;
@@ -249,6 +259,7 @@ namespace BusPuzzle
             ResetVipTeleportState();
             ResetMixShuffleState();
             currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
+            UserProgress.SaveLastStageIndex(currentLevelIndex, levelSequence.Count);
             currentLevel = levelSequence.GetLevel(currentLevelIndex);
             var shouldValidateExitSequence = levelSequence == null ||
                 !levelSequence.UsesRuntimeGeneration &&
@@ -289,11 +300,6 @@ namespace BusPuzzle
             LoadLevel(currentLevelIndex);
         }
 
-        private void LoadHome()
-        {
-            LoadLevel(0);
-        }
-
         private void LoadNextLevel()
         {
             if (gameState != GameState.Cleared || currentLevelIndex + 1 >= levelSequence.Count)
@@ -302,6 +308,23 @@ namespace BusPuzzle
             }
 
             LoadLevel(currentLevelIndex + 1);
+        }
+
+        private void ShowExitPrompt()
+        {
+            if (uiController != null)
+            {
+                uiController.ShowExitPrompt();
+            }
+        }
+
+        private void QuitApplication()
+        {
+#if UNITY_EDITOR
+            Debug.Log("Exit requested.");
+#else
+            Application.Quit();
+#endif
         }
 
         private void ShowStationUnlockPrompt()
@@ -908,6 +931,11 @@ namespace BusPuzzle
 
             gameState = GameState.Cleared;
             ExitVipSelectionModeForEndState();
+            if (currentLevelIndex + 1 < levelSequence.Count)
+            {
+                UserProgress.SaveLastStageIndex(currentLevelIndex + 1, levelSequence.Count);
+            }
+
             var goldReward = UserEconomy.TryGrantStageClearGold(currentLevelIndex + 1, StageClearGoldReward)
                 ? StageClearGoldReward
                 : 0;
@@ -1016,7 +1044,9 @@ namespace BusPuzzle
 
             uiController.SetStationUnlock(
                 boardView.LockedStationSlots,
-                gameState == GameState.Playing && boardView.CanUnlockStationSlot,
+                gameState == GameState.Playing &&
+                    !IsAnyRewardedAdInProgress &&
+                    boardView.CanUnlockStationSlot,
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
                 isStationUnlockAdInProgress);
         }
@@ -1029,7 +1059,7 @@ namespace BusPuzzle
             }
 
             var canRequest = gameState == GameState.Playing &&
-                !isVipAdInProgress &&
+                !IsAnyRewardedAdInProgress &&
                 RemainingVipTeleportAds > 0 &&
                 HasVipTeleportTarget();
 

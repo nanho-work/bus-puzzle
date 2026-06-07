@@ -67,7 +67,8 @@ namespace BusPuzzle
                 regularVehicleTarget,
                 garages,
                 vehicleGenerationAttempts,
-                useSolutionAnalyzer);
+                useSolutionAnalyzer,
+                request.VehicleLayoutVariantIndex);
             var flowPlan = BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
 
             level.ConfigureWithPassengerFlowPlan(
@@ -114,7 +115,8 @@ namespace BusPuzzle
             int targetVehicleCount,
             IReadOnlyList<GarageDefinition> garages,
             int maxGenerationAttempts,
-            bool useSolutionAnalyzer)
+            bool useSolutionAnalyzer,
+            int layoutVariantIndex = -1)
         {
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
 
@@ -126,7 +128,7 @@ namespace BusPuzzle
             for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
             {
                 var random = new System.Random(seed + attempt * 9973);
-                var vehicles = TryBuildVehicleSet(profile, random, targetVehicleCount, garages);
+                var vehicles = TryBuildVehicleSet(profile, random, targetVehicleCount, garages, layoutVariantIndex);
                 if (HasPlayableExitOrder(vehicles, garages, useSolutionAnalyzer, out var exitOrder))
                 {
                     return vehicles;
@@ -200,11 +202,11 @@ namespace BusPuzzle
             switch (difficulty)
             {
                 case LevelDifficulty.Hard:
-                    return RotaryRoadPresetId.Medium;
+                    return RotaryRoadPresetId.WideTerminal;
                 case LevelDifficulty.SuperHard:
-                    return RotaryRoadPresetId.Large;
+                    return RotaryRoadPresetId.TallTerminal;
                 default:
-                    return RotaryRoadPresetId.Small;
+                    return RotaryRoadPresetId.CompactOval;
             }
         }
 
@@ -212,12 +214,14 @@ namespace BusPuzzle
             LevelDifficultyProfile profile,
             System.Random random,
             int targetVehicleCount,
-            IReadOnlyList<GarageDefinition> garages)
+            IReadOnlyList<GarageDefinition> garages,
+            int layoutVariantIndex)
         {
             var vehicles = new List<BusDefinition>();
             var colors = PickColorSet(profile.TargetColorCount);
+            TryPlacePatternVehicles(profile, random, targetVehicleCount, garages, colors, vehicles, layoutVariantIndex);
 
-            for (var vehicleIndex = 0; vehicleIndex < targetVehicleCount; vehicleIndex++)
+            for (var vehicleIndex = vehicles.Count; vehicleIndex < targetVehicleCount; vehicleIndex++)
             {
                 if (!TryPlaceVehicle(profile, random, vehicles, colors, garages, vehicleIndex, out var vehicle))
                 {
@@ -228,6 +232,84 @@ namespace BusPuzzle
             }
 
             return vehicles;
+        }
+
+        private static void TryPlacePatternVehicles(
+            LevelDifficultyProfile profile,
+            System.Random random,
+            int targetVehicleCount,
+            IReadOnlyList<GarageDefinition> garages,
+            IReadOnlyList<PuzzleColor> colors,
+            List<BusDefinition> vehicles,
+            int layoutVariantIndex)
+        {
+            var slots = VehicleLayoutPatternEngine.CreateSlots(profile, random, targetVehicleCount, layoutVariantIndex);
+            for (var slotIndex = 0; slotIndex < slots.Count && vehicles.Count < targetVehicleCount; slotIndex++)
+            {
+                var slot = slots[slotIndex];
+                var vehicleIndex = vehicles.Count;
+                var preferredSize = PickSize(profile.Difficulty, random);
+                if (TryCreatePatternVehicle(
+                    profile,
+                    colors[vehicleIndex % colors.Count],
+                    preferredSize,
+                    slot,
+                    vehicles,
+                    garages,
+                    out var vehicle))
+                {
+                    vehicles.Add(vehicle);
+                }
+            }
+        }
+
+        private static bool TryCreatePatternVehicle(
+            LevelDifficultyProfile profile,
+            PuzzleColor color,
+            BusSize preferredSize,
+            VehicleLayoutSlot slot,
+            IReadOnlyList<BusDefinition> placedVehicles,
+            IReadOnlyList<GarageDefinition> garages,
+            out BusDefinition vehicle)
+        {
+            if (TryCreatePatternVehicle(color, preferredSize, slot, placedVehicles, garages, out vehicle))
+            {
+                return true;
+            }
+
+            if (preferredSize == BusSize.Large &&
+                TryCreatePatternVehicle(color, BusSize.Medium, slot, placedVehicles, garages, out vehicle))
+            {
+                return true;
+            }
+
+            if (profile.Difficulty != LevelDifficulty.SuperHard &&
+                preferredSize != BusSize.Small &&
+                TryCreatePatternVehicle(color, BusSize.Small, slot, placedVehicles, garages, out vehicle))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryCreatePatternVehicle(
+            PuzzleColor color,
+            BusSize size,
+            VehicleLayoutSlot slot,
+            IReadOnlyList<BusDefinition> placedVehicles,
+            IReadOnlyList<GarageDefinition> garages,
+            out BusDefinition vehicle)
+        {
+            vehicle = new BusDefinition(
+                color,
+                size,
+                slot.Direction,
+                slot.GridPosition,
+                slot.AngleOffsetDegrees,
+                slot.PositionOffsetCells);
+
+            return IsPlaceable(vehicle, placedVehicles, garages);
         }
 
         private static bool TryPlaceVehicle(

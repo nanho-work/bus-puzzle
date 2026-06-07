@@ -15,10 +15,10 @@ namespace BusPuzzle
         public float RoutePathLength => routePathLength;
         public float DistanceSpeed => distanceSpeed;
 
-        public void Configure(float newRoutePathLength, int maxCapacityUnits, float passengerSpeed)
+        public void Configure(float newRoutePathLength, int visibleCapacityUnits, float passengerSpeed)
         {
             routePathLength = Mathf.Max(0.01f, newRoutePathLength);
-            unitSpacing = routePathLength / Mathf.Max(1, maxCapacityUnits);
+            unitSpacing = routePathLength / Mathf.Max(1, visibleCapacityUnits);
             distanceSpeed = routePathLength * Mathf.Max(0f, passengerSpeed);
             leadDistance = 0f;
         }

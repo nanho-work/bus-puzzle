@@ -9,7 +9,8 @@ namespace BusPuzzle
 {
     public static class RuntimeGeneratedLevelCache
     {
-        private const int CacheVersion = 6;
+        private const int CacheVersion = 10;
+        private const int CacheValidationNodeVisitLimit = 2048;
         private const string CacheDirectoryName = "generated-stage-cache";
 
         public static bool TryLoad(StageGenerationConfig config, StageGenerationRequest request, out LevelData level)
@@ -92,7 +93,7 @@ namespace BusPuzzle
                 return false;
             }
 
-            return StageSolutionAnalyzer.Analyze(level.Buses, level.Garages, 1).IsSolvable;
+            return StageSolutionAnalyzer.Analyze(level.Buses, level.Garages, 1, CacheValidationNodeVisitLimit).IsSolvable;
         }
 
         private static string CreateSignature(StageGenerationConfig config, StageGenerationRequest request)
@@ -113,6 +114,8 @@ namespace BusPuzzle
             Append(builder, "seed", request.Seed);
             Append(builder, "difficulty", (int)request.Difficulty);
             Append(builder, "road", (int)request.RoadPresetId);
+            Append(builder, "layoutVariant", request.VehicleLayoutVariantIndex);
+            Append(builder, "layoutPool", request.VehicleLayoutVariantPoolSize);
             Append(builder, "garages", request.GarageCount);
             Append(builder, "minSolutions", request.MinSolutionCount);
             Append(builder, "maxSolutions", request.MaxSolutionCount);

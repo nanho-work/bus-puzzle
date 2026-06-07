@@ -6,12 +6,19 @@ namespace BusPuzzle
 {
     internal sealed class PassengerFeederQueueController
     {
+        private const float MinScaledFeederMergeDuration = 0.20f;
+        private const float MinScaledFeederQueueStepDuration = 0.12f;
+        private const float FeederInsertionLeadDuration = 0.055f;
+        private const float FeederMergeBlendStart = 0.00f;
+        private const float FeederMergeBlendEnd = 0.66f;
+
         private readonly RotaryLayout rotaryLayout;
         private readonly PassengerFlowController passengerFlow;
         private readonly PassengerTrafficSettings settings;
         private readonly int rotaryActiveTarget;
         private readonly Action<PassengerView, int> assignTraffic;
         private readonly Action<PassengerView> setTrafficPose;
+        private int preferredFeederSide = 1;
 
         public PassengerFeederQueueController(
             RotaryLayout rotaryLayout,
@@ -42,7 +49,7 @@ namespace BusPuzzle
             passenger.SetPose(pose.Position, pose.Rotation);
         }
 
-        public void Promote(IReadOnlyList<PassengerView> passengers)
+        public void Promote(IReadOnlyList<PassengerView> passengers, float trafficTimeScale)
         {
             var targetCount = Mathf.Min(rotaryActiveTarget, passengers.Count);
             if (CountRotaryReservedPassengers(passengers) >= targetCount)
@@ -50,39 +57,99 @@ namespace BusPuzzle
                 return;
             }
 
-            if (HasFeederPassengers(passengers, 1))
+            var effectiveTrafficScale = Mathf.Max(0.01f, trafficTimeScale);
+            var mergeDuration = GetScaledFeederMoveDuration(settings.FeederMergeDuration, effectiveTrafficScale, MinScaledFeederMergeDuration);
+            var queueStepDuration = GetScaledFeederMoveDuration(settings.FeederQueueStepDuration, effectiveTrafficScale, MinScaledFeederQueueStepDuration);
+            var predictionDuration = GetInsertionPredictionDuration(mergeDuration, effectiveTrafficScale);
+            if (TryFindPromotionCandidate(passengers, predictionDuration, out var passenger, out var side, out var slotIndex))
             {
-                TryPromoteFeederPassenger(passengers, 1);
+                PromoteFeederPassenger(passengers, passenger, side, slotIndex, mergeDuration, queueStepDuration);
+            }
+        }
+
+        public bool HasPendingRotaryFill(IReadOnlyList<PassengerView> passengers)
+        {
+            if (HasMergingPassenger(passengers))
+            {
+                return true;
+            }
+
+            var targetCount = Mathf.Min(rotaryActiveTarget, passengers.Count);
+            if (CountRotaryReservedPassengers(passengers) >= targetCount)
+            {
+                return false;
+            }
+
+            return HasFeederPassengers(passengers);
+        }
+
+        private bool TryFindPromotionCandidate(
+            IReadOnlyList<PassengerView> passengers,
+            float predictionDuration,
+            out PassengerView passenger,
+            out int side,
+            out int slotIndex)
+        {
+            passenger = null;
+            side = preferredFeederSide;
+            slotIndex = -1;
+            var bestDistance = float.MaxValue;
+
+            TryEvaluatePromotionSide(passengers, preferredFeederSide, predictionDuration, ref passenger, ref side, ref slotIndex, ref bestDistance);
+            TryEvaluatePromotionSide(passengers, -preferredFeederSide, predictionDuration, ref passenger, ref side, ref slotIndex, ref bestDistance);
+            return passenger != null;
+        }
+
+        private void TryEvaluatePromotionSide(
+            IReadOnlyList<PassengerView> passengers,
+            int candidateSide,
+            float predictionDuration,
+            ref PassengerView bestPassenger,
+            ref int bestSide,
+            ref int bestSlotIndex,
+            ref float bestDistance)
+        {
+            if (!TryFindFeederPassenger(passengers, candidateSide, out var passenger))
+            {
                 return;
             }
 
-            TryPromoteFeederPassenger(passengers, -1);
+            if (!TryFindOpenRotarySlotAtFeeder(passengers, candidateSide, predictionDuration, out var slotIndex, out var distanceToFeeder))
+            {
+                return;
+            }
+
+            if (distanceToFeeder >= bestDistance)
+            {
+                return;
+            }
+
+            bestPassenger = passenger;
+            bestSide = candidateSide;
+            bestSlotIndex = slotIndex;
+            bestDistance = distanceToFeeder;
         }
 
-        private bool TryPromoteFeederPassenger(IReadOnlyList<PassengerView> passengers, int side)
+        private void PromoteFeederPassenger(
+            IReadOnlyList<PassengerView> passengers,
+            PassengerView passenger,
+            int side,
+            int slotIndex,
+            float mergeDuration,
+            float queueStepDuration)
         {
-            if (!TryFindFeederPassenger(passengers, side, out var passenger))
-            {
-                return false;
-            }
-
-            if (!TryFindOpenRotarySlotAtFeeder(passengers, side, out var slotIndex))
-            {
-                return false;
-            }
-
             var feederSlotIndex = passenger.FeederSlotIndex;
             passenger.AssignMergingToRotary(side, feederSlotIndex, slotIndex);
             passenger.MoveAlongDynamicPose(
                 t => GetFeederMergePose(side, feederSlotIndex, slotIndex, t),
-                settings.FeederMergeDuration,
+                mergeDuration,
                 () =>
                 {
                     assignTraffic(passenger, slotIndex);
                     setTrafficPose(passenger);
                 });
-            AdvanceFeederQueue(passengers, side, feederSlotIndex);
-            return true;
+            AdvanceFeederQueue(passengers, side, feederSlotIndex, queueStepDuration);
+            preferredFeederSide = -side;
         }
 
         private static int CountRotaryReservedPassengers(IReadOnlyList<PassengerView> passengers)
@@ -100,12 +167,24 @@ namespace BusPuzzle
             return count;
         }
 
-        private static bool HasFeederPassengers(IReadOnlyList<PassengerView> passengers, int side)
+        private static bool HasFeederPassengers(IReadOnlyList<PassengerView> passengers)
         {
             for (var index = 0; index < passengers.Count; index++)
             {
-                var passenger = passengers[index];
-                if (passenger.IsWaitingInFeeder && passenger.FeederSide == side)
+                if (passengers[index].IsWaitingInFeeder)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasMergingPassenger(IReadOnlyList<PassengerView> passengers)
+        {
+            for (var index = 0; index < passengers.Count; index++)
+            {
+                if (passengers[index].IsMergingToRotary)
                 {
                     return true;
                 }
@@ -122,7 +201,8 @@ namespace BusPuzzle
             for (var index = 0; index < passengers.Count; index++)
             {
                 var candidate = passengers[index];
-                if (!candidate.IsWaitingInFeeder || candidate.IsMoving || candidate.FeederSide != side || candidate.FeederSlotIndex >= bestSlot)
+                // Feeder step animations are interruptible; skipping them creates alternating rotary gaps.
+                if (!candidate.IsWaitingInFeeder || candidate.FeederSide != side || candidate.FeederSlotIndex >= bestSlot)
                 {
                     continue;
                 }
@@ -134,11 +214,17 @@ namespace BusPuzzle
             return passenger != null;
         }
 
-        private bool TryFindOpenRotarySlotAtFeeder(IReadOnlyList<PassengerView> passengers, int side, out int slotIndex)
+        private bool TryFindOpenRotarySlotAtFeeder(
+            IReadOnlyList<PassengerView> passengers,
+            int side,
+            float predictionDuration,
+            out int slotIndex,
+            out float bestDistance)
         {
             slotIndex = -1;
+            bestDistance = float.MaxValue;
             var feederDistance = passengerFlow.GetProgressDistance(GetFeederJoinProgress(side));
-            var bestDistance = float.MaxValue;
+            predictionDuration = Mathf.Max(0f, predictionDuration);
 
             for (var slot = 0; slot < rotaryLayout.CapacityUnits; slot++)
             {
@@ -147,8 +233,8 @@ namespace BusPuzzle
                     continue;
                 }
 
-                var vacancyDistance = passengerFlow.GetSlotDistance(slot);
-                var distanceToFeeder = passengerFlow.GetCircularDistance(vacancyDistance, feederDistance);
+                var vacancyDistance = passengerFlow.GetPredictedSlotDistance(slot, predictionDuration);
+                var distanceToFeeder = passengerFlow.GetForwardDistance(vacancyDistance, feederDistance);
                 if (distanceToFeeder > settings.FeederVacancyWindowDistance || distanceToFeeder >= bestDistance)
                 {
                     continue;
@@ -175,7 +261,7 @@ namespace BusPuzzle
             return false;
         }
 
-        private void AdvanceFeederQueue(IReadOnlyList<PassengerView> passengers, int side, int removedSlotIndex)
+        private void AdvanceFeederQueue(IReadOnlyList<PassengerView> passengers, int side, int removedSlotIndex, float queueStepDuration)
         {
             for (var index = 0; index < passengers.Count; index++)
             {
@@ -187,8 +273,19 @@ namespace BusPuzzle
 
                 passenger.AssignFeeder(side, passenger.FeederSlotIndex - 1);
                 var pose = GetFeederPose(side, passenger.FeederSlotIndex);
-                passenger.MoveToPose(pose.Position, pose.Rotation, settings.FeederQueueStepDuration);
+                passenger.MoveToPose(pose.Position, pose.Rotation, queueStepDuration);
             }
+        }
+
+        private static float GetScaledFeederMoveDuration(float baseDuration, float trafficTimeScale, float minDuration)
+        {
+            return Mathf.Max(minDuration, baseDuration / Mathf.Max(0.01f, trafficTimeScale));
+        }
+
+        private static float GetInsertionPredictionDuration(float mergeDuration, float trafficTimeScale)
+        {
+            var visualLeadDuration = FeederInsertionLeadDuration * Mathf.Max(0.01f, trafficTimeScale);
+            return Mathf.Min(mergeDuration * trafficTimeScale, visualLeadDuration);
         }
 
         private float GetFeederJoinProgress(int side)
@@ -209,7 +306,7 @@ namespace BusPuzzle
             var feederDistance = Mathf.Lerp(startDistance, feederPath.Length, normalizedTime);
             var feederPose = rotaryLayout.GetFeederPoseByDistance(side, feederDistance, settings.RotaryCenterZ, settings.PassengerUnitY);
             var targetPose = GetRotaryPoseByDistance(passengerFlow.GetSlotDistance(rotarySlotIndex));
-            var mergeBlend = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.25f, 1f, normalizedTime));
+            var mergeBlend = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(FeederMergeBlendStart, FeederMergeBlendEnd, normalizedTime));
             return BlendPassengerRoadPose(feederPose, targetPose, mergeBlend);
         }
 

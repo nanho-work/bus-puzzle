@@ -5,6 +5,8 @@ namespace BusPuzzle
 {
     public readonly struct RoadPresetDefinition
     {
+        private const float PassengerSpeedMultiplier = 1.70f;
+
         public readonly RotaryRoadPresetId Id;
         public readonly int MaxCapacityUnits;
         public readonly float PassengerSpeed;
@@ -51,7 +53,7 @@ namespace BusPuzzle
         {
             Id = id;
             MaxCapacityUnits = maxCapacityUnits;
-            PassengerSpeed = passengerSpeed;
+            PassengerSpeed = Mathf.Max(0.001f, passengerSpeed) * PassengerSpeedMultiplier;
             Start = start;
             RightBottom = rightBottom;
             RightTop = rightTop;
@@ -81,7 +83,7 @@ namespace BusPuzzle
                 case RotaryRoadPresetId.Small:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Small,
-                        30,
+                        40,
                         0.0525f,
                         new Vector2(0f, -0.70f),
                         new Vector2(0.42f, -0.70f),
@@ -104,7 +106,7 @@ namespace BusPuzzle
                 case RotaryRoadPresetId.Medium:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Medium,
-                        35,
+                        40,
                         0.048f,
                         new Vector2(0f, -0.76f),
                         new Vector2(0.55f, -0.76f),
@@ -123,6 +125,144 @@ namespace BusPuzzle
                         0.28f,
                         0.14f,
                         11);
+
+                case RotaryRoadPresetId.CompactOval:
+                    return new RoadPresetDefinition(
+                        RotaryRoadPresetId.CompactOval,
+                        40,
+                        0.0505f,
+                        new Vector2(0f, -0.72f),
+                        new Vector2(0.54f, -0.72f),
+                        new Vector2(0.82f, 0.46f),
+                        new Vector2(-0.82f, 0.46f),
+                        new Vector2(-0.54f, -0.72f),
+                        new Vector2(1.12f, -0.22f),
+                        new Vector2(0f, 0.72f),
+                        new Vector2(-1.12f, -0.22f),
+                        18,
+                        48,
+                        58,
+                        0.024f,
+                        0f,
+                        0.75f,
+                        0.25f,
+                        0.14f,
+                        11);
+
+                case RotaryRoadPresetId.WideTerminal:
+                    return new RoadPresetDefinition(
+                        RotaryRoadPresetId.WideTerminal,
+                        40,
+                        0.0470f,
+                        new Vector2(0f, -0.70f),
+                        new Vector2(0.86f, -0.70f),
+                        new Vector2(1.12f, 0.40f),
+                        new Vector2(-1.12f, 0.40f),
+                        new Vector2(-0.86f, -0.70f),
+                        new Vector2(1.58f, -0.18f),
+                        new Vector2(0f, 0.78f),
+                        new Vector2(-1.58f, -0.18f),
+                        22,
+                        48,
+                        70,
+                        0.025f,
+                        0f,
+                        0.67f,
+                        0.33f,
+                        0.14f,
+                        12);
+
+                case RotaryRoadPresetId.TallTerminal:
+                    return new RoadPresetDefinition(
+                        RotaryRoadPresetId.TallTerminal,
+                        40,
+                        0.0455f,
+                        new Vector2(0f, -0.88f),
+                        new Vector2(0.46f, -0.88f),
+                        new Vector2(0.70f, 0.96f),
+                        new Vector2(-0.70f, 0.96f),
+                        new Vector2(-0.46f, -0.88f),
+                        new Vector2(1.10f, 0.08f),
+                        new Vector2(0f, 1.52f),
+                        new Vector2(-1.10f, 0.08f),
+                        16,
+                        64,
+                        58,
+                        0.026f,
+                        0f,
+                        0.78f,
+                        0.22f,
+                        0.14f,
+                        12);
+
+                case RotaryRoadPresetId.LeftHook:
+                    return new RoadPresetDefinition(
+                        RotaryRoadPresetId.LeftHook,
+                        40,
+                        0.0475f,
+                        new Vector2(0f, -0.78f),
+                        new Vector2(0.50f, -0.76f),
+                        new Vector2(0.72f, 0.56f),
+                        new Vector2(-1.02f, 0.66f),
+                        new Vector2(-0.76f, -0.70f),
+                        new Vector2(1.12f, -0.10f),
+                        new Vector2(-0.22f, 1.12f),
+                        new Vector2(-1.52f, -0.04f),
+                        18,
+                        52,
+                        68,
+                        0.025f,
+                        0f,
+                        0.76f,
+                        0.31f,
+                        0.14f,
+                        12);
+
+                case RotaryRoadPresetId.RightHook:
+                    return new RoadPresetDefinition(
+                        RotaryRoadPresetId.RightHook,
+                        40,
+                        0.0475f,
+                        new Vector2(0f, -0.78f),
+                        new Vector2(0.76f, -0.70f),
+                        new Vector2(1.02f, 0.66f),
+                        new Vector2(-0.72f, 0.56f),
+                        new Vector2(-0.50f, -0.76f),
+                        new Vector2(1.52f, -0.04f),
+                        new Vector2(0.22f, 1.12f),
+                        new Vector2(-1.12f, -0.10f),
+                        18,
+                        52,
+                        68,
+                        0.025f,
+                        0f,
+                        0.69f,
+                        0.24f,
+                        0.14f,
+                        12);
+
+                case RotaryRoadPresetId.Roundabout:
+                    return new RoadPresetDefinition(
+                        RotaryRoadPresetId.Roundabout,
+                        40,
+                        0.0485f,
+                        new Vector2(0f, -0.76f),
+                        new Vector2(0.62f, -0.76f),
+                        new Vector2(0.92f, 0.54f),
+                        new Vector2(-0.92f, 0.54f),
+                        new Vector2(-0.62f, -0.76f),
+                        new Vector2(1.34f, -0.18f),
+                        new Vector2(0f, 0.92f),
+                        new Vector2(-1.34f, -0.18f),
+                        20,
+                        54,
+                        64,
+                        0.024f,
+                        0f,
+                        0.70f,
+                        0.30f,
+                        0.14f,
+                        12);
 
                 default:
                     return new RoadPresetDefinition(

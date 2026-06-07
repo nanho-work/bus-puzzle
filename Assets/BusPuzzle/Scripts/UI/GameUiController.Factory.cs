@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -6,6 +7,8 @@ namespace BusPuzzle
 {
     public sealed partial class GameUiController
     {
+        private static readonly Dictionary<string, Sprite> runtimeResourceSprites = new Dictionary<string, Sprite>();
+
         private static RectTransform CreatePanel(string name, Transform parent, Color color)
         {
             var panelObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -27,6 +30,77 @@ namespace BusPuzzle
             return panelObject.GetComponent<RectTransform>();
         }
 
+        private static RectTransform CreateGameDialog(string name, Transform parent)
+        {
+            var panel = CreateRoundedPanel(name, parent, UiPanelColor);
+            var panelImage = panel.GetComponent<Image>();
+            panelImage.raycastTarget = true;
+
+            var shadow = panel.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
+            shadow.effectDistance = new Vector2(0f, -8f);
+            shadow.useGraphicAlpha = true;
+
+            var accent = CreateRoundedPanel($"{name} Accent", panel, UiPanelAccentColor);
+            SetAnchors(accent, new Vector2(0.06f, 0.82f), new Vector2(0.94f, 0.96f), Vector2.zero, Vector2.zero);
+
+            var stroke = CreateRoundedPanel($"{name} Stroke", panel, UiPanelStrokeColor);
+            SetAnchors(stroke, new Vector2(0.02f, 0.04f), new Vector2(0.98f, 0.98f), Vector2.zero, Vector2.zero);
+            return panel;
+        }
+
+        private static RectTransform CreateDialogTitlePlate(string name, Transform parent, string label)
+        {
+            var titleRoot = CreateRectTransform(name, parent);
+
+            var shadow = CreateRoundedPanel($"{name} Shadow", titleRoot, new Color(0f, 0f, 0f, 0.28f));
+            SetAnchors(shadow, new Vector2(0.08f, 0.04f), new Vector2(0.92f, 0.86f), new Vector2(0f, -8f), new Vector2(0f, -8f));
+
+            var leftCap = CreateTitlePlateCap($"{name} Left Cap", titleRoot, new Color(0.12f, 0.18f, 0.26f, 0.98f));
+            SetAnchors(leftCap, new Vector2(0.00f, 0.16f), new Vector2(0.18f, 0.86f), Vector2.zero, Vector2.zero);
+
+            var rightCap = CreateTitlePlateCap($"{name} Right Cap", titleRoot, new Color(0.12f, 0.18f, 0.26f, 0.98f));
+            SetAnchors(rightCap, new Vector2(0.82f, 0.16f), new Vector2(1.00f, 0.86f), Vector2.zero, Vector2.zero);
+
+            var plate = CreateRoundedPanel($"{name} Plate", titleRoot, new Color(0.25f, 0.30f, 0.45f, 0.98f));
+            SetAnchors(plate, new Vector2(0.10f, 0.08f), new Vector2(0.90f, 0.92f), Vector2.zero, Vector2.zero);
+
+            var inner = CreateRoundedPanel($"{name} Inner", titleRoot, new Color(0.19f, 0.23f, 0.36f, 0.94f));
+            SetAnchors(inner, new Vector2(0.13f, 0.18f), new Vector2(0.87f, 0.82f), Vector2.zero, Vector2.zero);
+
+            var topHighlight = CreateRoundedPanel($"{name} Top Highlight", titleRoot, new Color(0.66f, 0.74f, 0.94f, 0.20f));
+            SetAnchors(topHighlight, new Vector2(0.16f, 0.74f), new Vector2(0.84f, 0.86f), Vector2.zero, Vector2.zero);
+
+            var bottomShadow = CreateRoundedPanel($"{name} Bottom Shadow", titleRoot, new Color(0.03f, 0.05f, 0.09f, 0.28f));
+            SetAnchors(bottomShadow, new Vector2(0.16f, 0.18f), new Vector2(0.84f, 0.28f), Vector2.zero, Vector2.zero);
+
+            var leftLight = CreateTitlePlateCap($"{name} Left Light", titleRoot, new Color(0.22f, 0.84f, 0.86f, 0.95f));
+            SetAnchors(leftLight, new Vector2(0.055f, 0.40f), new Vector2(0.105f, 0.60f), Vector2.zero, Vector2.zero);
+
+            var rightLight = CreateTitlePlateCap($"{name} Right Light", titleRoot, new Color(0.96f, 0.32f, 0.45f, 0.95f));
+            SetAnchors(rightLight, new Vector2(0.895f, 0.40f), new Vector2(0.945f, 0.60f), Vector2.zero, Vector2.zero);
+
+            var title = CreateText($"{name} Text", titleRoot, TextAnchor.MiddleCenter, 50, FontStyle.Bold);
+            title.text = label;
+            title.color = new Color(0.98f, 0.99f, 1f);
+            title.resizeTextMinSize = 34;
+            SetAnchors(title.rectTransform, new Vector2(0.18f, 0.14f), new Vector2(0.82f, 0.88f), new Vector2(8f, 2f), new Vector2(-8f, -2f));
+
+            return titleRoot;
+        }
+
+        private static RectTransform CreateTitlePlateCap(string name, Transform parent, Color color)
+        {
+            var capObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            capObject.transform.SetParent(parent, false);
+
+            var capImage = capObject.GetComponent<Image>();
+            capImage.sprite = GetCircleSprite();
+            capImage.color = color;
+            capImage.raycastTarget = false;
+            return capObject.GetComponent<RectTransform>();
+        }
+
         private static RectTransform CreateRectTransform(string name, Transform parent)
         {
             var rectObject = new GameObject(name, typeof(RectTransform));
@@ -42,7 +116,7 @@ namespace BusPuzzle
             var text = textObject.GetComponent<Text>();
             text.alignment = alignment;
             text.color = Color.white;
-            text.font = GetDefaultFont();
+            text.font = GameFontProvider.GetFont(fontStyle);
             text.fontSize = fontSize;
             text.fontStyle = fontStyle;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -60,20 +134,90 @@ namespace BusPuzzle
             buttonObject.transform.SetParent(parent, false);
 
             var image = buttonObject.GetComponent<Image>();
+            image.sprite = GetRoundedPanelSprite();
+            image.type = Image.Type.Sliced;
             image.color = baseColor;
+
+            var shadow = buttonObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.24f);
+            shadow.effectDistance = new Vector2(0f, -5f);
+            shadow.useGraphicAlpha = true;
+
+            var shineObject = new GameObject($"{name} Shine", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            shineObject.transform.SetParent(buttonObject.transform, false);
+            var shineRect = shineObject.GetComponent<RectTransform>();
+            SetAnchors(shineRect, new Vector2(0.08f, 0.58f), new Vector2(0.92f, 0.92f), Vector2.zero, Vector2.zero);
+            var shineImage = shineObject.GetComponent<Image>();
+            shineImage.sprite = GetRoundedPanelSprite();
+            shineImage.type = Image.Type.Sliced;
+            shineImage.color = new Color(1f, 1f, 1f, 0.16f);
+            shineImage.raycastTarget = false;
 
             var button = buttonObject.GetComponent<Button>();
             var colors = button.colors;
             colors.normalColor = baseColor;
-            colors.highlightedColor = Color.Lerp(baseColor, Color.white, 0.12f);
-            colors.pressedColor = Color.Lerp(baseColor, Color.black, 0.18f);
+            colors.highlightedColor = Color.Lerp(baseColor, Color.white, 0.16f);
+            colors.pressedColor = Color.Lerp(baseColor, Color.black, 0.20f);
             colors.disabledColor = new Color(0.20f, 0.22f, 0.25f, 0.55f);
             button.colors = colors;
 
             var labelText = CreateText($"{name} Label", buttonObject.transform, TextAnchor.MiddleCenter, 30, FontStyle.Bold);
             labelText.text = label;
+            labelText.color = new Color(0.96f, 0.98f, 1f);
             SetAnchors(labelText.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 4f), new Vector2(-12f, -4f));
 
+            return button;
+        }
+
+        private static Button CreateImageActionButton(
+            string name,
+            Transform parent,
+            string iconResourcePath,
+            string fallbackLabel,
+            Color fallbackColor)
+        {
+            var iconSprite = LoadResourceSprite(iconResourcePath);
+            if (iconSprite == null)
+            {
+                return CreateButton(name, parent, fallbackLabel, fallbackColor);
+            }
+
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+
+            var hitArea = buttonObject.GetComponent<Image>();
+            hitArea.color = new Color(1f, 1f, 1f, 0f);
+
+            var shadowObject = new GameObject($"{name} Icon Shadow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            shadowObject.transform.SetParent(buttonObject.transform, false);
+            var shadowRect = shadowObject.GetComponent<RectTransform>();
+            SetAnchors(shadowRect, Vector2.zero, Vector2.one, new Vector2(0f, -7f), new Vector2(0f, -7f));
+
+            var shadowImage = shadowObject.GetComponent<Image>();
+            shadowImage.sprite = iconSprite;
+            shadowImage.color = new Color(0f, 0f, 0f, 0.24f);
+            shadowImage.preserveAspect = true;
+            shadowImage.raycastTarget = false;
+
+            var iconObject = new GameObject($"{name} Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(buttonObject.transform, false);
+            var iconRect = iconObject.GetComponent<RectTransform>();
+            SetAnchors(iconRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            var iconImage = iconObject.GetComponent<Image>();
+            iconImage.sprite = iconSprite;
+            iconImage.color = Color.white;
+            iconImage.preserveAspect = true;
+            iconImage.raycastTarget = false;
+
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = iconImage;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, 0.94f);
+            colors.pressedColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.42f);
+            button.colors = colors;
             return button;
         }
 
@@ -82,7 +226,8 @@ namespace BusPuzzle
             Transform parent,
             string glyph,
             float size,
-            int glyphFontSize)
+            int glyphFontSize,
+            bool subdued = false)
         {
             var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             buttonObject.transform.SetParent(parent, false);
@@ -90,7 +235,75 @@ namespace BusPuzzle
             var hitArea = buttonObject.GetComponent<Image>();
             hitArea.color = new Color(1f, 1f, 1f, 0f);
 
-            CreateRoundIconVisual($"{name} Icon", buttonObject.transform, glyph, size, glyphFontSize, out var targetImage);
+            CreateRoundIconVisual($"{name} Icon", buttonObject.transform, glyph, size, glyphFontSize, out var targetImage, subdued);
+
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = targetImage;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, 0.92f);
+            colors.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.42f);
+            button.colors = colors;
+            return button;
+        }
+
+        private static Button CreateGearIconButton(string name, Transform parent, float size, bool subdued = false)
+        {
+            return CreateRoundSpriteIconButton(name, parent, GetGearIconSprite(), "G", size, 44, subdued, 0.58f);
+        }
+
+        private static Button CreateRoundSpriteIconButton(
+            string name,
+            Transform parent,
+            Sprite iconSprite,
+            string fallbackGlyph,
+            float size,
+            int fallbackGlyphFontSize,
+            bool subdued = false,
+            float iconScale = 0.54f)
+        {
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+
+            var hitArea = buttonObject.GetComponent<Image>();
+            hitArea.color = new Color(1f, 1f, 1f, 0f);
+
+            var glyph = iconSprite != null ? string.Empty : fallbackGlyph;
+            var iconRoot = CreateRoundIconVisual($"{name} Icon", buttonObject.transform, glyph, size, fallbackGlyphFontSize, out var targetImage, subdued);
+            if (iconSprite != null)
+            {
+                var inset = Mathf.Clamp01((1f - iconScale) * 0.5f);
+                var shadowObject = new GameObject($"{name} Gear Shadow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                shadowObject.transform.SetParent(iconRoot, false);
+                var shadowRect = shadowObject.GetComponent<RectTransform>();
+                SetAnchors(
+                    shadowRect,
+                    new Vector2(inset, inset),
+                    new Vector2(1f - inset, 1f - inset),
+                    new Vector2(2f, -3f),
+                    new Vector2(2f, -3f));
+                var shadowImage = shadowObject.GetComponent<Image>();
+                shadowImage.sprite = iconSprite;
+                shadowImage.color = new Color(0.04f, 0.17f, 0.24f, 0.42f);
+                shadowImage.preserveAspect = true;
+                shadowImage.raycastTarget = false;
+
+                var iconObject = new GameObject($"{name} Gear", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                iconObject.transform.SetParent(iconRoot, false);
+                var iconRect = iconObject.GetComponent<RectTransform>();
+                SetAnchors(
+                    iconRect,
+                    new Vector2(inset, inset),
+                    new Vector2(1f - inset, 1f - inset),
+                    Vector2.zero,
+                    Vector2.zero);
+                var iconImage = iconObject.GetComponent<Image>();
+                iconImage.sprite = iconSprite;
+                iconImage.color = subdued ? new Color(0.95f, 0.98f, 1f) : new Color(1f, 0.82f, 0.20f);
+                iconImage.preserveAspect = true;
+                iconImage.raycastTarget = false;
+            }
 
             var button = buttonObject.GetComponent<Button>();
             button.targetGraphic = targetImage;
@@ -109,9 +322,15 @@ namespace BusPuzzle
             string glyph,
             float size,
             int glyphFontSize,
-            out Image targetImage)
+            out Image targetImage,
+            bool subdued = false)
         {
             var iconRoot = CreateCenteredSquare($"{name} Root", parent, size);
+            var outerColor = subdued ? new Color(0.58f, 0.68f, 0.72f) : new Color(0.82f, 0.42f, 0.11f);
+            var ringColor = subdued ? new Color(0.78f, 0.86f, 0.88f) : new Color(1.00f, 0.70f, 0.24f);
+            var bevelColor = subdued ? new Color(0.13f, 0.20f, 0.24f, 0.30f) : new Color(0.49f, 0.24f, 0.08f, 0.34f);
+            var innerColor = subdued ? new Color(0.16f, 0.45f, 0.58f) : new Color(0.10f, 0.66f, 0.90f);
+            var glyphColor = subdued ? new Color(0.95f, 0.98f, 1f) : new Color(1f, 0.82f, 0.20f);
 
             var shadowObject = new GameObject($"{name} Shadow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             shadowObject.transform.SetParent(iconRoot, false);
@@ -128,7 +347,7 @@ namespace BusPuzzle
             SetAnchors(outerRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             var outerImage = outerObject.GetComponent<Image>();
             outerImage.sprite = GetCircleSprite();
-            outerImage.color = new Color(0.82f, 0.42f, 0.11f);
+            outerImage.color = outerColor;
             outerImage.raycastTarget = false;
 
             var ringObject = new GameObject($"{name} Ring", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -137,7 +356,7 @@ namespace BusPuzzle
             SetAnchors(ringRect, new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.92f), Vector2.zero, Vector2.zero);
             var ringImage = ringObject.GetComponent<Image>();
             ringImage.sprite = GetCircleSprite();
-            ringImage.color = new Color(1.00f, 0.70f, 0.24f);
+            ringImage.color = ringColor;
             ringImage.raycastTarget = false;
 
             var bevelObject = new GameObject($"{name} Bevel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -146,7 +365,7 @@ namespace BusPuzzle
             SetAnchors(bevelRect, new Vector2(0.11f, 0.12f), new Vector2(0.89f, 0.90f), Vector2.zero, Vector2.zero);
             var bevelImage = bevelObject.GetComponent<Image>();
             bevelImage.sprite = GetCircleSprite();
-            bevelImage.color = new Color(0.49f, 0.24f, 0.08f, 0.34f);
+            bevelImage.color = bevelColor;
             bevelImage.raycastTarget = false;
 
             var innerObject = new GameObject($"{name} Inner", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -155,7 +374,7 @@ namespace BusPuzzle
             SetAnchors(innerRect, new Vector2(0.17f, 0.17f), new Vector2(0.83f, 0.83f), Vector2.zero, Vector2.zero);
             var innerImage = innerObject.GetComponent<Image>();
             innerImage.sprite = GetCircleSprite();
-            innerImage.color = new Color(0.10f, 0.66f, 0.90f);
+            innerImage.color = innerColor;
             innerImage.raycastTarget = false;
             targetImage = innerImage;
 
@@ -176,7 +395,7 @@ namespace BusPuzzle
 
             var glyphText = CreateText($"{name} Glyph", iconRoot, TextAnchor.MiddleCenter, glyphFontSize, FontStyle.Bold);
             glyphText.text = glyph;
-            glyphText.color = new Color(1f, 0.82f, 0.20f);
+            glyphText.color = glyphColor;
             glyphText.resizeTextMinSize = Mathf.Max(12, glyphFontSize - 16);
             SetAnchors(glyphText.rectTransform, new Vector2(0.18f, 0.16f), new Vector2(0.82f, 0.82f), Vector2.zero, Vector2.zero);
 
@@ -224,31 +443,37 @@ namespace BusPuzzle
 
         private static Sprite LoadGoldIconSprite()
         {
-            var sprite = Resources.Load<Sprite>(GoldIconResource);
+            return LoadResourceSprite(GoldIconResource);
+        }
+
+        private static Sprite LoadResourceSprite(string resourcePath)
+        {
+            var sprite = Resources.Load<Sprite>(resourcePath);
             if (sprite != null)
             {
                 return sprite;
             }
 
-            if (runtimeGoldIconSprite != null)
+            if (runtimeResourceSprites.TryGetValue(resourcePath, out var cachedSprite) && cachedSprite != null)
             {
-                return runtimeGoldIconSprite;
+                return cachedSprite;
             }
 
-            var texture = Resources.Load<Texture2D>(GoldIconResource);
+            var texture = Resources.Load<Texture2D>(resourcePath);
             if (texture == null)
             {
                 return null;
             }
 
-            runtimeGoldIconSprite = Sprite.Create(
+            var runtimeSprite = Sprite.Create(
                 texture,
                 new Rect(0f, 0f, texture.width, texture.height),
                 new Vector2(0.5f, 0.5f),
                 100f);
-            runtimeGoldIconSprite.name = "Runtime Gold Icon Sprite";
-            runtimeGoldIconSprite.hideFlags = HideFlags.HideAndDontSave;
-            return runtimeGoldIconSprite;
+            runtimeSprite.name = $"{resourcePath} Runtime Sprite";
+            runtimeSprite.hideFlags = HideFlags.HideAndDontSave;
+            runtimeResourceSprites[resourcePath] = runtimeSprite;
+            return runtimeSprite;
         }
 
         private static Button CreateHeaderIconButton(
@@ -272,7 +497,7 @@ namespace BusPuzzle
             SetAnchors(iconRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
             var iconImage = iconObject.GetComponent<Image>();
-            var iconSprite = Resources.Load<Sprite>(iconResourcePath);
+            var iconSprite = LoadResourceSprite(iconResourcePath);
             if (iconSprite != null)
             {
                 iconImage.sprite = iconSprite;
@@ -318,7 +543,7 @@ namespace BusPuzzle
             hitArea.color = new Color(1f, 1f, 1f, 0f);
 
             var iconRoot = CreateCenteredSquare($"{name} Icon Root", buttonObject.transform, BoosterIconSize);
-            var iconSprite = Resources.Load<Sprite>(iconResourcePath);
+            var iconSprite = LoadResourceSprite(iconResourcePath);
             if (iconSprite != null)
             {
                 var shadowObject = new GameObject($"{name} Icon Shadow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -440,12 +665,6 @@ namespace BusPuzzle
             rectTransform.offsetMax = offsetMax;
         }
 
-        private static Font GetDefaultFont()
-        {
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            return font != null ? font : Resources.GetBuiltinResource<Font>("Arial.ttf");
-        }
-
         private static Sprite GetRoundedPanelSprite()
         {
             if (roundedPanelSprite != null)
@@ -526,6 +745,71 @@ namespace BusPuzzle
             circleSprite.name = "UI Circle Sprite";
             circleSprite.hideFlags = HideFlags.HideAndDontSave;
             return circleSprite;
+        }
+
+        private static Sprite GetGearIconSprite()
+        {
+            if (gearIconSprite != null)
+            {
+                return gearIconSprite;
+            }
+
+            const int size = 128;
+            const float center = (size - 1) * 0.5f;
+            const float radius = size * 0.46f;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "UI Gear Icon Texture",
+                hideFlags = HideFlags.HideAndDontSave,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear
+            };
+
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    var nx = (x - center) / radius;
+                    var ny = (y - center) / radius;
+                    var r = Mathf.Sqrt(nx * nx + ny * ny);
+                    var angle = Mathf.Atan2(ny, nx);
+                    var toothWave = Mathf.Cos(angle * 8f);
+                    var outerRadius = toothWave > 0.10f ? 0.94f : 0.74f;
+                    var rootRadius = toothWave > 0.10f ? 0.66f : 0.70f;
+                    var innerRadius = 0.34f;
+
+                    var alpha = 0f;
+                    if (r <= outerRadius && r >= innerRadius)
+                    {
+                        alpha = 1f;
+                    }
+
+                    if (r < innerRadius)
+                    {
+                        alpha = 0f;
+                    }
+
+                    if (r > rootRadius && toothWave <= 0.10f)
+                    {
+                        alpha = 0f;
+                    }
+
+                    var outerFade = Mathf.Clamp01((outerRadius - r) * 16f);
+                    var innerFade = Mathf.Clamp01((r - innerRadius) * 16f);
+                    alpha *= Mathf.Min(outerFade, innerFade);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            texture.Apply();
+            gearIconSprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            gearIconSprite.name = "UI Gear Icon Sprite";
+            gearIconSprite.hideFlags = HideFlags.HideAndDontSave;
+            return gearIconSprite;
         }
 
         private static void EnsureEventSystem()

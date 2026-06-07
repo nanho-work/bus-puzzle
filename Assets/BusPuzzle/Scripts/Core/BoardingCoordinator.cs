@@ -27,7 +27,8 @@ namespace BusPuzzle
 
         public bool ReserveAvailable(BoardView boardView, IReadOnlyList<BusView> buses, IReadOnlyList<PassengerView> passengers)
         {
-            var reservedAny = false;
+            CleanInvalidReservations();
+            var reservedAny = ReleaseReservationsBlockedByEarlierSameColorBus(buses);
 
             for (var slotIndex = BoardView.VipStationSlotIndex; slotIndex < boardView.StationCapacity; slotIndex++)
             {
@@ -66,6 +67,11 @@ namespace BusPuzzle
 
         public bool CanReserveAny(BoardView boardView, IReadOnlyList<BusView> buses, IReadOnlyList<PassengerView> passengers)
         {
+            if (HasReservationBlockedByEarlierSameColorBus(buses))
+            {
+                return true;
+            }
+
             for (var slotIndex = BoardView.VipStationSlotIndex; slotIndex < boardView.StationCapacity; slotIndex++)
             {
                 var bus = BoardingRuleEngine.FindStationBusAtSlot(buses, slotIndex);
@@ -75,6 +81,41 @@ namespace BusPuzzle
                 }
 
                 if (boardView.TryFindBoardingReservationPassenger(passengers, bus.Color, out _))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ReleaseReservationsBlockedByEarlierSameColorBus(IReadOnlyList<BusView> buses)
+        {
+            var releasedAny = false;
+            for (var index = reservations.Count - 1; index >= 0; index--)
+            {
+                var reservation = reservations[index];
+                if (!BoardingRuleEngine.IsValidReservation(reservation.Bus, reservation.Passenger) ||
+                    !HasEarlierSameColorBusWithAvailableSeat(reservation.Bus, buses))
+                {
+                    continue;
+                }
+
+                reservation.Bus.CancelBoardingReservation();
+                reservation.Passenger.CancelBoardingReservation();
+                reservations.RemoveAt(index);
+                releasedAny = true;
+            }
+
+            return releasedAny;
+        }
+
+        private bool HasReservationBlockedByEarlierSameColorBus(IReadOnlyList<BusView> buses)
+        {
+            CleanInvalidReservations();
+            for (var index = 0; index < reservations.Count; index++)
+            {
+                if (HasEarlierSameColorBusWithAvailableSeat(reservations[index].Bus, buses))
                 {
                     return true;
                 }
@@ -108,6 +149,29 @@ namespace BusPuzzle
 
             bus = null;
             passenger = null;
+            return false;
+        }
+
+        private static bool HasEarlierSameColorBusWithAvailableSeat(BusView candidateBus, IReadOnlyList<BusView> buses)
+        {
+            if (candidateBus == null || buses == null || candidateBus.StationSlotIndex < 0)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var earlierBus = buses[index];
+                if (earlierBus == null ||
+                    !earlierBus.HasAvailableBoardingSeat ||
+                    !BoardingRuleEngine.EarlierSameColorStationBusBlocks(candidateBus, earlierBus))
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
             return false;
         }
 

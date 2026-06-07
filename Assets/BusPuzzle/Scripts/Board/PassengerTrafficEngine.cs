@@ -73,7 +73,7 @@ namespace BusPuzzle
             feederQueue.SetPose(passenger);
         }
 
-        public void Advance(IReadOnlyList<PassengerView> passengers, float deltaTime)
+        public void Advance(IReadOnlyList<PassengerView> passengers, float deltaTime, float trafficTimeScale)
         {
             passengerFlow.Advance(passengers, deltaTime);
 
@@ -88,7 +88,7 @@ namespace BusPuzzle
                 SetPassengerTrafficPose(passenger);
             }
 
-            feederQueue.Promote(passengers);
+            feederQueue.Promote(passengers, trafficTimeScale);
         }
 
         public bool TryFindBoardingPassenger(IReadOnlyList<PassengerView> passengers, PuzzleColor color, out int passengerIndex)
@@ -109,6 +109,11 @@ namespace BusPuzzle
         public static bool HasRotaryPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
         {
             return PassengerBoardingSelector.HasRotaryPassengerColor(passengers, color);
+        }
+
+        public bool HasPendingRotaryFill(IReadOnlyList<PassengerView> passengers)
+        {
+            return feederQueue.HasPendingRotaryFill(passengers);
         }
 
         private void AssignPassengerTraffic(PassengerView passenger, int rotarySlotIndex)

@@ -45,6 +45,8 @@ namespace BusPuzzle
         private bool isVipAdInProgress;
         private bool isMixShuffleAdInProgress;
         private bool isVipSelectionMode;
+        private bool isFailureWaitingForRotaryFill;
+        private bool isRecoveryChoiceHoldingFailure;
         private int vipAdsWatchedThisStage;
         private int vipTeleportTickets;
 
@@ -75,12 +77,14 @@ namespace BusPuzzle
             uiController.RestartRequested -= RestartLevel;
             uiController.NextLevelRequested -= LoadNextLevel;
             uiController.ExitConfirmed -= QuitApplication;
+            uiController.StationUnlockRequested -= ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
             uiController.VipTeleportRequested -= HandleVipTeleportRequested;
             uiController.VipTeleportConfirmed -= RequestVipBusTeleportAd;
             uiController.MixShuffleRequested -= HandleMixShuffleRequested;
             uiController.MixShuffleGoldConfirmed -= RequestMixShuffleGold;
             uiController.MixShuffleConfirmed -= RequestMixShuffleAd;
+            uiController.RecoveryPromptCancelled -= HandleRecoveryPromptCancelled;
 
             if (rewardedAdService != null)
             {
@@ -101,9 +105,20 @@ namespace BusPuzzle
                 return;
             }
 
-            var passengerDeltaTime = Time.deltaTime * GetPassengerTimeMultiplier();
+            var passengerTimeMultiplier = GetPassengerTimeMultiplier();
+            var passengerDeltaTime = Time.deltaTime * passengerTimeMultiplier;
 
-            boardView.UpdatePassengerTraffic(circulatingPassengerUnits, passengerDeltaTime);
+            boardView.UpdatePassengerTraffic(circulatingPassengerUnits, passengerDeltaTime, passengerTimeMultiplier);
+
+            if (isFailureWaitingForRotaryFill && !ShouldDeferFailureUntilRotaryFill())
+            {
+                isFailureWaitingForRotaryFill = false;
+                CheckBlocked();
+                if (gameState != GameState.Playing)
+                {
+                    return;
+                }
+            }
 
             if (GameProgressEngine.ShouldStartBoardingResolver(
                 gameState == GameState.Playing,
@@ -127,6 +142,11 @@ namespace BusPuzzle
             if (inputController.TryTakeStationUnlockTap(out _))
             {
                 ShowStationUnlockPrompt();
+                return;
+            }
+
+            if (isFailureWaitingForRotaryFill || isRecoveryChoiceHoldingFailure)
+            {
                 return;
             }
 
@@ -159,12 +179,14 @@ namespace BusPuzzle
             uiController.RestartRequested += RestartLevel;
             uiController.NextLevelRequested += LoadNextLevel;
             uiController.ExitConfirmed += QuitApplication;
+            uiController.StationUnlockRequested += ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed += RequestStationSlotUnlock;
             uiController.VipTeleportRequested += HandleVipTeleportRequested;
             uiController.VipTeleportConfirmed += RequestVipBusTeleportAd;
             uiController.MixShuffleRequested += HandleMixShuffleRequested;
             uiController.MixShuffleGoldConfirmed += RequestMixShuffleGold;
             uiController.MixShuffleConfirmed += RequestMixShuffleAd;
+            uiController.RecoveryPromptCancelled += HandleRecoveryPromptCancelled;
 
             rewardedAdService = RewardedAdServiceFactory.Create(AdMobSettings.Load());
             rewardedAdService.AvailabilityChanged += UpdateRewardedAdUi;
@@ -281,6 +303,7 @@ namespace BusPuzzle
             }
 
             gameState = GameState.Playing;
+            ClearPendingFailureRecoveryState();
 
             boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses);
             BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds());
@@ -329,7 +352,7 @@ namespace BusPuzzle
 
         private void ShowStationUnlockPrompt()
         {
-            if (gameState != GameState.Playing ||
+            if (!CanShowRecoveryPrompt() ||
                 IsAnyRewardedAdInProgress ||
                 boardView == null ||
                 !boardView.CanUnlockStationSlot ||
@@ -344,6 +367,7 @@ namespace BusPuzzle
                 rewardedAdService.Preload(RewardedAdPlacement.StationSlotUnlock);
             }
 
+            HoldPendingFailureForRecoveryChoice();
             uiController.ShowStationUnlockPrompt(
                 boardView.LockedStationSlots,
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
@@ -352,16 +376,25 @@ namespace BusPuzzle
 
         private void RequestStationSlotUnlock()
         {
-            if (gameState != GameState.Playing ||
+            var wasRecoveringFromFailure = gameState == GameState.Failed;
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
                 IsAnyRewardedAdInProgress ||
                 boardView == null ||
                 !boardView.CanUnlockStationSlot ||
                 rewardedAdService == null)
             {
                 UpdateRewardedAdUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
                 return;
             }
 
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
             isStationUnlockAdInProgress = true;
             UpdateRewardedAdUi();
 
@@ -369,6 +402,10 @@ namespace BusPuzzle
             {
                 isStationUnlockAdInProgress = false;
                 UpdateRewardedAdUi();
+                if (wasRecoveringFromFailure || wasHoldingFailureChoice)
+                {
+                    CheckBlocked();
+                }
             }
         }
 
@@ -381,6 +418,10 @@ namespace BusPuzzle
                 UpdateCounters();
                 CheckBlocked();
             }
+            else
+            {
+                CheckBlocked();
+            }
 
             rewardedAdService?.Preload();
             UpdateRewardedAdUi();
@@ -388,7 +429,7 @@ namespace BusPuzzle
 
         private void HandleVipTeleportRequested()
         {
-            if (gameState != GameState.Playing)
+            if (!CanShowRecoveryPrompt())
             {
                 UpdateVipTeleportUi();
                 return;
@@ -402,7 +443,14 @@ namespace BusPuzzle
 
             if (vipTeleportTickets > 0)
             {
+                HoldPendingFailureForRecoveryChoice();
+                ResumeFailedLevelForRecovery();
                 EnterVipSelectionMode();
+                if (!isVipSelectionMode)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
                 return;
             }
 
@@ -411,7 +459,7 @@ namespace BusPuzzle
 
         private void ShowVipTeleportPrompt()
         {
-            if (gameState != GameState.Playing ||
+            if (!CanShowRecoveryPrompt() ||
                 IsAnyRewardedAdInProgress ||
                 uiController == null ||
                 rewardedAdService == null ||
@@ -433,6 +481,7 @@ namespace BusPuzzle
                 rewardedAdService.Preload(RewardedAdPlacement.VipBusTeleport);
             }
 
+            HoldPendingFailureForRecoveryChoice();
             uiController.ShowVipTeleportPrompt(
                 RemainingVipTeleportAds,
                 rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
@@ -441,16 +490,25 @@ namespace BusPuzzle
 
         private void RequestVipBusTeleportAd()
         {
-            if (gameState != GameState.Playing ||
+            var wasRecoveringFromFailure = gameState == GameState.Failed;
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
                 IsAnyRewardedAdInProgress ||
                 rewardedAdService == null ||
                 RemainingVipTeleportAds <= 0 ||
                 !HasVipTeleportTarget())
             {
                 UpdateVipTeleportUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
                 return;
             }
 
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
             isVipAdInProgress = true;
             UpdateRewardedAdUi();
 
@@ -458,6 +516,10 @@ namespace BusPuzzle
             {
                 isVipAdInProgress = false;
                 UpdateRewardedAdUi();
+                if (wasRecoveringFromFailure || wasHoldingFailureChoice)
+                {
+                    CheckBlocked();
+                }
             }
         }
 
@@ -470,6 +532,10 @@ namespace BusPuzzle
                 vipAdsWatchedThisStage++;
                 vipTeleportTickets++;
                 EnterVipSelectionMode();
+            }
+            else
+            {
+                CheckBlocked();
             }
 
             rewardedAdService?.Preload();
@@ -498,6 +564,14 @@ namespace BusPuzzle
             uiController.HideVipTeleportPrompt();
             uiController.ShowPlaying(GetCurrentLevelName());
             UpdateRewardedAdUi();
+            if (isRecoveryChoiceHoldingFailure)
+            {
+                RecheckHeldFailureAfterRecoveryChoice();
+            }
+            else
+            {
+                CheckBlocked();
+            }
         }
 
         private void ExitVipSelectionModeForEndState()
@@ -532,8 +606,10 @@ namespace BusPuzzle
 
             vipTeleportTickets = Mathf.Max(0, vipTeleportTickets - 1);
             isVipSelectionMode = false;
+            ClearPendingFailureRecoveryState();
             ApplyVipHighlights();
             UpdateRewardedAdUi();
+            CheckBlocked();
         }
 
         private void ResetVipTeleportState()
@@ -547,7 +623,7 @@ namespace BusPuzzle
 
         private void HandleMixShuffleRequested()
         {
-            if (gameState != GameState.Playing || isVipSelectionMode)
+            if (!CanShowRecoveryPrompt() || isVipSelectionMode)
             {
                 UpdateMixShuffleUi();
                 return;
@@ -558,7 +634,7 @@ namespace BusPuzzle
 
         private void ShowMixShufflePrompt()
         {
-            if (gameState != GameState.Playing ||
+            if (!CanShowRecoveryPrompt() ||
                 isVipSelectionMode ||
                 IsAnyRewardedAdInProgress ||
                 uiController == null)
@@ -579,6 +655,7 @@ namespace BusPuzzle
                 rewardedAdService.Preload(RewardedAdPlacement.BusColorShuffle);
             }
 
+            HoldPendingFailureForRecoveryChoice();
             uiController.ShowMixShufflePrompt(
                 UserEconomy.GoldBalance,
                 MixShuffleGoldCost,
@@ -589,12 +666,18 @@ namespace BusPuzzle
 
         private void RequestMixShuffleGold()
         {
-            if (gameState != GameState.Playing ||
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
                 isVipSelectionMode ||
                 IsAnyRewardedAdInProgress ||
                 !HasMixShuffleTarget())
             {
                 UpdateMixShuffleUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
                 return;
             }
 
@@ -607,6 +690,8 @@ namespace BusPuzzle
                 return;
             }
 
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
             if (TryShuffleVisibleBusColors())
             {
                 uiController.ShowInvalid("Mixed");
@@ -616,6 +701,7 @@ namespace BusPuzzle
             {
                 UserEconomy.AddGold(MixShuffleGoldCost);
                 uiController.ShowInvalid("No mix target");
+                CheckBlocked();
             }
 
             UpdateGoldUi();
@@ -624,16 +710,25 @@ namespace BusPuzzle
 
         private void RequestMixShuffleAd()
         {
-            if (gameState != GameState.Playing ||
+            var wasRecoveringFromFailure = gameState == GameState.Failed;
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
                 isVipSelectionMode ||
                 IsAnyRewardedAdInProgress ||
                 rewardedAdService == null ||
                 !HasMixShuffleTarget())
             {
                 UpdateMixShuffleUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
                 return;
             }
 
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
             isMixShuffleAdInProgress = true;
             UpdateRewardedAdUi();
 
@@ -641,6 +736,10 @@ namespace BusPuzzle
             {
                 isMixShuffleAdInProgress = false;
                 UpdateRewardedAdUi();
+                if (wasRecoveringFromFailure || wasHoldingFailureChoice)
+                {
+                    CheckBlocked();
+                }
             }
         }
 
@@ -658,7 +757,12 @@ namespace BusPuzzle
                 else
                 {
                     uiController.ShowInvalid("No mix target");
+                    CheckBlocked();
                 }
+            }
+            else
+            {
+                CheckBlocked();
             }
 
             rewardedAdService?.Preload();
@@ -675,6 +779,27 @@ namespace BusPuzzle
             isStationUnlockAdInProgress ||
             isVipAdInProgress ||
             isMixShuffleAdInProgress;
+
+        private bool CanShowRecoveryPrompt()
+        {
+            return gameState == GameState.Playing || gameState == GameState.Failed;
+        }
+
+        private bool CanUseRecoveryAction()
+        {
+            return gameState == GameState.Playing || gameState == GameState.Failed;
+        }
+
+        private void ResumeFailedLevelForRecovery()
+        {
+            if (gameState != GameState.Failed)
+            {
+                return;
+            }
+
+            gameState = GameState.Playing;
+            uiController.ShowInvalid(string.Empty);
+        }
 
         private int RemainingVipTeleportAds => Mathf.Max(0, VipTeleportAdLimitPerStage - vipAdsWatchedThisStage);
 
@@ -919,6 +1044,7 @@ namespace BusPuzzle
 
         private void StartBoardingResolver()
         {
+            ClearPendingFailureRecoveryState();
             boardingFlowController.Start();
         }
 
@@ -929,6 +1055,7 @@ namespace BusPuzzle
                 return;
             }
 
+            ClearPendingFailureRecoveryState();
             gameState = GameState.Cleared;
             ExitVipSelectionModeForEndState();
             if (currentLevelIndex + 1 < levelSequence.Count)
@@ -964,10 +1091,14 @@ namespace BusPuzzle
                 return;
             }
 
+            ClearPendingFailureRecoveryState();
             gameState = GameState.Failed;
             ExitVipSelectionModeForEndState();
             UpdateRewardedAdUi();
-            uiController.ShowFailed();
+            uiController.ShowFailed(
+                boardView != null && boardView.CanUnlockStationSlot,
+                rewardedAdService != null && RemainingVipTeleportAds > 0 && HasVipTeleportTarget(),
+                HasMixShuffleTarget());
             EffectAudioPlayer.PlayFail();
         }
 
@@ -976,15 +1107,66 @@ namespace BusPuzzle
             switch (GameProgressEngine.EvaluateBlockedState(CreateProgressSnapshot(true)))
             {
                 case GameProgressDecision.Complete:
+                    ClearPendingFailureRecoveryState();
                     CompleteLevel();
                     break;
                 case GameProgressDecision.StartBoardingResolver:
+                    ClearPendingFailureRecoveryState();
                     StartBoardingResolver();
                     break;
                 case GameProgressDecision.Fail:
+                    if (ShouldDeferFailureUntilRotaryFill())
+                    {
+                        isFailureWaitingForRotaryFill = true;
+                        isRecoveryChoiceHoldingFailure = false;
+                        break;
+                    }
+
+                    ClearPendingFailureRecoveryState();
                     FailLevel();
                     break;
+                default:
+                    ClearPendingFailureRecoveryState();
+                    break;
             }
+        }
+
+        private bool ShouldDeferFailureUntilRotaryFill()
+        {
+            return boardView != null && boardView.HasPendingRotaryFill(circulatingPassengerUnits);
+        }
+
+        private void HoldPendingFailureForRecoveryChoice()
+        {
+            if (!isFailureWaitingForRotaryFill)
+            {
+                return;
+            }
+
+            isFailureWaitingForRotaryFill = false;
+            isRecoveryChoiceHoldingFailure = true;
+        }
+
+        private void ClearPendingFailureRecoveryState()
+        {
+            isFailureWaitingForRotaryFill = false;
+            isRecoveryChoiceHoldingFailure = false;
+        }
+
+        private void HandleRecoveryPromptCancelled()
+        {
+            RecheckHeldFailureAfterRecoveryChoice();
+        }
+
+        private void RecheckHeldFailureAfterRecoveryChoice()
+        {
+            if (!isRecoveryChoiceHoldingFailure)
+            {
+                return;
+            }
+
+            isRecoveryChoiceHoldingFailure = false;
+            CheckBlocked();
         }
 
         private GameProgressSnapshot CreateProgressSnapshot(bool includeBlockedChecks)

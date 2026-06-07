@@ -307,6 +307,7 @@ namespace BusPuzzle
             text.fontSize = fontSize;
             text.fontStyle = fontStyle;
             text.color = color;
+            GameFontProvider.ApplyToTextMesh(text, fontStyle);
 
             var renderer = labelObject.GetComponent<MeshRenderer>();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

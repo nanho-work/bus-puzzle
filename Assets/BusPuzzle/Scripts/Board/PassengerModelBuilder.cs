@@ -5,9 +5,19 @@ namespace BusPuzzle
     internal static class PassengerModelBuilder
     {
         private const float PassengerVisualScale = 1.26f;
+        private const string PassengerModelResourcePath = "PassengerModels/PassengerUnit";
+
+        private static GameObject passengerModelPrefab;
+        private static bool passengerModelPrefabLoaded;
+        private static bool passengerModelPrefabInvalid;
 
         public static PassengerModel Create(PuzzleColor color, Transform parent)
         {
+            if (TryCreateAssetModel(color, parent, out var assetModel))
+            {
+                return assetModel;
+            }
+
             var bodyMaterial = PuzzlePalette.CreateMaterial(color, "Passenger Unit");
             var headMaterial = bodyMaterial;
             var legMaterial = PuzzlePalette.CreateSolidMaterial("Passenger Legs", PuzzlePalette.Darken(PuzzlePalette.ToColor(color), 0.18f));
@@ -29,6 +39,68 @@ namespace BusPuzzle
             }
 
             return new PassengerModel(personRoots, offsets, leftLegs, rightLegs);
+        }
+
+        private static bool TryCreateAssetModel(PuzzleColor color, Transform parent, out PassengerModel model)
+        {
+            model = null;
+            if (passengerModelPrefabInvalid)
+            {
+                return false;
+            }
+
+            var prefab = GetPassengerModelPrefab();
+            if (prefab == null)
+            {
+                return false;
+            }
+
+            var instance = Object.Instantiate(prefab, parent, false);
+            instance.name = "Passenger Unit Model";
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+
+            var rig = instance.GetComponentInChildren<PassengerModelRig>(true);
+            if (rig != null && rig.TryCreateModel(color, out model))
+            {
+                return true;
+            }
+
+            passengerModelPrefabInvalid = true;
+            Debug.LogWarning(
+                $"Passenger model prefab at Resources/{PassengerModelResourcePath} is missing a valid PassengerModelRig. Falling back to generated passengers.");
+            DestroyModelInstance(instance);
+            model = null;
+            return false;
+        }
+
+        private static GameObject GetPassengerModelPrefab()
+        {
+            if (!passengerModelPrefabLoaded)
+            {
+                passengerModelPrefab = Resources.Load<GameObject>(PassengerModelResourcePath);
+                passengerModelPrefabLoaded = true;
+            }
+
+            return passengerModelPrefab;
+        }
+
+        private static void DestroyModelInstance(GameObject instance)
+        {
+            if (instance == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Object.Destroy(instance);
+            }
+            else
+            {
+                Object.DestroyImmediate(instance);
+            }
         }
 
         private static Transform CreatePerson(

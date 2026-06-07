@@ -89,6 +89,7 @@ namespace BusPuzzle
             var profile = levelData.DifficultyProfile;
 
             ValidateBasicCounts(report, passengers, allVehicles);
+            ValidateRotaryOpening(report, levelData, passengers);
             ValidateCapacityMatch(report, levelData);
             ValidateDifficultyProfile(report, profile, levelData.PassengerFlowPlan, passengers, allVehicles);
             ValidateSolutionRoute(report, levelData.PassengerFlowPlan, allVehicles);
@@ -124,6 +125,25 @@ namespace BusPuzzle
             if (levelData.TryGetCapacityMismatchMessage(out var mismatchMessage))
             {
                 report.Add(LevelValidationSeverity.Error, mismatchMessage);
+            }
+        }
+
+        private static void ValidateRotaryOpening(
+            LevelValidationReport report,
+            LevelData levelData,
+            IReadOnlyList<PuzzleColor> passengers)
+        {
+            if (levelData == null || passengers == null || passengers.Count == 0)
+            {
+                return;
+            }
+
+            var rotaryCapacity = levelData.RotaryStartCapacity;
+            if (passengers.Count < rotaryCapacity)
+            {
+                report.Add(
+                    LevelValidationSeverity.Warning,
+                    $"Starting rotary has {passengers.Count} passenger units for {rotaryCapacity} visible slots; opening may look empty.");
             }
         }
 

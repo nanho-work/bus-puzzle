@@ -9,6 +9,8 @@ namespace BusPuzzle
         public readonly LevelDifficulty Difficulty;
         public readonly LevelDifficultyProfile Profile;
         public readonly RotaryRoadPresetId RoadPresetId;
+        public readonly int VehicleLayoutVariantIndex;
+        public readonly int VehicleLayoutVariantPoolSize;
         public readonly int GarageCount;
         public readonly int MinSolutionCount;
         public readonly int MaxSolutionCount;
@@ -19,6 +21,8 @@ namespace BusPuzzle
             LevelDifficulty difficulty,
             LevelDifficultyProfile profile,
             RotaryRoadPresetId roadPresetId,
+            int vehicleLayoutVariantIndex,
+            int vehicleLayoutVariantPoolSize,
             int garageCount,
             int minSolutionCount,
             int maxSolutionCount)
@@ -28,6 +32,8 @@ namespace BusPuzzle
             Difficulty = difficulty;
             Profile = profile;
             RoadPresetId = roadPresetId;
+            VehicleLayoutVariantIndex = vehicleLayoutVariantIndex;
+            VehicleLayoutVariantPoolSize = vehicleLayoutVariantPoolSize;
             GarageCount = garageCount;
             MinSolutionCount = minSolutionCount;
             MaxSolutionCount = maxSolutionCount;
@@ -36,6 +42,19 @@ namespace BusPuzzle
 
     public static class StageGenerationPlanner
     {
+        private static readonly RotaryRoadPresetId[] RoadPresetPattern =
+        {
+            RotaryRoadPresetId.CompactOval,
+            RotaryRoadPresetId.WideTerminal,
+            RotaryRoadPresetId.TallTerminal,
+            RotaryRoadPresetId.LeftHook,
+            RotaryRoadPresetId.RightHook,
+            RotaryRoadPresetId.Roundabout,
+            RotaryRoadPresetId.Small,
+            RotaryRoadPresetId.Medium,
+            RotaryRoadPresetId.Large
+        };
+
         public static StageGenerationRequest CreateRequest(StageGenerationConfig config, int stageNumber)
         {
             config = config != null ? config : ScriptableObject.CreateInstance<StageGenerationConfig>();
@@ -54,25 +73,53 @@ namespace BusPuzzle
                 seed,
                 difficulty,
                 rule.CreateProfile(progress),
-                PickRoadPreset(difficulty, random),
+                PickRoadPreset(stageNumber, config.BaseSeed),
+                PickVehicleLayoutVariant(stageNumber, config.BaseSeed),
+                VehicleLayoutPatternEngine.UniqueLayoutVariantCount,
                 garageCount,
                 rule.MinSolutionCount,
                 rule.MaxSolutionCount);
         }
 
-        private static RotaryRoadPresetId PickRoadPreset(LevelDifficulty difficulty, System.Random random)
+        private static RotaryRoadPresetId PickRoadPreset(int stageNumber, int baseSeed)
         {
-            if (difficulty == LevelDifficulty.SuperHard)
+            var seedOffset = Mathf.Abs(baseSeed) % RoadPresetPattern.Length;
+            var index = Mathf.Abs(stageNumber - 1 + seedOffset) % RoadPresetPattern.Length;
+            return RoadPresetPattern[index];
+        }
+
+        private static int PickVehicleLayoutVariant(int stageNumber, int baseSeed)
+        {
+            var poolSize = VehicleLayoutPatternEngine.UniqueLayoutVariantCount;
+            if (poolSize <= 1)
             {
-                return random.NextDouble() < 0.65d ? RotaryRoadPresetId.Large : RotaryRoadPresetId.Medium;
+                return 0;
             }
 
-            if (difficulty == LevelDifficulty.Hard)
+            var zeroBasedStage = Mathf.Max(0, stageNumber - 1);
+            var cycle = zeroBasedStage / poolSize;
+            var indexInCycle = zeroBasedStage % poolSize;
+            return PickShuffledPoolIndex(indexInCycle, poolSize, baseSeed + cycle * 15485863);
+        }
+
+        private static int PickShuffledPoolIndex(int indexInCycle, int poolSize, int seed)
+        {
+            var values = new int[poolSize];
+            for (var index = 0; index < values.Length; index++)
             {
-                return random.NextDouble() < 0.55d ? RotaryRoadPresetId.Medium : RotaryRoadPresetId.Small;
+                values[index] = index;
             }
 
-            return random.NextDouble() < 0.70d ? RotaryRoadPresetId.Small : RotaryRoadPresetId.Medium;
+            var random = new System.Random(seed);
+            for (var index = values.Length - 1; index > 0; index--)
+            {
+                var swapIndex = random.Next(0, index + 1);
+                var value = values[index];
+                values[index] = values[swapIndex];
+                values[swapIndex] = value;
+            }
+
+            return values[Mathf.Clamp(indexInCycle, 0, values.Length - 1)];
         }
     }
 }

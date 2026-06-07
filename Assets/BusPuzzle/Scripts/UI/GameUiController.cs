@@ -10,11 +10,24 @@ namespace BusPuzzle
         private const string PrivacyPolicyUrl = "https://buspuzzle.app/privacy";
         private const string VipBoosterIconResource = "UI/Boosters/booster_vip";
         private const string MixBoosterIconResource = "UI/Boosters/booster_mix";
+        private const string NextButtonIconResource = "UI/Boosters/NEXT";
         private const string GoldIconResource = "UI/Boosters/gold";
         private const float HeaderIconSize = 117f;
         private const int HeaderStageFontSize = 60;
         private const int HeaderGoldFontSize = 34;
         private const float BoosterIconSize = 144f;
+        private static readonly Color UiOverlayColor = new Color(0.03f, 0.05f, 0.07f, 0.56f);
+        private static readonly Color UiPanelColor = new Color(0.11f, 0.15f, 0.18f, 0.96f);
+        private static readonly Color UiPanelAccentColor = new Color(0.18f, 0.56f, 0.74f, 0.34f);
+        private static readonly Color UiPanelStrokeColor = new Color(0.56f, 0.74f, 0.82f, 0.10f);
+        private static readonly Color UiHeaderTextColor = new Color(0.09f, 0.13f, 0.16f, 0.96f);
+        private static readonly Color UiPrimaryActionColor = new Color(0.12f, 0.55f, 0.75f);
+        private static readonly Color UiGoldActionColor = new Color(0.88f, 0.57f, 0.10f);
+        private static readonly Color UiDangerActionColor = new Color(0.72f, 0.27f, 0.20f);
+        private static readonly Color UiSecondaryActionColor = new Color(0.27f, 0.35f, 0.41f);
+        private static readonly Color UiAdActionColor = new Color(0.15f, 0.55f, 0.38f);
+        private static readonly Color UiBoosterGoldColor = new Color(0.92f, 0.62f, 0.10f);
+        private static readonly Color UiBoosterBlueColor = new Color(0.16f, 0.48f, 0.70f);
 
         private RectTransform safeAreaRoot;
         private Rect lastSafeArea;
@@ -34,8 +47,16 @@ namespace BusPuzzle
         private RectTransform settingsPanel;
         private RectTransform clearPrompt;
         private Text clearPromptText;
+        private Text clearRewardText;
         private RectTransform failPrompt;
         private Text failPromptText;
+        private Text failHintText;
+        private Button failStationUnlockButton;
+        private Text failStationUnlockButtonText;
+        private Button failVipButton;
+        private Text failVipButtonText;
+        private Button failMixButton;
+        private Text failMixButtonText;
         private RectTransform exitPrompt;
         private Text exitPromptText;
         private Toggle effectSoundToggle;
@@ -55,17 +76,20 @@ namespace BusPuzzle
         private Text mixShuffleWatchButtonText;
         private static Sprite roundedPanelSprite;
         private static Sprite circleSprite;
-        private static Sprite runtimeGoldIconSprite;
+        private static Sprite gearIconSprite;
+        private bool shouldReturnToFailPromptOnRecoveryCancel;
 
         public event Action RestartRequested;
         public event Action NextLevelRequested;
         public event Action ExitConfirmed;
+        public event Action StationUnlockRequested;
         public event Action StationUnlockConfirmed;
         public event Action VipTeleportRequested;
         public event Action VipTeleportConfirmed;
         public event Action MixShuffleRequested;
         public event Action MixShuffleGoldConfirmed;
         public event Action MixShuffleConfirmed;
+        public event Action RecoveryPromptCancelled;
 
         public static GameUiController CreateDefault()
         {
@@ -205,6 +229,7 @@ namespace BusPuzzle
             }
 
             HideSettingsPanel();
+            HideFailPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
             stationUnlockPrompt.gameObject.SetActive(true);
@@ -227,6 +252,7 @@ namespace BusPuzzle
             }
 
             HideSettingsPanel();
+            HideFailPrompt();
             HideStationUnlockPrompt();
             HideMixShufflePrompt();
             vipTeleportPrompt.gameObject.SetActive(true);
@@ -254,6 +280,7 @@ namespace BusPuzzle
             }
 
             HideSettingsPanel();
+            HideFailPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             mixShufflePrompt.gameObject.SetActive(true);
@@ -272,6 +299,7 @@ namespace BusPuzzle
         {
             statusText.text = string.Empty;
             SetRestartButtonInteractable(true);
+            shouldReturnToFailPromptOnRecoveryCancel = false;
             HideSettingsPanel();
             HideClearPrompt();
             HideFailPrompt();
@@ -294,6 +322,7 @@ namespace BusPuzzle
         {
             statusText.text = hasNextLevel ? "Clear" : "All Clear";
             SetRestartButtonInteractable(false);
+            shouldReturnToFailPromptOnRecoveryCancel = false;
             SetStationUnlock(0, false, false, false);
             SetVipTeleport(0, false, false, false, false, false);
             SetMixShuffle(false, 0, 0, false, false, false);
@@ -306,10 +335,11 @@ namespace BusPuzzle
             ShowClearPrompt(levelNumber, hasNextLevel, goldReward);
         }
 
-        public void ShowFailed()
+        public void ShowFailed(bool canUnlockStationSlot, bool canVipTeleport, bool canMixShuffle)
         {
             statusText.text = "Failed";
             SetRestartButtonInteractable(true);
+            shouldReturnToFailPromptOnRecoveryCancel = false;
             HideSettingsPanel();
             HideClearPrompt();
             HideExitPrompt();
@@ -324,7 +354,7 @@ namespace BusPuzzle
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
-            ShowFailPrompt();
+            ShowFailPrompt(canUnlockStationSlot, canVipTeleport, canMixShuffle);
         }
 
         public void ShowExitPrompt()
@@ -335,6 +365,7 @@ namespace BusPuzzle
             }
 
             HideSettingsPanel();
+            HideFailPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();

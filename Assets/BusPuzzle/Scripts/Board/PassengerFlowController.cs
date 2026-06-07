@@ -13,7 +13,7 @@ namespace BusPuzzle
         public void Configure(RotaryLayout newLayout)
         {
             lanePathSampler.Configure(newLayout);
-            slotFlow.Configure(lanePathSampler.RoutePathLength, newLayout.Preset.MaxCapacityUnits, newLayout.PassengerSpeed);
+            slotFlow.Configure(lanePathSampler.RoutePathLength, newLayout.CapacityUnits, newLayout.PassengerSpeed);
         }
 
         public void AssignTraffic(PassengerView passenger, int queueIndex)

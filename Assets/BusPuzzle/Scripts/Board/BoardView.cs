@@ -71,7 +71,7 @@ namespace BusPuzzle
             var halfWidth = Mathf.Max(halfGridWidth, halfStationWidth, halfFeederWidth);
             var bottomZ = BoardLayoutConfig.GridBottomZ - BoardLayoutConfig.CellSize * 0.48f;
             var topZ = BoardLayoutConfig.RotaryCenterZ +
-                GetMaxFeederY(rotaryLayout.LeftFeederPath, rotaryLayout.RightFeederPath) +
+                rotaryLayout.VisibleFeederTopY +
                 0.20f;
 
             var center = new Vector3(0f, 0.10f, (bottomZ + topZ) * 0.5f);
@@ -133,9 +133,9 @@ namespace BusPuzzle
             WarnIfBusesStartOverlapping(levelData, buses);
         }
 
-        public void UpdatePassengerTraffic(IReadOnlyList<PassengerView> passengers, float deltaTime)
+        public void UpdatePassengerTraffic(IReadOnlyList<PassengerView> passengers, float deltaTime, float trafficTimeScale)
         {
-            GetPassengerTraffic().Advance(passengers, deltaTime);
+            GetPassengerTraffic().Advance(passengers, deltaTime, trafficTimeScale);
         }
 
         public bool TryFindBoardingPassenger(IReadOnlyList<PassengerView> passengers, PuzzleColor color, out int passengerIndex)
@@ -156,6 +156,11 @@ namespace BusPuzzle
         public bool HasRotaryPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
         {
             return PassengerTrafficEngine.HasRotaryPassengerColor(passengers, color);
+        }
+
+        public bool HasPendingRotaryFill(IReadOnlyList<PassengerView> passengers)
+        {
+            return GetPassengerTraffic().HasPendingRotaryFill(passengers);
         }
 
         public bool TryReserveStationSlot(out int slotIndex, out Vector3 slotPosition)

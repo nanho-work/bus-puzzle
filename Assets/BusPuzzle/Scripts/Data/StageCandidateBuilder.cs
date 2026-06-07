@@ -3,6 +3,7 @@ namespace BusPuzzle
     public static class StageCandidateBuilder
     {
         private const int MinimumRuntimeCandidateAttempts = 8;
+        private const int RuntimeSolutionNodeVisitLimit = 2048;
 
         public static bool TryBuildVerifiedStageCandidate(
             StageGenerationConfig config,
@@ -58,7 +59,7 @@ namespace BusPuzzle
                     config.SuperHardGarageRule,
                     candidate,
                     config.RuntimeVehicleGenerationAttempts,
-                    true);
+                    false);
                 if (!TryScoreRuntimeCandidate(config, request, level, out var score))
                 {
                     continue;
@@ -81,22 +82,9 @@ namespace BusPuzzle
                 return bestLevel;
             }
 
-            if (TryBuildVerifiedStageCandidate(config, request, out var verifiedLevel, out _, out _))
-            {
-                return verifiedLevel;
-            }
-
             UnityEngine.Debug.LogWarning(
-                $"Failed to build a verified runtime candidate for stage {request.StageNumber}. Falling back to the best generated candidate.");
-            var fallbackLevel = LevelGenerator.CreateRuntimeStage(
-                request,
-                config.SuperHardGarageRule,
-                attempts,
-                config.CandidateAttemptsPerStage,
-                true);
-            return TryScoreRuntimeCandidate(config, request, fallbackLevel, out _)
-                ? fallbackLevel
-                : CreateEmergencySolvableStage(request);
+                $"Failed to build a fast verified runtime candidate for stage {request.StageNumber}. Using emergency solvable stage.");
+            return CreateEmergencySolvableStage(request);
         }
 
         public static LevelData BuildBestStageCandidate(StageGenerationConfig config, StageGenerationRequest request)
@@ -122,14 +110,13 @@ namespace BusPuzzle
                 return false;
             }
 
-            var solutionLimit = UnityEngine.Mathf.Clamp(request.MaxSolutionCount + 1, 1, config.SolutionCountLimit);
-            var analysis = StageSolutionAnalyzer.Analyze(level.Buses, level.Garages, solutionLimit);
+            var analysis = StageSolutionAnalyzer.Analyze(level.Buses, level.Garages, 1, RuntimeSolutionNodeVisitLimit);
             if (!analysis.IsSolvable)
             {
                 return false;
             }
 
-            score = ScoreRuntimeCandidate(request, level) + ScoreSolutionCount(request, analysis);
+            score = ScoreRuntimeCandidate(request, level);
             return true;
         }
 
@@ -154,26 +141,6 @@ namespace BusPuzzle
             score += UnityEngine.Mathf.Abs(level.AllVehicles.Count - request.Profile.TargetVehicleCount) * 100;
             score += UnityEngine.Mathf.Abs(CountUniqueVehicleColors(level.AllVehicles) - request.Profile.TargetColorCount) * 25;
             return score;
-        }
-
-        private static int ScoreSolutionCount(StageGenerationRequest request, StageSolutionAnalysis analysis)
-        {
-            if (!analysis.IsSolvable)
-            {
-                return 1000000;
-            }
-
-            if (analysis.SolutionCount < request.MinSolutionCount)
-            {
-                return (request.MinSolutionCount - analysis.SolutionCount) * 45;
-            }
-
-            if (analysis.SolutionCount > request.MaxSolutionCount || analysis.HitLimit)
-            {
-                return UnityEngine.Mathf.Max(0, analysis.SolutionCount - request.MaxSolutionCount) * 45 + 180;
-            }
-
-            return 0;
         }
 
         private static LevelData CreateEmergencySolvableStage(StageGenerationRequest request)

@@ -6,28 +6,47 @@ namespace BusPuzzle
 {
     public sealed partial class GameUiController
     {
+        private const string EffectSoundOnIconResource = "UI/Boosters/Effect_on";
+        private const string EffectSoundOffIconResource = "UI/Boosters/Effect_off";
+        private const string MainSoundOnIconResource = "UI/Boosters/Music_on";
+        private const string MainSoundOffIconResource = "UI/Boosters/Music_off";
+        private const string VibrationOnIconResource = "UI/Boosters/Vibration_on";
+        private const string VibrationOffIconResource = "UI/Boosters/Vibration_off";
+
         private void BuildSettingsPanel()
         {
-            settingsPanel = CreatePanel("Settings Overlay", safeAreaRoot, new Color(0.04f, 0.06f, 0.08f, 0.48f));
+            settingsPanel = CreatePanel("Settings Overlay", safeAreaRoot, UiOverlayColor);
             SetAnchors(settingsPanel, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
-            var modal = CreateRoundedPanel("Settings Modal", settingsPanel, new Color(0.10f, 0.12f, 0.14f, 0.96f));
+            var modal = CreateGameDialog("Settings Modal", settingsPanel);
             SetAnchors(modal, new Vector2(0.12f, 0.30f), new Vector2(0.88f, 0.70f), Vector2.zero, Vector2.zero);
 
-            var title = CreateText("Settings Title", modal, TextAnchor.MiddleLeft, 42, FontStyle.Bold);
-            title.text = "Settings";
-            title.color = new Color(0.96f, 0.98f, 1f);
-            SetAnchors(title.rectTransform, new Vector2(0.10f, 0.80f), new Vector2(0.70f, 0.97f), new Vector2(0f, 4f), new Vector2(0f, -4f));
+            var titlePlate = CreateDialogTitlePlate("Settings Title Plate", modal, "OPTION");
+            SetAnchors(titlePlate, new Vector2(0.17f, 0.88f), new Vector2(0.83f, 1.14f), Vector2.zero, Vector2.zero);
 
-            var closeButton = CreateRoundIconButton("Settings Close Button", modal, "×", 86f, 42);
-            SetAnchors(closeButton.GetComponent<RectTransform>(), new Vector2(0.78f, 0.78f), new Vector2(0.98f, 0.98f), Vector2.zero, Vector2.zero);
+            var closeButton = CreateRoundIconButton("Settings Close Button", modal, "×", 86f, 42, true);
+            SetAnchors(closeButton.GetComponent<RectTransform>(), new Vector2(0.82f, 0.76f), new Vector2(1.00f, 0.96f), Vector2.zero, Vector2.zero);
             closeButton.onClick.AddListener(HideSettingsPanel);
 
-            effectSoundToggle = CreateSettingIconToggle("Effect Sound Toggle", modal, "SFX", "Effect", UserPreferences.EffectSoundEnabled);
+            effectSoundToggle = CreateSettingIconToggle(
+                "Effect Sound Toggle",
+                modal,
+                EffectSoundOnIconResource,
+                EffectSoundOffIconResource,
+                "SFX",
+                "Effect",
+                UserPreferences.EffectSoundEnabled);
             SetAnchors(effectSoundToggle.GetComponent<RectTransform>(), new Vector2(0.08f, 0.39f), new Vector2(0.32f, 0.72f), Vector2.zero, Vector2.zero);
             effectSoundToggle.onValueChanged.AddListener(value => UserPreferences.EffectSoundEnabled = value);
 
-            mainSoundToggle = CreateSettingIconToggle("Main Sound Toggle", modal, "♪", "Music", UserPreferences.MainSoundEnabled);
+            mainSoundToggle = CreateSettingIconToggle(
+                "Main Sound Toggle",
+                modal,
+                MainSoundOnIconResource,
+                MainSoundOffIconResource,
+                "♪",
+                "Music",
+                UserPreferences.MainSoundEnabled);
             SetAnchors(mainSoundToggle.GetComponent<RectTransform>(), new Vector2(0.38f, 0.39f), new Vector2(0.62f, 0.72f), Vector2.zero, Vector2.zero);
             mainSoundToggle.onValueChanged.AddListener(value =>
             {
@@ -35,15 +54,22 @@ namespace BusPuzzle
                 BackgroundMusicPlayer.ApplyPreferences();
             });
 
-            vibrationToggle = CreateSettingIconToggle("Vibration Toggle", modal, "≋", "Vibration", UserPreferences.VibrationEnabled);
+            vibrationToggle = CreateSettingIconToggle(
+                "Vibration Toggle",
+                modal,
+                VibrationOnIconResource,
+                VibrationOffIconResource,
+                "≋",
+                "Vibration",
+                UserPreferences.VibrationEnabled);
             SetAnchors(vibrationToggle.GetComponent<RectTransform>(), new Vector2(0.68f, 0.39f), new Vector2(0.92f, 0.72f), Vector2.zero, Vector2.zero);
             vibrationToggle.onValueChanged.AddListener(value => UserPreferences.VibrationEnabled = value);
 
-            var feedbackButton = CreateRoundIconButton("Feedback Button", modal, "i", 78f, 36);
+            var feedbackButton = CreateRoundIconButton("Feedback Button", modal, "i", 78f, 36, true);
             SetAnchors(feedbackButton.GetComponent<RectTransform>(), new Vector2(0.28f, 0.12f), new Vector2(0.45f, 0.32f), Vector2.zero, Vector2.zero);
             feedbackButton.onClick.AddListener(OpenFeedbackMail);
 
-            var privacyButton = CreateRoundIconButton("Privacy Button", modal, "≡", 78f, 36);
+            var privacyButton = CreateRoundIconButton("Privacy Button", modal, "≡", 78f, 36, true);
             SetAnchors(privacyButton.GetComponent<RectTransform>(), new Vector2(0.55f, 0.12f), new Vector2(0.72f, 0.32f), Vector2.zero, Vector2.zero);
             privacyButton.onClick.AddListener(OpenPrivacyPolicy);
 
@@ -98,7 +124,9 @@ namespace BusPuzzle
         private static Toggle CreateSettingIconToggle(
             string name,
             Transform parent,
-            string glyph,
+            string onIconResourcePath,
+            string offIconResourcePath,
+            string fallbackGlyph,
             string label,
             bool initialValue)
         {
@@ -108,9 +136,28 @@ namespace BusPuzzle
             var cardImage = toggleObject.GetComponent<Image>();
             cardImage.color = new Color(1f, 1f, 1f, 0f);
 
-            var iconRoot = CreateRoundIconVisual($"{name} Icon", toggleObject.transform, glyph, 104f, 42, out var innerImage);
+            var onIconSprite = LoadResourceSprite(onIconResourcePath);
+            var offIconSprite = LoadResourceSprite(offIconResourcePath);
+            var iconRoot = CreateCenteredSquare($"{name} Icon Root", toggleObject.transform, 116f);
             iconRoot.anchoredPosition = new Vector2(0f, 22f);
-            var iconGroup = iconRoot.gameObject.AddComponent<CanvasGroup>();
+
+            var iconObject = new GameObject($"{name} Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(iconRoot, false);
+            var iconRect = iconObject.GetComponent<RectTransform>();
+            SetAnchors(iconRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var iconImage = iconObject.GetComponent<Image>();
+            iconImage.sprite = GetSettingToggleSprite(initialValue, onIconSprite, offIconSprite);
+            iconImage.color = iconImage.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+            iconImage.preserveAspect = true;
+            iconImage.raycastTarget = false;
+
+            Text fallbackText = null;
+            if (onIconSprite == null && offIconSprite == null)
+            {
+                fallbackText = CreateText($"{name} Fallback", iconRoot, TextAnchor.MiddleCenter, 36, FontStyle.Bold);
+                fallbackText.text = fallbackGlyph;
+                SetAnchors(fallbackText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            }
 
             var labelText = CreateText($"{name} Label", toggleObject.transform, TextAnchor.MiddleCenter, 24, FontStyle.Bold);
             labelText.text = label;
@@ -121,7 +168,7 @@ namespace BusPuzzle
             toggle.graphic = null;
 
             var iconVisual = toggleObject.AddComponent<SettingIconToggleVisual>();
-            iconVisual.Initialize(iconGroup, innerImage, labelText);
+            iconVisual.Initialize(iconImage, onIconSprite, offIconSprite, labelText, fallbackText);
             toggle.onValueChanged.AddListener(iconVisual.Apply);
             iconVisual.Apply(initialValue);
             toggle.SetIsOnWithoutNotify(initialValue);
@@ -135,39 +182,59 @@ namespace BusPuzzle
             return toggle;
         }
 
+        private static Sprite GetSettingToggleSprite(bool isOn, Sprite onSprite, Sprite offSprite)
+        {
+            var preferredSprite = isOn ? onSprite : offSprite;
+            if (preferredSprite != null)
+            {
+                return preferredSprite;
+            }
+
+            return isOn ? offSprite : onSprite;
+        }
+
         private sealed class SettingIconToggleVisual : MonoBehaviour
         {
-            private static readonly Color OnInnerColor = new Color(0.12f, 0.66f, 0.89f);
-            private static readonly Color OffInnerColor = new Color(0.40f, 0.47f, 0.52f);
             private static readonly Color OnLabelColor = new Color(0.96f, 0.98f, 1f);
             private static readonly Color OffLabelColor = new Color(0.52f, 0.58f, 0.62f);
 
-            private CanvasGroup iconGroup;
-            private Image innerImage;
+            private Image iconImage;
+            private Sprite onSprite;
+            private Sprite offSprite;
             private Text labelText;
+            private Text fallbackText;
 
-            public void Initialize(CanvasGroup newIconGroup, Image newInnerImage, Text newLabelText)
+            public void Initialize(
+                Image newIconImage,
+                Sprite newOnSprite,
+                Sprite newOffSprite,
+                Text newLabelText,
+                Text newFallbackText)
             {
-                iconGroup = newIconGroup;
-                innerImage = newInnerImage;
+                iconImage = newIconImage;
+                onSprite = newOnSprite;
+                offSprite = newOffSprite;
                 labelText = newLabelText;
+                fallbackText = newFallbackText;
             }
 
             public void Apply(bool isOn)
             {
-                if (iconGroup != null)
+                if (iconImage != null)
                 {
-                    iconGroup.alpha = isOn ? 1f : 0.48f;
-                }
-
-                if (innerImage != null)
-                {
-                    innerImage.color = isOn ? OnInnerColor : OffInnerColor;
+                    var nextSprite = GameUiController.GetSettingToggleSprite(isOn, onSprite, offSprite);
+                    iconImage.sprite = nextSprite;
+                    iconImage.color = nextSprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
                 }
 
                 if (labelText != null)
                 {
                     labelText.color = isOn ? OnLabelColor : OffLabelColor;
+                }
+
+                if (fallbackText != null)
+                {
+                    fallbackText.color = isOn ? OnLabelColor : OffLabelColor;
                 }
             }
         }

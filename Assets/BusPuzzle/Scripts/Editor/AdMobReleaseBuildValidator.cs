@@ -81,7 +81,7 @@ namespace BusPuzzle
 
         private static bool IsDevelopmentBuild(BuildReport report)
         {
-            return (report.summary.options & BuildOptions.Development) != 0;
+            return report != null && report.summary.options.ToString().Contains("Development");
         }
 
         private static bool IsMobileTarget(BuildTarget target)

@@ -24,19 +24,43 @@ namespace BusPuzzle
             IReadOnlyList<GarageDefinition> garages,
             int solutionCountLimit)
         {
-            solutionCountLimit = Mathf.Max(1, solutionCountLimit);
-            var state = StageSolutionState.Create(buses, garages);
-            var count = CountSolutions(state, solutionCountLimit);
-            return new StageSolutionAnalysis(count > 0, count, count >= solutionCountLimit);
+            return Analyze(buses, garages, solutionCountLimit, int.MaxValue);
         }
 
-        private static int CountSolutions(StageSolutionState state, int remainingLimit)
+        public static StageSolutionAnalysis Analyze(
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<GarageDefinition> garages,
+            int solutionCountLimit,
+            int nodeVisitLimit)
+        {
+            solutionCountLimit = Mathf.Max(1, solutionCountLimit);
+            nodeVisitLimit = Mathf.Max(1, nodeVisitLimit);
+            var state = StageSolutionState.Create(buses, garages);
+            var visitedNodes = 0;
+            var hitNodeLimit = false;
+            var count = CountSolutions(state, solutionCountLimit, nodeVisitLimit, ref visitedNodes, ref hitNodeLimit);
+            return new StageSolutionAnalysis(count > 0, count, count >= solutionCountLimit || hitNodeLimit);
+        }
+
+        private static int CountSolutions(
+            StageSolutionState state,
+            int remainingLimit,
+            int nodeVisitLimit,
+            ref int visitedNodes,
+            ref bool hitNodeLimit)
         {
             if (remainingLimit <= 0)
             {
                 return 0;
             }
 
+            if (visitedNodes >= nodeVisitLimit)
+            {
+                hitNodeLimit = true;
+                return 0;
+            }
+
+            visitedNodes++;
             if (!state.HasActiveVehicles)
             {
                 return 1;
@@ -52,7 +76,7 @@ namespace BusPuzzle
 
                 var nextState = state.Clone();
                 nextState.RemoveVehicle(index);
-                count += CountSolutions(nextState, remainingLimit - count);
+                count += CountSolutions(nextState, remainingLimit - count, nodeVisitLimit, ref visitedNodes, ref hitNodeLimit);
                 if (count >= remainingLimit)
                 {
                     return remainingLimit;

@@ -132,6 +132,7 @@ namespace BusPuzzle
             counterText.characterSize = cellSize * CounterCharacterScale;
             counterText.fontSize = 36;
             counterText.color = color;
+            GameFontProvider.ApplyToTextMesh(counterText, FontStyle.Bold);
 
             var renderer = textObject.GetComponent<MeshRenderer>();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

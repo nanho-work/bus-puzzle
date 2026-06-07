@@ -35,8 +35,8 @@ namespace BusPuzzle
                 earlierBus != null &&
                 earlierBus != candidateBus &&
                 earlierBus.Color == candidateBus.Color &&
-                earlierBus.StationSlotIndex >= 0 &&
-                candidateBus.StationSlotIndex >= 0 &&
+                earlierBus.StationSlotIndex >= BoardView.VipStationSlotIndex &&
+                candidateBus.StationSlotIndex >= BoardView.VipStationSlotIndex &&
                 earlierBus.StationSlotIndex < candidateBus.StationSlotIndex;
         }
     }

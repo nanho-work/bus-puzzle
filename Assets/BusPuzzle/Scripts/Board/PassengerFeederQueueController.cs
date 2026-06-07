@@ -18,6 +18,7 @@ namespace BusPuzzle
         private readonly int rotaryActiveTarget;
         private readonly Action<PassengerView, int> assignTraffic;
         private readonly Action<PassengerView> setTrafficPose;
+        private readonly List<PassengerView> compactScratch = new List<PassengerView>();
         private int preferredFeederSide = 1;
 
         public PassengerFeederQueueController(
@@ -81,6 +82,12 @@ namespace BusPuzzle
             }
 
             return HasFeederPassengers(passengers);
+        }
+
+        public void Compact(IReadOnlyList<PassengerView> passengers)
+        {
+            CompactSide(passengers, -1);
+            CompactSide(passengers, 1);
         }
 
         private bool TryFindPromotionCandidate(
@@ -191,6 +198,41 @@ namespace BusPuzzle
             }
 
             return false;
+        }
+
+        private void CompactSide(IReadOnlyList<PassengerView> passengers, int side)
+        {
+            compactScratch.Clear();
+            for (var index = 0; index < passengers.Count; index++)
+            {
+                var passenger = passengers[index];
+                if (passenger != null && passenger.IsWaitingInFeeder && passenger.FeederSide == side)
+                {
+                    compactScratch.Add(passenger);
+                }
+            }
+
+            compactScratch.Sort(CompareFeederSlots);
+            for (var slotIndex = 0; slotIndex < compactScratch.Count; slotIndex++)
+            {
+                var passenger = compactScratch[slotIndex];
+                if (passenger.FeederSlotIndex == slotIndex)
+                {
+                    continue;
+                }
+
+                passenger.AssignFeeder(side, slotIndex);
+                var pose = GetFeederPose(side, slotIndex);
+                passenger.MoveToPose(pose.Position, pose.Rotation, settings.FeederQueueStepDuration);
+            }
+
+            compactScratch.Clear();
+        }
+
+        private static int CompareFeederSlots(PassengerView first, PassengerView second)
+        {
+            var slotCompare = first.FeederSlotIndex.CompareTo(second.FeederSlotIndex);
+            return slotCompare != 0 ? slotCompare : first.GetInstanceID().CompareTo(second.GetInstanceID());
         }
 
         private static bool TryFindFeederPassenger(IReadOnlyList<PassengerView> passengers, int side, out PassengerView passenger)

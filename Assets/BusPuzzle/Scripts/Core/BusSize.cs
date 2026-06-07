@@ -59,13 +59,13 @@ namespace BusPuzzle
             switch (size)
             {
                 case BusSize.Small:
-                    return 1.12f;
+                    return 1.20f;
                 case BusSize.Medium:
-                    return 1.68f;
+                    return 1.80f;
                 case BusSize.Large:
-                    return 2.24f;
+                    return 2.40f;
                 default:
-                    return 1.12f;
+                    return 1.20f;
             }
         }
 

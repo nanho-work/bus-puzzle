@@ -163,6 +163,11 @@ namespace BusPuzzle
             return GetPassengerTraffic().HasPendingRotaryFill(passengers);
         }
 
+        public void CompactFeederQueues(IReadOnlyList<PassengerView> passengers)
+        {
+            GetPassengerTraffic().CompactFeederQueues(passengers);
+        }
+
         public bool TryReserveStationSlot(out int slotIndex, out Vector3 slotPosition)
         {
             return stationSlots.TryReserve(BoardLayoutConfig.GetStationPosition, out slotIndex, out slotPosition);

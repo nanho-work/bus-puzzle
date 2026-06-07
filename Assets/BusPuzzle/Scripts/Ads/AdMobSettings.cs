@@ -13,6 +13,7 @@ namespace BusPuzzle
         public const string StationSlotUnlockRewardType = "station_slot_unlock";
         public const string VipBusTeleportRewardType = "vip_bus_teleport";
         public const string BusColorShuffleRewardType = "bus_color_shuffle";
+        public const string DepartBoostRewardType = "depart_boost";
 
         [SerializeField] private bool useProductionAdsInRelease = true;
         [SerializeField] private string androidAppId = "ca-app-pub-5773331970563455~5379288524";
@@ -23,6 +24,8 @@ namespace BusPuzzle
         [SerializeField] private string iosVipRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
         [SerializeField] private string androidShuffleRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/3872285640";
         [SerializeField] private string iosShuffleRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
+        [SerializeField] private string androidDepartRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/3872285640";
+        [SerializeField] private string iosDepartRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
 
         public bool UseProductionAdsInRelease => useProductionAdsInRelease;
         public string AndroidAppId => androidAppId;
@@ -33,6 +36,8 @@ namespace BusPuzzle
         public string IosVipRewardedProductionAdUnitId => iosVipRewardedProductionAdUnitId;
         public string AndroidShuffleRewardedProductionAdUnitId => androidShuffleRewardedProductionAdUnitId;
         public string IosShuffleRewardedProductionAdUnitId => iosShuffleRewardedProductionAdUnitId;
+        public string AndroidDepartRewardedProductionAdUnitId => androidDepartRewardedProductionAdUnitId;
+        public string IosDepartRewardedProductionAdUnitId => iosDepartRewardedProductionAdUnitId;
 
         public static AdMobSettings Load()
         {
@@ -97,6 +102,8 @@ namespace BusPuzzle
                     return androidVipRewardedProductionAdUnitId;
                 case RewardedAdPlacement.BusColorShuffle:
                     return androidShuffleRewardedProductionAdUnitId;
+                case RewardedAdPlacement.DepartBoost:
+                    return androidDepartRewardedProductionAdUnitId;
                 default:
                     return androidRewardedProductionAdUnitId;
             }
@@ -110,6 +117,8 @@ namespace BusPuzzle
                     return iosVipRewardedProductionAdUnitId;
                 case RewardedAdPlacement.BusColorShuffle:
                     return iosShuffleRewardedProductionAdUnitId;
+                case RewardedAdPlacement.DepartBoost:
+                    return iosDepartRewardedProductionAdUnitId;
                 default:
                     return iosRewardedProductionAdUnitId;
             }

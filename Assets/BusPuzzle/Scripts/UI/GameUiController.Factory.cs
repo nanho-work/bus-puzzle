@@ -589,7 +589,7 @@ namespace BusPuzzle
             colors.normalColor = Color.white;
             colors.highlightedColor = new Color(1f, 1f, 1f, 0.94f);
             colors.pressedColor = new Color(0.82f, 0.82f, 0.82f, 1f);
-            colors.disabledColor = Color.white;
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.42f);
             button.colors = colors;
 
             badgeText = null;
@@ -601,15 +601,18 @@ namespace BusPuzzle
             var badgeObject = new GameObject($"{name} Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             badgeObject.transform.SetParent(iconRoot, false);
             var badgeRect = badgeObject.GetComponent<RectTransform>();
-            SetAnchors(badgeRect, new Vector2(0.48f, 0.02f), new Vector2(0.98f, 0.31f), Vector2.zero, Vector2.zero);
+            SetAnchors(badgeRect, new Vector2(0.44f, 0.02f), new Vector2(0.98f, 0.31f), Vector2.zero, Vector2.zero);
 
             var badgeImage = badgeObject.GetComponent<Image>();
-            badgeImage.color = new Color(0.06f, 0.08f, 0.10f, 0.82f);
+            badgeImage.sprite = GetRoundedPanelSprite();
+            badgeImage.type = Image.Type.Sliced;
+            badgeImage.color = new Color(0.02f, 0.03f, 0.04f, 0.10f);
             badgeImage.raycastTarget = false;
 
             badgeText = CreateText($"{name} Badge Text", badgeObject.transform, TextAnchor.MiddleCenter, 20, FontStyle.Bold);
             badgeText.text = string.Empty;
             badgeText.resizeTextMinSize = 12;
+            badgeText.color = new Color(1f, 1f, 1f, 0.96f);
             SetAnchors(badgeText.rectTransform, Vector2.zero, Vector2.one, new Vector2(4f, 1f), new Vector2(-4f, -1f));
 
             return button;

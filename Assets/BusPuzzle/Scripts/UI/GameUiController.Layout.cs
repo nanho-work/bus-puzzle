@@ -13,7 +13,7 @@ namespace BusPuzzle
             topPanel.GetComponent<Image>().raycastTarget = false;
             SetAnchors(topPanel, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -132f), new Vector2(-16f, -8f));
 
-            menuButton = CreateRoundIconButton("Header Menu Button", topPanel, "↻", HeaderIconSize, 48, true);
+            menuButton = CreateHeaderIconButton("Header Menu Button", topPanel, RetryButtonIconResource, "↻", UiPrimaryActionColor);
             SetAnchors(menuButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0.20f, 1f), new Vector2(0f, 0f), new Vector2(-8f, 0f));
             menuButton.onClick.AddListener(() =>
             {
@@ -46,7 +46,7 @@ namespace BusPuzzle
             goldText.color = new Color(1.00f, 0.78f, 0.16f);
             SetAnchors(goldText.rectTransform, new Vector2(0.41f, 0f), Vector2.one, new Vector2(0f, 1f), new Vector2(-8f, -1f));
 
-            settingsButton = CreateGearIconButton("Header Settings Button", topPanel, HeaderIconSize);
+            settingsButton = CreateHeaderIconButton("Header Settings Button", topPanel, SettingsButtonIconResource, "⚙", UiPrimaryActionColor);
             SetAnchors(settingsButton.GetComponent<RectTransform>(), new Vector2(0.80f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(0f, 0f));
             settingsButton.onClick.AddListener(ToggleSettingsPanel);
 
@@ -54,16 +54,21 @@ namespace BusPuzzle
             SetAnchors(statusText.rectTransform, new Vector2(0.18f, 1f), new Vector2(0.82f, 1f), new Vector2(0f, -162f), new Vector2(0f, -120f));
 
             var boosterRow = CreateRectTransform("Booster Row", root);
-            SetAnchors(boosterRow, new Vector2(0.24f, 0f), new Vector2(0.76f, 0f), new Vector2(0f, 18f), new Vector2(0f, 170f));
+            SetAnchors(boosterRow, new Vector2(0.14f, 0f), new Vector2(0.86f, 0f), new Vector2(0f, 18f), new Vector2(0f, 170f));
 
             vipButton = CreateBoosterButton("VIP Button", boosterRow, VipBoosterIconResource, "VIP", UiBoosterGoldColor, true, out vipBadgeText);
-            SetAnchors(vipButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0.50f, 1f), new Vector2(0f, 0f), new Vector2(-18f, 0f));
+            SetAnchors(vipButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0.333f, 1f), new Vector2(0f, 0f), new Vector2(-12f, 0f));
             vipButton.onClick.AddListener(() => VipTeleportRequested?.Invoke());
 
             mixButton = CreateBoosterButton("Mix Button", boosterRow, MixBoosterIconResource, "Mix", UiBoosterBlueColor, false, out _);
-            SetAnchors(mixButton.GetComponent<RectTransform>(), new Vector2(0.50f, 0f), new Vector2(1f, 1f), new Vector2(18f, 0f), new Vector2(0f, 0f));
+            SetAnchors(mixButton.GetComponent<RectTransform>(), new Vector2(0.333f, 0f), new Vector2(0.667f, 1f), new Vector2(12f, 0f), new Vector2(-12f, 0f));
             mixButton.onClick.AddListener(() => MixShuffleRequested?.Invoke());
             mixButton.interactable = false;
+
+            departButton = CreateBoosterButton("Depart Button", boosterRow, DepartBoosterIconResource, "Depart", UiBoosterDepartColor, false, out _);
+            SetAnchors(departButton.GetComponent<RectTransform>(), new Vector2(0.667f, 0f), new Vector2(1f, 1f), new Vector2(12f, 0f), new Vector2(0f, 0f));
+            departButton.onClick.AddListener(() => DepartRequested?.Invoke());
+            departButton.interactable = false;
 
             BuildSettingsPanel();
             BuildClearPrompt();
@@ -72,6 +77,7 @@ namespace BusPuzzle
             BuildStationUnlockPrompt();
             BuildVipTeleportPrompt();
             BuildMixShufflePrompt();
+            BuildDepartPrompt();
         }
 
         private RectTransform EnsureSafeAreaRoot()

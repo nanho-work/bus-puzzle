@@ -6,7 +6,8 @@ namespace BusPuzzle
     {
         StationSlotUnlock,
         VipBusTeleport,
-        BusColorShuffle
+        BusColorShuffle,
+        DepartBoost
     }
 
     internal enum RewardedAdResult
@@ -32,5 +33,6 @@ namespace BusPuzzle
         bool ShowStationSlotUnlockAd(Action<RewardedAdResult> onCompleted);
         bool ShowVipBusTeleportAd(Action<RewardedAdResult> onCompleted);
         bool ShowBusColorShuffleAd(Action<RewardedAdResult> onCompleted);
+        bool ShowDepartBoostAd(Action<RewardedAdResult> onCompleted);
     }
 }

@@ -21,7 +21,7 @@ namespace BusPuzzle
         public const float StationCounterY = 0.12f;
         public const float RotaryCenterZ = 2.42f;
 
-        public const float VehicleVisualScale = 0.92f;
+        public const float VehicleVisualScale = 1.00f;
         public const float VehicleVisualWidthCells = 0.72f * VehicleVisualScale;
         public const float VehicleVisualHeightCells = 0.90f * VehicleVisualScale;
         public const float VehicleFootprintWidthFactor = 0.96f;

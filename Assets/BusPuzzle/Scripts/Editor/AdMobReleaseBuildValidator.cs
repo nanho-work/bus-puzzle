@@ -37,6 +37,7 @@ namespace BusPuzzle
             var stationRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.StationSlotUnlock);
             var vipRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.VipBusTeleport);
             var shuffleRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.BusColorShuffle);
+            var departRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.DepartBoost);
 
             if (!AdMobSettings.LooksLikeAppId(appId))
             {
@@ -52,6 +53,7 @@ namespace BusPuzzle
             ValidateProductionRewardedAdUnitId(report.summary.platform, "station slot unlock", stationRewardedId);
             ValidateProductionRewardedAdUnitId(report.summary.platform, "VIP bus teleport", vipRewardedId);
             ValidateProductionRewardedAdUnitId(report.summary.platform, "bus color shuffle", shuffleRewardedId);
+            ValidateProductionRewardedAdUnitId(report.summary.platform, "depart boost", departRewardedId);
 
             if (!HasAdMobCompilerDefine(report.summary.platform))
             {
@@ -74,9 +76,11 @@ namespace BusPuzzle
                 $"Android app: {settings.AndroidAppId}, Android station rewarded: {settings.AndroidRewardedProductionAdUnitId}, " +
                 $"Android VIP rewarded: {settings.AndroidVipRewardedProductionAdUnitId}, " +
                 $"Android shuffle rewarded: {settings.AndroidShuffleRewardedProductionAdUnitId}, " +
+                $"Android depart rewarded: {settings.AndroidDepartRewardedProductionAdUnitId}, " +
                 $"iOS app: {settings.IosAppId}, iOS station rewarded: {settings.IosRewardedProductionAdUnitId}, " +
                 $"iOS VIP rewarded: {settings.IosVipRewardedProductionAdUnitId}, " +
-                $"iOS shuffle rewarded: {settings.IosShuffleRewardedProductionAdUnitId}");
+                $"iOS shuffle rewarded: {settings.IosShuffleRewardedProductionAdUnitId}, " +
+                $"iOS depart rewarded: {settings.IosDepartRewardedProductionAdUnitId}");
         }
 
         private static bool IsDevelopmentBuild(BuildReport report)
@@ -111,6 +115,13 @@ namespace BusPuzzle
                 return target == BuildTarget.iOS
                     ? settings.IosShuffleRewardedProductionAdUnitId
                     : settings.AndroidShuffleRewardedProductionAdUnitId;
+            }
+
+            if (placement == RewardedAdPlacement.DepartBoost)
+            {
+                return target == BuildTarget.iOS
+                    ? settings.IosDepartRewardedProductionAdUnitId
+                    : settings.AndroidDepartRewardedProductionAdUnitId;
             }
 
             return target == BuildTarget.iOS

@@ -1,59 +1,110 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BusPuzzle
 {
     internal static class VehicleDirectionArrow
     {
-        private const float WidthScale = 0.74f;
-        private const float LengthScale = 0.52f;
+        private const float ChevronWidthScale = 0.42f;
+        private const float ChevronLengthScale = 0.32f;
+        private const float StrokeWidthScale = 0.12f;
+        private const float OutlineScale = 1.22f;
+        private const float MarkerFrontOffsetScale = 0.24f;
 
         public static GameObject Create(Transform parent, float visualWidth, float visualLength, float visualHeight, float visualCenterZ, float cellSize)
         {
-            var arrowMaterial = PuzzlePalette.CreateSolidMaterial("White Direction Arrow", UnityEngine.Color.white);
-            var arrow = new GameObject("Direction Arrow Icon");
+            var arrowMaterial = PuzzlePalette.CreateTransparentMaterial("White Direction Chevron", new UnityEngine.Color(1f, 1f, 1f, 0.70f));
+            var outlineMaterial = PuzzlePalette.CreateTransparentMaterial("Direction Chevron Outline", new UnityEngine.Color(0.08f, 0.11f, 0.14f, 0.38f));
+            ConfigureMarkerMaterial(arrowMaterial);
+            ConfigureMarkerMaterial(outlineMaterial);
+
+            var arrow = new GameObject("Direction Chevron Icon");
             arrow.transform.SetParent(parent, false);
-            arrow.transform.localPosition = new Vector3(0f, visualHeight + cellSize * 0.12f, visualCenterZ);
+            arrow.transform.localPosition = new Vector3(0f, visualHeight + cellSize * 0.08f, visualCenterZ + visualLength * MarkerFrontOffsetScale);
             arrow.transform.localRotation = Quaternion.identity;
 
-            var meshFilter = arrow.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = CreateArrowMesh(visualWidth * WidthScale, visualLength * LengthScale);
+            CreateChevronLayer(
+                "Direction Chevron Outline",
+                arrow.transform,
+                visualWidth * ChevronWidthScale * OutlineScale,
+                visualLength * ChevronLengthScale * OutlineScale,
+                visualWidth * StrokeWidthScale * OutlineScale,
+                -cellSize * 0.003f,
+                outlineMaterial);
 
-            var meshRenderer = arrow.AddComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = arrowMaterial;
-            meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            meshRenderer.receiveShadows = false;
+            CreateChevronLayer(
+                "Direction Chevron Fill",
+                arrow.transform,
+                visualWidth * ChevronWidthScale,
+                visualLength * ChevronLengthScale,
+                visualWidth * StrokeWidthScale,
+                0f,
+                arrowMaterial);
+
             return arrow;
         }
 
-        private static Mesh CreateArrowMesh(float width, float length)
+        private static void CreateChevronLayer(string name, Transform parent, float width, float length, float strokeWidth, float localHeight, Material material)
+        {
+            var layer = new GameObject(name);
+            layer.transform.SetParent(parent, false);
+            layer.transform.localPosition = new Vector3(0f, localHeight, 0f);
+
+            var meshFilter = layer.AddComponent<MeshFilter>();
+            meshFilter.sharedMesh = CreateChevronMesh(width, length, strokeWidth);
+
+            var meshRenderer = layer.AddComponent<MeshRenderer>();
+            meshRenderer.sharedMaterial = material;
+            meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            meshRenderer.receiveShadows = false;
+        }
+
+        private static Mesh CreateChevronMesh(float width, float length, float strokeWidth)
         {
             var halfWidth = width * 0.5f;
-            var tailHalfWidth = width * 0.16f;
             var halfLength = length * 0.5f;
-            var headStart = halfLength - length * 0.34f;
+            var tip = new Vector2(0f, halfLength);
+            var leftRear = new Vector2(-halfWidth, -halfLength);
+            var rightRear = new Vector2(halfWidth, -halfLength);
+            var vertices = new List<Vector3>(8);
+            var triangles = new List<int>(12);
 
-            var mesh = new Mesh { name = "Direction Arrow Mesh" };
-            mesh.vertices = new[]
-            {
-                new Vector3(-tailHalfWidth, 0f, -halfLength),
-                new Vector3(tailHalfWidth, 0f, -halfLength),
-                new Vector3(tailHalfWidth, 0f, headStart),
-                new Vector3(halfWidth, 0f, headStart),
-                new Vector3(0f, 0f, halfLength),
-                new Vector3(-halfWidth, 0f, headStart),
-                new Vector3(-tailHalfWidth, 0f, headStart)
-            };
-            mesh.triangles = new[]
-            {
-                0, 2, 1,
-                0, 6, 2,
-                6, 5, 2,
-                5, 3, 2,
-                5, 4, 3
-            };
+            AddStroke(vertices, triangles, leftRear, tip, strokeWidth);
+            AddStroke(vertices, triangles, rightRear, tip, strokeWidth);
+
+            var mesh = new Mesh { name = "Direction Chevron Mesh" };
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        private static void AddStroke(List<Vector3> vertices, List<int> triangles, Vector2 start, Vector2 end, float strokeWidth)
+        {
+            var direction = (end - start).normalized;
+            var normal = new Vector2(-direction.y, direction.x) * (strokeWidth * 0.5f);
+            var index = vertices.Count;
+
+            vertices.Add(new Vector3(start.x + normal.x, 0f, start.y + normal.y));
+            vertices.Add(new Vector3(start.x - normal.x, 0f, start.y - normal.y));
+            vertices.Add(new Vector3(end.x + normal.x, 0f, end.y + normal.y));
+            vertices.Add(new Vector3(end.x - normal.x, 0f, end.y - normal.y));
+
+            triangles.Add(index);
+            triangles.Add(index + 2);
+            triangles.Add(index + 1);
+            triangles.Add(index + 1);
+            triangles.Add(index + 2);
+            triangles.Add(index + 3);
+        }
+
+        private static void ConfigureMarkerMaterial(Material material)
+        {
+            if (material.HasProperty("_Cull"))
+            {
+                material.SetFloat("_Cull", 0f);
+            }
         }
     }
 }

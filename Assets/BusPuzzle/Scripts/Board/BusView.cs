@@ -14,6 +14,7 @@ namespace BusPuzzle
         private GameObject directionArrow;
         private GameObject vipHighlight;
         private VehicleBoardingCounter boardingCounter;
+        private BoxCollider touchCollider;
         private Vector3 hitShakeStartPosition;
         private Quaternion hitShakeStartRotation;
         private float cellSize = 1.2f;
@@ -111,6 +112,7 @@ namespace BusPuzzle
             boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
             UpdateBoardingCounter();
             CreateUnitMarkers();
+            ConfigureTouchCollider();
         }
 
         public void SetGridPosition(Vector2Int gridPosition, Vector3 worldPosition)
@@ -157,6 +159,7 @@ namespace BusPuzzle
             boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
             UpdateBoardingCounter();
             CreateUnitMarkers();
+            ConfigureTouchCollider();
         }
 
         public void SetVipHighlight(bool highlighted)
@@ -499,6 +502,24 @@ namespace BusPuzzle
         private void CreateArrow()
         {
             directionArrow = VehicleDirectionArrow.Create(transform, VisualWidth, VisualLength, VisualHeight, VisualCenterZ, cellSize);
+        }
+
+        private void ConfigureTouchCollider()
+        {
+            if (touchCollider == null)
+            {
+                touchCollider = GetComponent<BoxCollider>();
+                if (touchCollider == null)
+                {
+                    touchCollider = gameObject.AddComponent<BoxCollider>();
+                }
+            }
+
+            touchCollider.center = new Vector3(0f, VisualHeight * 0.52f, VisualCenterZ);
+            touchCollider.size = new Vector3(
+                VisualWidth * 1.22f,
+                VisualHeight * 1.32f,
+                VisualLength * 1.14f);
         }
 
         private void ShowBoardingCounter()

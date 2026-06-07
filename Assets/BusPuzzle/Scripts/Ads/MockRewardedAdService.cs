@@ -69,6 +69,11 @@ namespace BusPuzzle
             return ShowRewardedAd(RewardedAdPlacement.BusColorShuffle, AdMobSettings.BusColorShuffleRewardType, onCompleted);
         }
 
+        public bool ShowDepartBoostAd(Action<RewardedAdResult> onCompleted)
+        {
+            return ShowRewardedAd(RewardedAdPlacement.DepartBoost, AdMobSettings.DepartBoostRewardType, onCompleted);
+        }
+
         private bool ShowRewardedAd(RewardedAdPlacement placement, string rewardType, Action<RewardedAdResult> onCompleted)
         {
             if (!IsReady)

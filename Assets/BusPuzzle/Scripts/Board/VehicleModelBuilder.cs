@@ -1,12 +1,13 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace BusPuzzle
 {
     public static class VehicleModelBuilder
     {
-        private const float WheelRadiusFactor = 0.055f;
-        private const float WheelWidthFactor = 0.035f;
-        private const float SideDetailInset = 0.006f;
+        private const int CornerSegments = 5;
+        private const float DetailLift = 0.006f;
 
         public static GameObject Create(
             BusSize size,
@@ -25,23 +26,23 @@ namespace BusPuzzle
             switch (size)
             {
                 case BusSize.Small:
-                    CreateCompactVan(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
+                    CreateCompactCar(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
                     break;
                 case BusSize.Medium:
-                    CreateFreezerTruck(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
+                    CreateShuttleVan(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
                     break;
                 case BusSize.Large:
-                    CreateBus(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
+                    CreateCityBus(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
                     break;
                 default:
-                    CreateCompactVan(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
+                    CreateCompactCar(root.transform, materials, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
                     break;
             }
 
             return root;
         }
 
-        private static void CreateCompactVan(
+        private static void CreateCompactCar(
             Transform parent,
             VehicleMaterials materials,
             float width,
@@ -50,25 +51,23 @@ namespace BusPuzzle
             float centerZ,
             float cellSize)
         {
-            var rearZ = centerZ - length * 0.5f;
-            var frontZ = centerZ + length * 0.5f;
+            var bodyWidth = width * 0.98f;
+            var bodyLength = length * 0.95f;
+            var bodyBottom = height * 0.10f;
+            var bodyHeight = height * 0.48f;
 
-            CreateBox("Compact Lower Body", parent, materials.Body, new Vector3(0f, height * 0.33f, centerZ - length * 0.01f), new Vector3(width * 0.80f, height * 0.42f, length * 0.80f));
-            CreateBox("Compact Hood", parent, materials.BodyLight, new Vector3(0f, height * 0.48f, frontZ - length * 0.20f), new Vector3(width * 0.64f, height * 0.13f, length * 0.20f));
-            CreateBox("Compact Roof", parent, materials.BodyLight, new Vector3(0f, height * 0.63f, centerZ - length * 0.02f), new Vector3(width * 0.58f, height * 0.23f, length * 0.42f));
-            CreateBodyLightLift(parent, materials, "Compact", width, height, centerZ, length, 0.28f, 0.36f, 0.52f);
-            CreateBox("Compact Top Glass", parent, materials.Glass, new Vector3(0f, height * 0.765f, centerZ + length * 0.015f), new Vector3(width * 0.48f, height * 0.030f, length * 0.28f));
-            CreateBox("Compact Windshield", parent, materials.Glass, new Vector3(0f, height * 0.58f, frontZ - length * 0.18f), new Vector3(width * 0.42f, height * 0.035f, length * 0.062f));
-            CreateBox("Compact Rear Glass", parent, materials.Glass, new Vector3(0f, height * 0.53f, rearZ + length * 0.12f), new Vector3(width * 0.35f, height * 0.030f, length * 0.050f));
-            CreateSideWindows("Compact Side Windows", parent, materials.Glass, width, height * 0.57f, centerZ - length * 0.03f, length * 0.34f, 2);
-            CreateSideStripe("Compact Side Stripe", parent, materials.Trim, width, height * 0.34f, centerZ - length * 0.04f, length * 0.52f);
-            CreateBumpers(parent, materials, width, height, rearZ, frontZ, length);
-            CreateFrontLights(parent, materials, width, height, frontZ, length);
-            CreateTailLights(parent, materials, width, height, rearZ, length);
-            CreateWheels(parent, materials, width, height, rearZ + length * 0.24f, frontZ - length * 0.24f, cellSize);
+            CreateRoundedPrism("Compact Chassis Shadow", parent, materials.Outline, bodyWidth * 1.07f, bodyLength * 1.05f, bodyBottom - height * 0.02f, bodyHeight * 0.62f, centerZ, width * 0.22f);
+            CreateRoundedPrism("Compact Body", parent, materials.Body, bodyWidth, bodyLength, bodyBottom, bodyHeight, centerZ, width * 0.20f);
+            CreateRoundedPrism("Compact Hood Highlight", parent, materials.BodyLight, width * 0.66f, length * 0.30f, bodyBottom + bodyHeight + DetailLift, height * 0.040f, centerZ + length * 0.23f, width * 0.12f);
+            CreateRoundedPrism("Compact Cabin", parent, materials.Glass, width * 0.58f, length * 0.38f, bodyBottom + bodyHeight * 0.72f, height * 0.26f, centerZ + length * 0.01f, width * 0.11f);
+            CreateSideWindowPanels(parent, materials, bodyWidth, length * 0.34f, centerZ + length * 0.01f, bodyBottom + bodyHeight * 0.58f, height * 0.15f, 1);
+            CreateRoundedPrism("Compact Roof Shine", parent, materials.Gloss, width * 0.24f, length * 0.40f, bodyBottom + bodyHeight + height * 0.05f, height * 0.026f, centerZ + length * 0.04f, width * 0.06f);
+            CreateBumpers(parent, materials, width, length, centerZ, bodyBottom + height * 0.12f, bodyLength);
+            CreateLights(parent, materials, width, length, centerZ, bodyBottom + height * 0.22f, bodyLength, false);
+            CreateWheels(parent, materials, width, height, bodyLength, centerZ, cellSize, 0.28f);
         }
 
-        private static void CreateFreezerTruck(
+        private static void CreateShuttleVan(
             Transform parent,
             VehicleMaterials materials,
             float width,
@@ -77,33 +76,23 @@ namespace BusPuzzle
             float centerZ,
             float cellSize)
         {
-            var rearZ = centerZ - length * 0.5f;
-            var frontZ = centerZ + length * 0.5f;
-            var cabCenterZ = frontZ - length * 0.20f;
-            var boxCenterZ = rearZ + length * 0.33f;
+            var bodyWidth = width * 1.00f;
+            var bodyLength = length * 0.95f;
+            var bodyBottom = height * 0.10f;
+            var bodyHeight = height * 0.54f;
 
-            CreateBox("Cargo Box", parent, materials.Body, new Vector3(0f, height * 0.52f, boxCenterZ), new Vector3(width * 0.80f, height * 0.74f, length * 0.55f));
-            CreateBox("Cargo Top Highlight", parent, materials.BodyLight, new Vector3(0f, height * 0.92f, boxCenterZ), new Vector3(width * 0.68f, height * 0.038f, length * 0.45f));
-            CreateBodyLightLift(parent, materials, "Truck Cargo", width, height, boxCenterZ, length, 0.32f, 0.46f, 0.44f);
-            CreateBox("Cargo Side Rail Left", parent, materials.Trim, new Vector3(-width * 0.415f, height * 0.66f, boxCenterZ), new Vector3(width * 0.020f, height * 0.060f, length * 0.42f));
-            CreateBox("Cargo Side Rail Right", parent, materials.Trim, new Vector3(width * 0.415f, height * 0.66f, boxCenterZ), new Vector3(width * 0.020f, height * 0.060f, length * 0.42f));
-            CreateBox("Cargo Rear Door Seam", parent, materials.Trim, new Vector3(0f, height * 0.54f, rearZ + length * 0.07f), new Vector3(width * 0.58f, height * 0.035f, length * 0.020f));
-            CreateBox("Cab Base", parent, materials.BodyDark, new Vector3(0f, height * 0.34f, cabCenterZ), new Vector3(width * 0.70f, height * 0.42f, length * 0.28f));
-            CreateBox("Cab Roof", parent, materials.Body, new Vector3(0f, height * 0.64f, cabCenterZ - length * 0.015f), new Vector3(width * 0.60f, height * 0.20f, length * 0.20f));
-            CreateBodyLightLift(parent, materials, "Truck Cab", width, height, cabCenterZ, length, 0.28f, 0.30f, 0.20f);
-            CreateBox("Cab Windshield", parent, materials.Glass, new Vector3(0f, height * 0.66f, frontZ - length * 0.12f), new Vector3(width * 0.42f, height * 0.034f, length * 0.060f));
-            CreateSideWindows("Cab Side Windows", parent, materials.Glass, width, height * 0.53f, cabCenterZ + length * 0.015f, length * 0.16f, 1);
-            CreateBox("Freezer Unit", parent, materials.DetailLight, new Vector3(0f, height * 0.99f, boxCenterZ + length * 0.19f), new Vector3(width * 0.36f, height * 0.12f, length * 0.070f));
-            CreateBox("Freezer Vent Slat 1", parent, materials.Bumper, new Vector3(0f, height * 1.01f, boxCenterZ + length * 0.19f), new Vector3(width * 0.25f, height * 0.018f, length * 0.012f));
-            CreateBox("Freezer Vent Slat 2", parent, materials.Bumper, new Vector3(0f, height * 0.965f, boxCenterZ + length * 0.19f), new Vector3(width * 0.25f, height * 0.018f, length * 0.012f));
-            CreateSideStripe("Truck Side Stripe", parent, materials.Trim, width, height * 0.31f, boxCenterZ, length * 0.44f);
-            CreateBumpers(parent, materials, width, height, rearZ, frontZ, length);
-            CreateFrontLights(parent, materials, width, height, frontZ, length);
-            CreateTailLights(parent, materials, width, height, rearZ, length);
-            CreateWheels(parent, materials, width, height, rearZ + length * 0.22f, frontZ - length * 0.20f, cellSize);
+            CreateRoundedPrism("Van Chassis Shadow", parent, materials.Outline, bodyWidth * 1.07f, bodyLength * 1.04f, bodyBottom - height * 0.02f, bodyHeight * 0.62f, centerZ, width * 0.20f);
+            CreateRoundedPrism("Van Body", parent, materials.Body, bodyWidth, bodyLength, bodyBottom, bodyHeight, centerZ, width * 0.18f);
+            CreateRoundedPrism("Van Cargo Top", parent, materials.BodyLight, width * 0.78f, length * 0.55f, bodyBottom + bodyHeight + DetailLift, height * 0.038f, centerZ - length * 0.08f, width * 0.10f);
+            CreateRoundedPrism("Van Cabin Glass", parent, materials.Glass, width * 0.58f, length * 0.26f, bodyBottom + bodyHeight * 0.80f, height * 0.25f, centerZ + length * 0.30f, width * 0.10f);
+            CreateWindowPanels(parent, materials, width, length, centerZ - length * 0.10f, bodyBottom + bodyHeight + height * 0.030f, 2);
+            CreateSideWindowPanels(parent, materials, bodyWidth, length * 0.50f, centerZ - length * 0.06f, bodyBottom + bodyHeight * 0.62f, height * 0.16f, 2);
+            CreateBumpers(parent, materials, width, length, centerZ, bodyBottom + height * 0.13f, bodyLength);
+            CreateLights(parent, materials, width, length, centerZ, bodyBottom + height * 0.24f, bodyLength, true);
+            CreateWheels(parent, materials, width, height, bodyLength, centerZ, cellSize, 0.30f);
         }
 
-        private static void CreateBus(
+        private static void CreateCityBus(
             Transform parent,
             VehicleMaterials materials,
             float width,
@@ -112,151 +101,122 @@ namespace BusPuzzle
             float centerZ,
             float cellSize)
         {
-            var rearZ = centerZ - length * 0.5f;
-            var frontZ = centerZ + length * 0.5f;
-            CreateBox("Bus Lower Body", parent, materials.Body, new Vector3(0f, height * 0.39f, centerZ), new Vector3(width * 0.84f, height * 0.54f, length * 0.86f));
-            CreateBox("Bus Upper Body", parent, materials.BodyLight, new Vector3(0f, height * 0.68f, centerZ - length * 0.02f), new Vector3(width * 0.76f, height * 0.24f, length * 0.76f));
-            CreateBox("Bus Roof Cap", parent, materials.BodyLight, new Vector3(0f, height * 0.84f, centerZ - length * 0.03f), new Vector3(width * 0.64f, height * 0.070f, length * 0.66f));
-            CreateBodyLightLift(parent, materials, "Bus", width, height, centerZ, length, 0.28f, 0.44f, 0.70f);
-            CreateBox("Destination Sign", parent, materials.Bumper, new Vector3(0f, height * 0.70f, frontZ - length * 0.13f), new Vector3(width * 0.39f, height * 0.045f, length * 0.038f));
-            CreateBox("Bus Windshield", parent, materials.Glass, new Vector3(0f, height * 0.58f, frontZ - length * 0.105f), new Vector3(width * 0.46f, height * 0.040f, length * 0.064f));
-            CreateBox("Rear Window", parent, materials.Glass, new Vector3(0f, height * 0.57f, rearZ + length * 0.095f), new Vector3(width * 0.38f, height * 0.032f, length * 0.050f));
-            CreateWindowStrip("Left Windows", parent, materials.Glass, -width * 0.43f, height * 0.61f, centerZ - length * 0.04f, width * 0.028f, height * 0.16f, length * 0.62f, 5);
-            CreateWindowStrip("Right Windows", parent, materials.Glass, width * 0.43f, height * 0.61f, centerZ - length * 0.04f, width * 0.028f, height * 0.16f, length * 0.62f, 5);
-            CreateBox("Front Door Line", parent, materials.DetailLight, new Vector3(width * 0.30f, height * 0.43f, frontZ - length * 0.24f), new Vector3(width * 0.018f, height * 0.34f, length * 0.016f));
-            CreateBox("Rear Door Line", parent, materials.DetailLight, new Vector3(width * 0.30f, height * 0.43f, centerZ - length * 0.08f), new Vector3(width * 0.016f, height * 0.30f, length * 0.014f));
-            CreateSideStripe("Bus Belt Line", parent, materials.Trim, width, height * 0.35f, centerZ - length * 0.03f, length * 0.72f);
-            CreateBox("Bus Lower Skirt", parent, materials.BodyDark, new Vector3(0f, height * 0.20f, centerZ), new Vector3(width * 0.84f, height * 0.070f, length * 0.76f));
-            CreateBumpers(parent, materials, width, height, rearZ, frontZ, length);
-            CreateFrontLights(parent, materials, width, height, frontZ, length);
-            CreateTailLights(parent, materials, width, height, rearZ, length);
-            CreateWheels(parent, materials, width, height, rearZ + length * 0.22f, frontZ - length * 0.20f, cellSize);
+            var bodyWidth = width * 1.02f;
+            var bodyLength = length * 0.96f;
+            var bodyBottom = height * 0.10f;
+            var bodyHeight = height * 0.58f;
+
+            CreateRoundedPrism("Bus Chassis Shadow", parent, materials.Outline, bodyWidth * 1.07f, bodyLength * 1.035f, bodyBottom - height * 0.02f, bodyHeight * 0.60f, centerZ, width * 0.17f);
+            CreateRoundedPrism("Bus Body", parent, materials.Body, bodyWidth, bodyLength, bodyBottom, bodyHeight, centerZ, width * 0.15f);
+            CreateRoundedPrism("Bus Upper Body", parent, materials.BodyLight, width * 0.83f, length * 0.78f, bodyBottom + bodyHeight * 0.58f, height * 0.25f, centerZ - length * 0.03f, width * 0.11f);
+            CreateRoundedPrism("Bus Windshield", parent, materials.Glass, width * 0.62f, length * 0.18f, bodyBottom + bodyHeight * 0.82f, height * 0.15f, centerZ + length * 0.36f, width * 0.08f);
+            CreateWindowPanels(parent, materials, width, length, centerZ - length * 0.12f, bodyBottom + bodyHeight + height * 0.030f, 4);
+            CreateSideWindowPanels(parent, materials, bodyWidth, length * 0.62f, centerZ - length * 0.10f, bodyBottom + bodyHeight * 0.64f, height * 0.15f, 4);
+            CreateBumpers(parent, materials, width, length, centerZ, bodyBottom + height * 0.13f, bodyLength);
+            CreateLights(parent, materials, width, length, centerZ, bodyBottom + height * 0.24f, bodyLength, true);
+            CreateWheels(parent, materials, width, height, bodyLength, centerZ, cellSize, 0.31f);
         }
 
-        private static void CreateSideWindows(
-            string name,
+        private static void CreateWindowPanels(
             Transform parent,
-            Material material,
+            VehicleMaterials materials,
             float width,
-            float y,
+            float length,
             float centerZ,
-            float totalLength,
+            float topY,
             int count)
         {
-            CreateWindowStrip($"{name} Left", parent, material, -width * 0.42f, y, centerZ, width * 0.024f, width * 0.21f, totalLength, count);
-            CreateWindowStrip($"{name} Right", parent, material, width * 0.42f, y, centerZ, width * 0.024f, width * 0.21f, totalLength, count);
-        }
-
-        private static void CreateWindowStrip(
-            string name,
-            Transform parent,
-            Material material,
-            float x,
-            float y,
-            float centerZ,
-            float width,
-            float height,
-            float totalLength,
-            int count)
-        {
-            var spacing = totalLength / count;
+            var totalLength = length * 0.44f;
+            var spacing = totalLength / Mathf.Max(1, count);
             for (var index = 0; index < count; index++)
             {
                 var z = centerZ - totalLength * 0.5f + spacing * (index + 0.5f);
-                CreateBox($"{name} {index + 1}", parent, material, new Vector3(x, y, z), new Vector3(width, height, spacing * 0.72f));
+                CreateRoundedPrism(
+                    $"Window Panel {index + 1}",
+                    parent,
+                    materials.Glass,
+                    width * 0.38f,
+                    spacing * 0.58f,
+                    topY,
+                    length * 0.018f,
+                    z,
+                    width * 0.045f);
             }
-        }
-
-        private static void CreateSideStripe(
-            string name,
-            Transform parent,
-            Material material,
-            float width,
-            float y,
-            float centerZ,
-            float totalLength)
-        {
-            CreateBox($"{name} Left", parent, material, new Vector3(-width * 0.425f - SideDetailInset, y, centerZ), new Vector3(width * 0.018f, width * 0.060f, totalLength));
-            CreateBox($"{name} Right", parent, material, new Vector3(width * 0.425f + SideDetailInset, y, centerZ), new Vector3(width * 0.018f, width * 0.060f, totalLength));
-        }
-
-        private static void CreateBodyLightLift(
-            Transform parent,
-            VehicleMaterials materials,
-            string name,
-            float width,
-            float height,
-            float centerZ,
-            float length,
-            float bottomYFactor,
-            float heightFactor,
-            float lengthFactor)
-        {
-            var sideX = width * 0.432f + SideDetailInset * 1.5f;
-            var lowerY = height * (bottomYFactor + heightFactor * 0.32f);
-            var upperY = height * (bottomYFactor + heightFactor * 0.70f);
-            var liftLength = length * lengthFactor;
-            CreateBox(
-                $"{name} Left Lower Light Lift",
-                parent,
-                materials.BodyLift,
-                new Vector3(-sideX, lowerY, centerZ + length * 0.02f),
-                new Vector3(width * 0.014f, height * heightFactor * 0.58f, liftLength));
-            CreateBox(
-                $"{name} Right Lower Light Lift",
-                parent,
-                materials.BodyLift,
-                new Vector3(sideX, lowerY, centerZ + length * 0.02f),
-                new Vector3(width * 0.014f, height * heightFactor * 0.58f, liftLength));
-            CreateBox(
-                $"{name} Left Upper Light Fade",
-                parent,
-                materials.BodyLiftSoft,
-                new Vector3(-sideX - width * 0.002f, upperY, centerZ + length * 0.03f),
-                new Vector3(width * 0.010f, height * heightFactor * 0.34f, liftLength * 0.82f));
-            CreateBox(
-                $"{name} Right Upper Light Fade",
-                parent,
-                materials.BodyLiftSoft,
-                new Vector3(sideX + width * 0.002f, upperY, centerZ + length * 0.03f),
-                new Vector3(width * 0.010f, height * heightFactor * 0.34f, liftLength * 0.82f));
         }
 
         private static void CreateBumpers(
             Transform parent,
             VehicleMaterials materials,
             float width,
-            float height,
-            float rearZ,
-            float frontZ,
-            float length)
+            float length,
+            float centerZ,
+            float y,
+            float bodyLength)
         {
-            CreateBox("Front Bumper", parent, materials.Bumper, new Vector3(0f, height * 0.245f, frontZ - length * 0.045f), new Vector3(width * 0.58f, height * 0.070f, length * 0.030f));
-            CreateBox("Rear Bumper", parent, materials.Bumper, new Vector3(0f, height * 0.245f, rearZ + length * 0.045f), new Vector3(width * 0.54f, height * 0.060f, length * 0.028f));
+            CreateRoundedPrism("Front Bumper", parent, materials.Bumper, width * 0.62f, length * 0.048f, y, length * 0.020f, centerZ + bodyLength * 0.49f, width * 0.035f);
+            CreateRoundedPrism("Rear Bumper", parent, materials.Bumper, width * 0.56f, length * 0.044f, y, length * 0.018f, centerZ - bodyLength * 0.49f, width * 0.035f);
         }
 
-        private static void CreateFrontLights(
+        private static void CreateSideWindowPanels(
+            Transform parent,
+            VehicleMaterials materials,
+            float bodyWidth,
+            float totalLength,
+            float centerZ,
+            float centerY,
+            float panelHeight,
+            int count)
+        {
+            var spacing = totalLength / Mathf.Max(1, count);
+            var panelLength = spacing * 0.64f;
+            var sideX = bodyWidth * 0.505f;
+            for (var index = 0; index < count; index++)
+            {
+                var z = centerZ - totalLength * 0.5f + spacing * (index + 0.5f);
+                CreateSideWindowPanel($"Left Side Window {index + 1}", parent, materials.Glass, -sideX, centerY, z, bodyWidth, panelHeight, panelLength);
+                CreateSideWindowPanel($"Right Side Window {index + 1}", parent, materials.Glass, sideX, centerY, z, bodyWidth, panelHeight, panelLength);
+            }
+        }
+
+        private static void CreateSideWindowPanel(
+            string name,
+            Transform parent,
+            Material material,
+            float x,
+            float y,
+            float z,
+            float bodyWidth,
+            float height,
+            float length)
+        {
+            var panel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            panel.name = name;
+            panel.transform.SetParent(parent, false);
+            panel.transform.localPosition = new Vector3(x, y, z);
+            panel.transform.localScale = new Vector3(bodyWidth * 0.030f, height, length);
+            ConfigureRenderer(panel, material);
+        }
+
+        private static void CreateLights(
             Transform parent,
             VehicleMaterials materials,
             float width,
-            float height,
-            float frontZ,
-            float length)
+            float length,
+            float centerZ,
+            float y,
+            float bodyLength,
+            bool wide)
         {
-            CreateBox("Left Headlight", parent, materials.HeadLight, new Vector3(-width * 0.22f, height * 0.34f, frontZ - length * 0.062f), new Vector3(width * 0.105f, height * 0.055f, length * 0.020f));
-            CreateBox("Right Headlight", parent, materials.HeadLight, new Vector3(width * 0.22f, height * 0.34f, frontZ - length * 0.062f), new Vector3(width * 0.105f, height * 0.055f, length * 0.020f));
-        }
+            var x = wide ? width * 0.25f : width * 0.22f;
+            var lightWidth = wide ? width * 0.13f : width * 0.12f;
+            var lightLength = length * 0.035f;
+            var frontZ = centerZ + bodyLength * 0.455f;
+            var rearZ = centerZ - bodyLength * 0.455f;
 
-        private static void CreateTailLights(
-            Transform parent,
-            VehicleMaterials materials,
-            float width,
-            float height,
-            float rearZ,
-            float length)
-        {
-            CreateBox("Left Tail Light", parent, materials.TailLight, new Vector3(-width * 0.28f, height * 0.35f, rearZ + length * 0.055f), new Vector3(width * 0.060f, height * 0.080f, length * 0.020f));
-            CreateBox("Right Tail Light", parent, materials.TailLight, new Vector3(width * 0.28f, height * 0.35f, rearZ + length * 0.055f), new Vector3(width * 0.060f, height * 0.080f, length * 0.020f));
+            CreateRoundedPrism("Left Headlight", parent, materials.HeadLight, lightWidth, lightLength, y, length * 0.018f, frontZ, width * 0.025f, -x);
+            CreateRoundedPrism("Right Headlight", parent, materials.HeadLight, lightWidth, lightLength, y, length * 0.018f, frontZ, width * 0.025f, x);
+            CreateRoundedPrism("Left Tail Light", parent, materials.TailLight, lightWidth * 0.72f, lightLength, y, length * 0.018f, rearZ, width * 0.022f, -x);
+            CreateRoundedPrism("Right Tail Light", parent, materials.TailLight, lightWidth * 0.72f, lightLength, y, length * 0.018f, rearZ, width * 0.022f, x);
         }
 
         private static void CreateWheels(
@@ -264,39 +224,25 @@ namespace BusPuzzle
             VehicleMaterials materials,
             float width,
             float height,
-            float rearZ,
-            float frontZ,
-            float cellSize)
+            float bodyLength,
+            float centerZ,
+            float cellSize,
+            float zOffsetFactor)
         {
-            var wheelRadius = cellSize * WheelRadiusFactor;
-            var wheelWidth = cellSize * WheelWidthFactor;
-            var x = width * 0.34f;
-            var y = height * 0.105f;
-            CreateWheel("Rear Left Wheel", parent, materials.Wheel, new Vector3(-x, y, rearZ), wheelRadius, wheelWidth);
-            CreateWheel("Rear Right Wheel", parent, materials.Wheel, new Vector3(x, y, rearZ), wheelRadius, wheelWidth);
-            CreateWheel("Front Left Wheel", parent, materials.Wheel, new Vector3(-x, y, frontZ), wheelRadius, wheelWidth);
-            CreateWheel("Front Right Wheel", parent, materials.Wheel, new Vector3(x, y, frontZ), wheelRadius, wheelWidth);
-            CreateWheel("Rear Left Hub", parent, materials.WheelHub, new Vector3(-x, y, rearZ), wheelRadius * 0.44f, wheelWidth * 1.08f);
-            CreateWheel("Rear Right Hub", parent, materials.WheelHub, new Vector3(x, y, rearZ), wheelRadius * 0.44f, wheelWidth * 1.08f);
-            CreateWheel("Front Left Hub", parent, materials.WheelHub, new Vector3(-x, y, frontZ), wheelRadius * 0.44f, wheelWidth * 1.08f);
-            CreateWheel("Front Right Hub", parent, materials.WheelHub, new Vector3(x, y, frontZ), wheelRadius * 0.44f, wheelWidth * 1.08f);
+            var wheelRadius = cellSize * 0.060f;
+            var wheelWidth = cellSize * 0.050f;
+            var x = width * 0.50f;
+            var y = height * 0.18f;
+            var rearZ = centerZ - bodyLength * zOffsetFactor;
+            var frontZ = centerZ + bodyLength * zOffsetFactor;
+
+            CreateWheel("Rear Left Wheel", parent, materials.Wheel, materials.WheelHub, new Vector3(-x, y, rearZ), wheelRadius, wheelWidth);
+            CreateWheel("Rear Right Wheel", parent, materials.Wheel, materials.WheelHub, new Vector3(x, y, rearZ), wheelRadius, wheelWidth);
+            CreateWheel("Front Left Wheel", parent, materials.Wheel, materials.WheelHub, new Vector3(-x, y, frontZ), wheelRadius, wheelWidth);
+            CreateWheel("Front Right Wheel", parent, materials.Wheel, materials.WheelHub, new Vector3(x, y, frontZ), wheelRadius, wheelWidth);
         }
 
-        private static GameObject CreateBox(string name, Transform parent, Material material, Vector3 localPosition, Vector3 localScale)
-        {
-            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = name;
-            box.transform.SetParent(parent, false);
-            box.transform.localPosition = localPosition;
-            box.transform.localScale = localScale;
-            var renderer = box.GetComponent<Renderer>();
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            return box;
-        }
-
-        private static void CreateWheel(string name, Transform parent, Material material, Vector3 localPosition, float radius, float width)
+        private static void CreateWheel(string name, Transform parent, Material wheelMaterial, Material hubMaterial, Vector3 localPosition, float radius, float width)
         {
             var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             wheel.name = name;
@@ -304,9 +250,128 @@ namespace BusPuzzle
             wheel.transform.localPosition = localPosition;
             wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             wheel.transform.localScale = new Vector3(width, radius, radius);
-            var renderer = wheel.GetComponent<Renderer>();
+            ConfigureRenderer(wheel, wheelMaterial);
+
+            var hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            hub.name = $"{name} Hub";
+            hub.transform.SetParent(parent, false);
+            hub.transform.localPosition = localPosition + Vector3.up * 0.001f;
+            hub.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            hub.transform.localScale = new Vector3(width * 1.05f, radius * 0.42f, radius * 0.42f);
+            ConfigureRenderer(hub, hubMaterial);
+        }
+
+        private static GameObject CreateRoundedPrism(
+            string name,
+            Transform parent,
+            Material material,
+            float width,
+            float length,
+            float bottomY,
+            float prismHeight,
+            float centerZ,
+            float radius,
+            float centerX = 0f)
+        {
+            var safeRadius = Mathf.Min(radius, Mathf.Min(width * 0.48f, length * 0.48f));
+            var boundary = BuildRoundedRectangleBoundary(width, length, safeRadius, CornerSegments);
+            return CreatePrism(name, parent, material, boundary, new Vector3(centerX, bottomY, centerZ), Mathf.Max(0.001f, prismHeight));
+        }
+
+        private static List<Vector3> BuildRoundedRectangleBoundary(float width, float length, float radius, int segments)
+        {
+            var halfWidth = Mathf.Max(0.001f, width * 0.5f);
+            var halfLength = Mathf.Max(0.001f, length * 0.5f);
+            radius = Mathf.Clamp(radius, 0.001f, Mathf.Min(halfWidth, halfLength));
+
+            var points = new List<Vector3>((segments + 1) * 4);
+            AddArc(points, new Vector2(halfWidth - radius, halfLength - radius), radius, 0f, 90f, segments);
+            AddArc(points, new Vector2(-halfWidth + radius, halfLength - radius), radius, 90f, 180f, segments);
+            AddArc(points, new Vector2(-halfWidth + radius, -halfLength + radius), radius, 180f, 270f, segments);
+            AddArc(points, new Vector2(halfWidth - radius, -halfLength + radius), radius, 270f, 360f, segments);
+            return points;
+        }
+
+        private static void AddArc(List<Vector3> points, Vector2 center, float radius, float startDegrees, float endDegrees, int segments)
+        {
+            for (var index = 0; index <= segments; index++)
+            {
+                var angle = Mathf.Lerp(startDegrees, endDegrees, index / (float)segments) * Mathf.Deg2Rad;
+                points.Add(new Vector3(center.x + Mathf.Cos(angle) * radius, 0f, center.y + Mathf.Sin(angle) * radius));
+            }
+        }
+
+        private static GameObject CreatePrism(
+            string name,
+            Transform parent,
+            Material material,
+            IReadOnlyList<Vector3> boundary,
+            Vector3 localPosition,
+            float height)
+        {
+            var shape = new GameObject(name);
+            shape.transform.SetParent(parent, false);
+            shape.transform.localPosition = localPosition;
+            shape.transform.localRotation = Quaternion.identity;
+
+            var boundaryCount = boundary.Count;
+            var topCenterIndex = boundaryCount * 2;
+            var bottomCenterIndex = topCenterIndex + 1;
+            var vertices = new Vector3[boundaryCount * 2 + 2];
+            for (var index = 0; index < boundaryCount; index++)
+            {
+                vertices[index] = new Vector3(boundary[index].x, height, boundary[index].z);
+                vertices[index + boundaryCount] = new Vector3(boundary[index].x, 0f, boundary[index].z);
+            }
+
+            vertices[topCenterIndex] = new Vector3(0f, height, 0f);
+            vertices[bottomCenterIndex] = Vector3.zero;
+
+            var triangles = new List<int>(boundaryCount * 12);
+            for (var index = 0; index < boundaryCount; index++)
+            {
+                var next = index + 1 == boundaryCount ? 0 : index + 1;
+                var bottom = index + boundaryCount;
+                var nextBottom = next + boundaryCount;
+
+                triangles.Add(topCenterIndex);
+                triangles.Add(next);
+                triangles.Add(index);
+
+                triangles.Add(bottomCenterIndex);
+                triangles.Add(bottom);
+                triangles.Add(nextBottom);
+
+                triangles.Add(index);
+                triangles.Add(next);
+                triangles.Add(nextBottom);
+
+                triangles.Add(index);
+                triangles.Add(nextBottom);
+                triangles.Add(bottom);
+            }
+
+            var mesh = new Mesh { name = $"{name} Mesh" };
+            mesh.vertices = vertices;
+            mesh.triangles = triangles.ToArray();
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            var meshFilter = shape.AddComponent<MeshFilter>();
+            meshFilter.sharedMesh = mesh;
+
+            var meshRenderer = shape.AddComponent<MeshRenderer>();
+            meshRenderer.sharedMaterial = material;
+            meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            meshRenderer.receiveShadows = false;
+            return shape;
+        }
+
+        private static void ConfigureRenderer(GameObject gameObject, Material material)
+        {
+            var renderer = gameObject.GetComponent<Renderer>();
             renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
         }
 
@@ -316,32 +381,28 @@ namespace BusPuzzle
             public readonly Material BodyDark;
             public readonly Material BodyLight;
             public readonly Material Glass;
+            public readonly Material Outline;
+            public readonly Material Bumper;
             public readonly Material Wheel;
             public readonly Material WheelHub;
-            public readonly Material DetailLight;
-            public readonly Material Bumper;
             public readonly Material HeadLight;
             public readonly Material TailLight;
-            public readonly Material Trim;
-            public readonly Material BodyLift;
-            public readonly Material BodyLiftSoft;
+            public readonly Material Gloss;
 
             public VehicleMaterials(PuzzleColor color)
             {
                 var bodyColor = PuzzlePalette.ToColor(color);
-                Body = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body", bodyColor, 0.72f);
-                BodyDark = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Dark", PuzzlePalette.Darken(bodyColor, 0.16f), 0.62f);
-                BodyLight = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Light", Color.Lerp(bodyColor, Color.white, 0.18f), 0.78f);
-                Glass = CreateLitMaterial("Vehicle Glass", new Color(0.09f, 0.19f, 0.30f), 0.88f);
-                Wheel = PuzzlePalette.CreateSolidMaterial("Vehicle Wheel", new Color(0.035f, 0.038f, 0.045f));
-                WheelHub = PuzzlePalette.CreateSolidMaterial("Vehicle Wheel Hub", new Color(0.72f, 0.76f, 0.78f));
-                DetailLight = PuzzlePalette.CreateSolidMaterial("Vehicle Light Detail", new Color(0.86f, 0.91f, 0.94f));
-                Bumper = PuzzlePalette.CreateSolidMaterial("Vehicle Bumper", new Color(0.13f, 0.15f, 0.18f));
+                Body = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body", bodyColor, 0.74f);
+                BodyDark = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Shade", PuzzlePalette.Darken(bodyColor, 0.22f), 0.62f);
+                BodyLight = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Light", Color.Lerp(bodyColor, Color.white, 0.24f), 0.82f);
+                Glass = CreateLitMaterial("Vehicle Glass", new Color(0.055f, 0.20f, 0.32f), 0.88f);
+                Outline = CreateLitMaterial("Vehicle Dark Undercarriage", new Color(0.045f, 0.052f, 0.064f), 0.58f);
+                Bumper = CreateLitMaterial("Vehicle Bumper", new Color(0.065f, 0.075f, 0.088f), 0.50f);
+                Wheel = CreateLitMaterial("Vehicle Wheel", new Color(0.030f, 0.033f, 0.040f), 0.42f);
+                WheelHub = CreateLitMaterial("Vehicle Wheel Hub", new Color(0.72f, 0.76f, 0.78f), 0.70f);
                 HeadLight = PuzzlePalette.CreateSolidMaterial("Vehicle Headlight", new Color(1.00f, 0.94f, 0.64f));
                 TailLight = PuzzlePalette.CreateSolidMaterial("Vehicle Tail Light", new Color(0.90f, 0.12f, 0.10f));
-                Trim = PuzzlePalette.CreateSolidMaterial("Vehicle Trim", Color.Lerp(bodyColor, Color.white, 0.40f));
-                BodyLift = PuzzlePalette.CreateTransparentMaterial("Vehicle Body Light Lift", WithAlpha(Color.Lerp(bodyColor, Color.white, 0.30f), 0.18f));
-                BodyLiftSoft = PuzzlePalette.CreateTransparentMaterial("Vehicle Body Soft Light Lift", WithAlpha(Color.Lerp(bodyColor, Color.white, 0.42f), 0.10f));
+                Gloss = CreateLitMaterial("Vehicle Gloss", Color.Lerp(Color.white, bodyColor, 0.18f), 0.96f);
             }
 
             private static Material CreateLitMaterial(string name, Color color, float smoothness)
@@ -370,12 +431,12 @@ namespace BusPuzzle
                     material.SetFloat("_Glossiness", smoothness);
                 }
 
-                return material;
-            }
+                if (material.HasProperty("_Cull"))
+                {
+                    material.SetFloat("_Cull", (float)CullMode.Off);
+                }
 
-            private static Color WithAlpha(Color color, float alpha)
-            {
-                return new Color(color.r, color.g, color.b, alpha);
+                return material;
             }
         }
     }

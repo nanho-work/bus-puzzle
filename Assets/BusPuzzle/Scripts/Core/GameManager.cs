@@ -13,6 +13,18 @@ namespace BusPuzzle
             Failed
         }
 
+        private sealed class DepartAssignment
+        {
+            public readonly BusView Bus;
+            public readonly List<PassengerView> Passengers;
+
+            public DepartAssignment(BusView bus, List<PassengerView> passengers)
+            {
+                Bus = bus;
+                Passengers = passengers;
+            }
+        }
+
         [SerializeField] private LevelSequence levelSequence;
         [SerializeField] private BoardView boardView;
         [SerializeField] private GameUiController uiController;
@@ -25,7 +37,9 @@ namespace BusPuzzle
         private const int EndgameRemainingBusThreshold = 4;
         private const int VipTeleportAdLimitPerStage = 3;
         private const int StageClearGoldReward = 30;
+        private const int VipTeleportGoldCost = 120;
         private const int MixShuffleGoldCost = 90;
+        private const int DepartGoldCost = 90;
         private const string GeneratedLevelSequenceResourcePath = "Levels/Generated/GeneratedLevelSequence";
         private const string ActiveLevelSequenceResourcePath = "Levels/LevelSequence";
         private const string StageGenerationConfigResourcePath = "Levels/StageGenerationConfig";
@@ -44,11 +58,13 @@ namespace BusPuzzle
         private bool isStationUnlockAdInProgress;
         private bool isVipAdInProgress;
         private bool isMixShuffleAdInProgress;
+        private bool isDepartAdInProgress;
         private bool isVipSelectionMode;
         private bool isFailureWaitingForRotaryFill;
         private bool isRecoveryChoiceHoldingFailure;
-        private int vipAdsWatchedThisStage;
+        private int vipUsesGrantedThisStage;
         private int vipTeleportTickets;
+        private Coroutine departBoostRoutine;
 
         private void Awake()
         {
@@ -80,10 +96,14 @@ namespace BusPuzzle
             uiController.StationUnlockRequested -= ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
             uiController.VipTeleportRequested -= HandleVipTeleportRequested;
+            uiController.VipTeleportGoldConfirmed -= RequestVipBusTeleportGold;
             uiController.VipTeleportConfirmed -= RequestVipBusTeleportAd;
             uiController.MixShuffleRequested -= HandleMixShuffleRequested;
             uiController.MixShuffleGoldConfirmed -= RequestMixShuffleGold;
             uiController.MixShuffleConfirmed -= RequestMixShuffleAd;
+            uiController.DepartRequested -= HandleDepartRequested;
+            uiController.DepartGoldConfirmed -= RequestDepartGold;
+            uiController.DepartConfirmed -= RequestDepartAd;
             uiController.RecoveryPromptCancelled -= HandleRecoveryPromptCancelled;
 
             if (rewardedAdService != null)
@@ -182,10 +202,14 @@ namespace BusPuzzle
             uiController.StationUnlockRequested += ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed += RequestStationSlotUnlock;
             uiController.VipTeleportRequested += HandleVipTeleportRequested;
+            uiController.VipTeleportGoldConfirmed += RequestVipBusTeleportGold;
             uiController.VipTeleportConfirmed += RequestVipBusTeleportAd;
             uiController.MixShuffleRequested += HandleMixShuffleRequested;
             uiController.MixShuffleGoldConfirmed += RequestMixShuffleGold;
             uiController.MixShuffleConfirmed += RequestMixShuffleAd;
+            uiController.DepartRequested += HandleDepartRequested;
+            uiController.DepartGoldConfirmed += RequestDepartGold;
+            uiController.DepartConfirmed += RequestDepartAd;
             uiController.RecoveryPromptCancelled += HandleRecoveryPromptCancelled;
 
             rewardedAdService = RewardedAdServiceFactory.Create(AdMobSettings.Load());
@@ -280,6 +304,7 @@ namespace BusPuzzle
             boardingFlowController.Reset();
             ResetVipTeleportState();
             ResetMixShuffleState();
+            ResetDepartState();
             currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
             UserProgress.SaveLastStageIndex(currentLevelIndex, levelSequence.Count);
             currentLevel = levelSequence.GetLevel(currentLevelIndex);
@@ -463,7 +488,7 @@ namespace BusPuzzle
                 IsAnyRewardedAdInProgress ||
                 uiController == null ||
                 rewardedAdService == null ||
-                RemainingVipTeleportAds <= 0)
+                RemainingVipTeleportUses <= 0)
             {
                 UpdateVipTeleportUi();
                 return;
@@ -483,9 +508,48 @@ namespace BusPuzzle
 
             HoldPendingFailureForRecoveryChoice();
             uiController.ShowVipTeleportPrompt(
-                RemainingVipTeleportAds,
+                vipUsesGrantedThisStage,
+                VipTeleportAdLimitPerStage,
+                UserEconomy.GoldBalance,
+                VipTeleportGoldCost,
+                UserEconomy.CanSpendGold(VipTeleportGoldCost),
                 rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
                 isVipAdInProgress);
+        }
+
+        private void RequestVipBusTeleportGold()
+        {
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
+                IsAnyRewardedAdInProgress ||
+                RemainingVipTeleportUses <= 0 ||
+                !HasVipTeleportTarget())
+            {
+                UpdateVipTeleportUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            if (!UserEconomy.TrySpendGold(VipTeleportGoldCost))
+            {
+                uiController.ShowInvalid("Need Gold");
+                ShowVipTeleportPrompt();
+                UpdateGoldUi();
+                UpdateVipTeleportUi();
+                return;
+            }
+
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
+            vipUsesGrantedThisStage++;
+            vipTeleportTickets++;
+            EnterVipSelectionMode();
+            UpdateGoldUi();
+            UpdateRewardedAdUi();
         }
 
         private void RequestVipBusTeleportAd()
@@ -495,7 +559,7 @@ namespace BusPuzzle
             if (!CanUseRecoveryAction() ||
                 IsAnyRewardedAdInProgress ||
                 rewardedAdService == null ||
-                RemainingVipTeleportAds <= 0 ||
+                RemainingVipTeleportUses <= 0 ||
                 !HasVipTeleportTarget())
             {
                 UpdateVipTeleportUi();
@@ -529,7 +593,7 @@ namespace BusPuzzle
 
             if (result == RewardedAdResult.RewardEarned)
             {
-                vipAdsWatchedThisStage++;
+                vipUsesGrantedThisStage++;
                 vipTeleportTickets++;
                 EnterVipSelectionMode();
             }
@@ -580,6 +644,7 @@ namespace BusPuzzle
             ApplyVipHighlights();
             uiController.HideVipTeleportPrompt();
             uiController.HideMixShufflePrompt();
+            uiController.HideDepartPrompt();
         }
 
         private void TryUseVipTeleport(BusView bus)
@@ -616,7 +681,7 @@ namespace BusPuzzle
         {
             isVipAdInProgress = false;
             isVipSelectionMode = false;
-            vipAdsWatchedThisStage = 0;
+            vipUsesGrantedThisStage = 0;
             vipTeleportTickets = 0;
             ApplyVipHighlights();
         }
@@ -770,15 +835,173 @@ namespace BusPuzzle
             UpdateRewardedAdUi();
         }
 
+        private void HandleDepartRequested()
+        {
+            if (!CanShowRecoveryPrompt() || isVipSelectionMode)
+            {
+                UpdateDepartUi();
+                return;
+            }
+
+            ShowDepartPrompt();
+        }
+
+        private void ShowDepartPrompt()
+        {
+            if (!CanShowRecoveryPrompt() ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                uiController == null)
+            {
+                UpdateDepartUi();
+                return;
+            }
+
+            if (!HasPotentialDepartTarget())
+            {
+                uiController.ShowInvalid("No depart target");
+                UpdateDepartUi();
+                return;
+            }
+
+            if (rewardedAdService != null && !rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost))
+            {
+                rewardedAdService.Preload(RewardedAdPlacement.DepartBoost);
+            }
+
+            HoldPendingFailureForRecoveryChoice();
+            uiController.ShowDepartPrompt(
+                UserEconomy.GoldBalance,
+                DepartGoldCost,
+                UserEconomy.CanSpendGold(DepartGoldCost),
+                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
+                isDepartAdInProgress);
+        }
+
+        private void RequestDepartGold()
+        {
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                !HasPotentialDepartTarget())
+            {
+                UpdateDepartUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            if (!UserEconomy.TrySpendGold(DepartGoldCost))
+            {
+                uiController.ShowInvalid("Need Gold");
+                ShowDepartPrompt();
+                UpdateGoldUi();
+                UpdateDepartUi();
+                return;
+            }
+
+            if (TryStartDepartBoost())
+            {
+                uiController.ShowInvalid("Departing");
+            }
+            else
+            {
+                UserEconomy.AddGold(DepartGoldCost);
+                uiController.ShowInvalid("No depart target");
+                CheckBlocked();
+            }
+
+            UpdateGoldUi();
+            UpdateRewardedAdUi();
+        }
+
+        private void RequestDepartAd()
+        {
+            var wasRecoveringFromFailure = gameState == GameState.Failed;
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                rewardedAdService == null ||
+                !HasPotentialDepartTarget())
+            {
+                UpdateDepartUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
+            isDepartAdInProgress = true;
+            UpdateRewardedAdUi();
+
+            if (!rewardedAdService.ShowDepartBoostAd(HandleDepartAdCompleted))
+            {
+                isDepartAdInProgress = false;
+                UpdateRewardedAdUi();
+                if (wasRecoveringFromFailure || wasHoldingFailureChoice)
+                {
+                    CheckBlocked();
+                }
+            }
+        }
+
+        private void HandleDepartAdCompleted(RewardedAdResult result)
+        {
+            isDepartAdInProgress = false;
+
+            if (result == RewardedAdResult.RewardEarned)
+            {
+                if (TryStartDepartBoost())
+                {
+                    uiController.ShowInvalid("Departing");
+                }
+                else
+                {
+                    uiController.ShowInvalid("No depart target");
+                    CheckBlocked();
+                }
+            }
+            else
+            {
+                CheckBlocked();
+            }
+
+            rewardedAdService?.Preload();
+            UpdateGoldUi();
+            UpdateRewardedAdUi();
+        }
+
         private void ResetMixShuffleState()
         {
             isMixShuffleAdInProgress = false;
         }
 
+        private void ResetDepartState()
+        {
+            isDepartAdInProgress = false;
+            if (departBoostRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(departBoostRoutine);
+            departBoostRoutine = null;
+        }
+
         private bool IsAnyRewardedAdInProgress =>
             isStationUnlockAdInProgress ||
             isVipAdInProgress ||
-            isMixShuffleAdInProgress;
+            isMixShuffleAdInProgress ||
+            isDepartAdInProgress;
 
         private bool CanShowRecoveryPrompt()
         {
@@ -801,7 +1024,7 @@ namespace BusPuzzle
             uiController.ShowInvalid(string.Empty);
         }
 
-        private int RemainingVipTeleportAds => Mathf.Max(0, VipTeleportAdLimitPerStage - vipAdsWatchedThisStage);
+        private int RemainingVipTeleportUses => Mathf.Max(0, VipTeleportAdLimitPerStage - vipUsesGrantedThisStage);
 
         private bool HasVipTeleportTarget()
         {
@@ -998,6 +1221,278 @@ namespace BusPuzzle
             return true;
         }
 
+        private bool TryStartDepartBoost()
+        {
+            if (boardingFlowController.IsRunning || boardingFlowController.HasPendingReservations)
+            {
+                boardingFlowController.Reset();
+            }
+
+            if (!TryBuildDepartPlan(out var assignments))
+            {
+                return false;
+            }
+
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
+            departBoostRoutine = StartCoroutine(DepartBoostRoutine(assignments));
+            return true;
+        }
+
+        private bool HasPotentialDepartTarget()
+        {
+            if (boardView == null ||
+                departBoostRoutine != null ||
+                boardingFlowController.HasBusBoardingPassengers() ||
+                HasMovingBus())
+            {
+                return false;
+            }
+
+            var passengerCounts = CountPotentialDepartPassengers();
+            for (var slotIndex = BoardView.VipStationSlotIndex; slotIndex < boardView.StationCapacity; slotIndex++)
+            {
+                var bus = BoardingRuleEngine.FindStationBusAtSlot(buses, slotIndex);
+                if (!CanPotentialDepartTargetBus(bus))
+                {
+                    continue;
+                }
+
+                if (!passengerCounts.TryGetValue(bus.Color, out var count) || count <= 0)
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryBuildDepartPlan(out List<DepartAssignment> assignments)
+        {
+            assignments = null;
+            if (boardView == null ||
+                departBoostRoutine != null ||
+                boardingFlowController.IsRunning ||
+                boardingFlowController.HasPendingReservations ||
+                boardingFlowController.HasBusBoardingPassengers() ||
+                HasMovingBus())
+            {
+                return false;
+            }
+
+            var availablePassengers = CollectDepartPassengers();
+            if (availablePassengers.Count == 0)
+            {
+                return false;
+            }
+
+            var assignedPassengers = new HashSet<PassengerView>();
+            var plan = new List<DepartAssignment>();
+            for (var slotIndex = BoardView.VipStationSlotIndex; slotIndex < boardView.StationCapacity; slotIndex++)
+            {
+                var bus = BoardingRuleEngine.FindStationBusAtSlot(buses, slotIndex);
+                if (!CanDepartTargetBus(bus))
+                {
+                    continue;
+                }
+
+                var remainingSeats = bus.CapacityUnits - bus.BoardedUnits;
+                if (remainingSeats <= 0)
+                {
+                    continue;
+                }
+
+                var passengersForBus = TakeDepartPassengers(availablePassengers, assignedPassengers, bus.Color, remainingSeats);
+                if (passengersForBus.Count == 0)
+                {
+                    continue;
+                }
+
+                for (var index = 0; index < passengersForBus.Count; index++)
+                {
+                    assignedPassengers.Add(passengersForBus[index]);
+                }
+
+                plan.Add(new DepartAssignment(bus, passengersForBus));
+            }
+
+            if (plan.Count == 0)
+            {
+                return false;
+            }
+
+            assignments = plan;
+            return true;
+        }
+
+        private List<PassengerView> CollectDepartPassengers()
+        {
+            var passengers = new List<PassengerView>();
+            for (var index = 0; index < circulatingPassengerUnits.Count; index++)
+            {
+                var passenger = circulatingPassengerUnits[index];
+                if (CanUsePassengerForDepart(passenger))
+                {
+                    passengers.Add(passenger);
+                }
+            }
+
+            passengers.Sort(CompareDepartPassengerPriority);
+            return passengers;
+        }
+
+        private static List<PassengerView> TakeDepartPassengers(
+            IReadOnlyList<PassengerView> availablePassengers,
+            HashSet<PassengerView> assignedPassengers,
+            PuzzleColor color,
+            int amount)
+        {
+            var passengers = new List<PassengerView>(amount);
+            for (var index = 0; index < availablePassengers.Count && passengers.Count < amount; index++)
+            {
+                var passenger = availablePassengers[index];
+                if (assignedPassengers.Contains(passenger) || passenger.Color != color)
+                {
+                    continue;
+                }
+
+                passengers.Add(passenger);
+            }
+
+            return passengers;
+        }
+
+        private IEnumerator DepartBoostRoutine(IReadOnlyList<DepartAssignment> assignments)
+        {
+            var pendingBoardingUnits = 0;
+            for (var assignmentIndex = 0; assignmentIndex < assignments.Count; assignmentIndex++)
+            {
+                var assignment = assignments[assignmentIndex];
+                for (var passengerIndex = 0; passengerIndex < assignment.Passengers.Count; passengerIndex++)
+                {
+                    var passenger = assignment.Passengers[passengerIndex];
+                    if (assignment.Bus == null ||
+                        passenger == null ||
+                        !assignment.Bus.ReserveBoardingSeat() ||
+                        !circulatingPassengerUnits.Remove(passenger))
+                    {
+                        assignment.Bus?.CancelBoardingReservation();
+                        continue;
+                    }
+
+                    pendingBoardingUnits++;
+                    assignment.Bus.BoardReservedPassenger(passenger, () =>
+                    {
+                        pendingBoardingUnits = Mathf.Max(0, pendingBoardingUnits - 1);
+                        UpdateCounters();
+                    });
+                }
+            }
+
+            boardView.CompactFeederQueues(circulatingPassengerUnits);
+            UpdateCounters();
+
+            while (pendingBoardingUnits > 0)
+            {
+                yield return null;
+            }
+
+            departBoostRoutine = null;
+            UpdateCounters();
+            StartBoardingResolver();
+            CheckBlocked();
+        }
+
+        private Dictionary<PuzzleColor, int> CountPotentialDepartPassengers()
+        {
+            var counts = new Dictionary<PuzzleColor, int>();
+            for (var index = 0; index < circulatingPassengerUnits.Count; index++)
+            {
+                var passenger = circulatingPassengerUnits[index];
+                if (!CanUsePassengerForPotentialDepart(passenger))
+                {
+                    continue;
+                }
+
+                counts.TryGetValue(passenger.Color, out var count);
+                counts[passenger.Color] = count + 1;
+            }
+
+            return counts;
+        }
+
+        private static bool CanPotentialDepartTargetBus(BusView bus)
+        {
+            return bus != null &&
+                bus.IsParkedAtStation &&
+                !bus.IsDeparted &&
+                !bus.IsDeparting &&
+                !bus.IsMoving &&
+                !bus.IsBoardingPassengers &&
+                bus.CapacityUnits > bus.BoardedUnits;
+        }
+
+        private static bool CanDepartTargetBus(BusView bus)
+        {
+            return bus != null &&
+                bus.IsParkedAtStation &&
+                !bus.IsDeparted &&
+                !bus.IsDeparting &&
+                !bus.IsMoving &&
+                !bus.IsBoardingPassengers &&
+                !bus.HasBoardingReservations &&
+                bus.HasAvailableBoardingSeat;
+        }
+
+        private static bool CanUsePassengerForDepart(PassengerView passenger)
+        {
+            return passenger != null &&
+                passenger.gameObject.activeSelf &&
+                (passenger.State == PassengerState.Rotary || passenger.State == PassengerState.Feeder);
+        }
+
+        private static bool CanUsePassengerForPotentialDepart(PassengerView passenger)
+        {
+            return passenger != null &&
+                passenger.gameObject.activeSelf &&
+                (passenger.State == PassengerState.Rotary ||
+                    passenger.State == PassengerState.Feeder ||
+                    passenger.State == PassengerState.QueuedForBoarding);
+        }
+
+        private static int CompareDepartPassengerPriority(PassengerView first, PassengerView second)
+        {
+            var stateCompare = GetDepartPassengerStatePriority(first).CompareTo(GetDepartPassengerStatePriority(second));
+            if (stateCompare != 0)
+            {
+                return stateCompare;
+            }
+
+            if (first.State == PassengerState.Feeder && second.State == PassengerState.Feeder)
+            {
+                var sideCompare = first.FeederSide.CompareTo(second.FeederSide);
+                if (sideCompare != 0)
+                {
+                    return sideCompare;
+                }
+
+                var slotCompare = first.FeederSlotIndex.CompareTo(second.FeederSlotIndex);
+                if (slotCompare != 0)
+                {
+                    return slotCompare;
+                }
+            }
+
+            return first.GetInstanceID().CompareTo(second.GetInstanceID());
+        }
+
+        private static int GetDepartPassengerStatePriority(PassengerView passenger)
+        {
+            return passenger != null && passenger.State == PassengerState.Rotary ? 0 : 1;
+        }
+
         private void ScheduleStagePreload()
         {
             StopStagePreload();
@@ -1097,8 +1592,9 @@ namespace BusPuzzle
             UpdateRewardedAdUi();
             uiController.ShowFailed(
                 boardView != null && boardView.CanUnlockStationSlot,
-                rewardedAdService != null && RemainingVipTeleportAds > 0 && HasVipTeleportTarget(),
-                HasMixShuffleTarget());
+                RemainingVipTeleportUses > 0 && HasVipTeleportTarget(),
+                HasMixShuffleTarget(),
+                HasPotentialDepartTarget());
             EffectAudioPlayer.PlayFail();
         }
 
@@ -1215,6 +1711,7 @@ namespace BusPuzzle
             UpdateStationUnlockUi();
             UpdateVipTeleportUi();
             UpdateMixShuffleUi();
+            UpdateDepartUi();
         }
 
         private void UpdateStationUnlockUi()
@@ -1242,14 +1739,18 @@ namespace BusPuzzle
 
             var canRequest = gameState == GameState.Playing &&
                 !IsAnyRewardedAdInProgress &&
-                RemainingVipTeleportAds > 0 &&
+                RemainingVipTeleportUses > 0 &&
                 HasVipTeleportTarget();
 
             uiController.SetVipTeleport(
-                RemainingVipTeleportAds,
+                vipUsesGrantedThisStage,
+                VipTeleportAdLimitPerStage,
                 vipTeleportTickets > 0,
                 isVipSelectionMode,
                 canRequest,
+                UserEconomy.GoldBalance,
+                VipTeleportGoldCost,
+                UserEconomy.CanSpendGold(VipTeleportGoldCost),
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
                 isVipAdInProgress);
         }
@@ -1273,6 +1774,27 @@ namespace BusPuzzle
                 UserEconomy.CanSpendGold(MixShuffleGoldCost),
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
                 isMixShuffleAdInProgress);
+        }
+
+        private void UpdateDepartUi()
+        {
+            if (uiController == null)
+            {
+                return;
+            }
+
+            var canRequest = gameState == GameState.Playing &&
+                !isVipSelectionMode &&
+                !IsAnyRewardedAdInProgress &&
+                HasPotentialDepartTarget();
+
+            uiController.SetDepart(
+                canRequest,
+                UserEconomy.GoldBalance,
+                DepartGoldCost,
+                UserEconomy.CanSpendGold(DepartGoldCost),
+                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
+                isDepartAdInProgress);
         }
 
         private bool IsPassengerFastForwardHeld()

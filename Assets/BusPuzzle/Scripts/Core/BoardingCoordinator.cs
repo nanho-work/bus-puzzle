@@ -22,6 +22,12 @@ namespace BusPuzzle
 
         public void Clear()
         {
+            for (var index = 0; index < reservations.Count; index++)
+            {
+                reservations[index].Bus?.CancelBoardingReservation();
+                reservations[index].Passenger?.CancelBoardingReservation();
+            }
+
             reservations.Clear();
         }
 

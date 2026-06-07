@@ -116,6 +116,11 @@ namespace BusPuzzle
             return feederQueue.HasPendingRotaryFill(passengers);
         }
 
+        public void CompactFeederQueues(IReadOnlyList<PassengerView> passengers)
+        {
+            feederQueue.Compact(passengers);
+        }
+
         private void AssignPassengerTraffic(PassengerView passenger, int rotarySlotIndex)
         {
             var clampedSlotIndex = Mathf.Clamp(rotarySlotIndex, 0, rotaryLayout.CapacityUnits - 1);

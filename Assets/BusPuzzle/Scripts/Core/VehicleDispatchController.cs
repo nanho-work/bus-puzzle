@@ -60,14 +60,33 @@ namespace BusPuzzle
 
             var route = boardView.BuildRouteToStation(bus, stationPosition);
             var counterPosition = boardView.GetStationCounterPosition(stationSlotIndex);
-            bus.MoveToStation(route, stationSlotIndex, counterPosition, () =>
+            var garageAdvanced = false;
+            void AdvanceGarageOnce()
             {
-                updateCounters();
-                uiController.ShowPlaying(getCurrentLevelName());
-                startBoardingResolver();
-                checkBlocked();
-            });
-            boardView.TryAdvanceGarageAfterLaunch(bus, buses);
+                if (garageAdvanced)
+                {
+                    return;
+                }
+
+                garageAdvanced = true;
+                if (boardView.TryAdvanceGarageAfterLaunch(bus, buses))
+                {
+                    updateCounters();
+                }
+            }
+
+            bus.MoveToStation(
+                route,
+                stationSlotIndex,
+                counterPosition,
+                () =>
+                {
+                    updateCounters();
+                    uiController.ShowPlaying(getCurrentLevelName());
+                    startBoardingResolver();
+                    checkBlocked();
+                },
+                AdvanceGarageOnce);
 
             return true;
         }
@@ -102,7 +121,10 @@ namespace BusPuzzle
                     startBoardingResolver();
                     checkBlocked();
                 });
-            boardView.TryAdvanceGarageAfterLaunch(bus, buses);
+            if (boardView.TryAdvanceGarageAfterLaunch(bus, buses))
+            {
+                updateCounters();
+            }
 
             return true;
         }

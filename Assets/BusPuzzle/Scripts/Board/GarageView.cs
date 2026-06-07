@@ -22,6 +22,12 @@ namespace BusPuzzle
             cellSize * 0.45f,
             cellSize * 0.45f);
 
+        public Vector3 GetVehicleExitStartPosition(BusDefinition vehicle)
+        {
+            var finalPosition = BoardLayoutConfig.GridToWorld(vehicle.GridPosition, vehicle.PositionOffsetCells);
+            return finalPosition - GridDirectionUtility.ToWorldVector(ExitDirection) * (cellSize * 0.92f);
+        }
+
         public static GarageView Create(GarageDefinition definition, Transform parent, float cellSize)
         {
             var garageObject = new GameObject($"Garage {definition.GridPosition.x},{definition.GridPosition.y}");
@@ -43,12 +49,15 @@ namespace BusPuzzle
 
             vehicle = queuedVehicles.Dequeue();
             UpdateCounter();
+            return true;
+        }
+
+        public void HideIfEmpty()
+        {
             if (queuedVehicles.Count == 0)
             {
                 HideObstacle();
             }
-
-            return true;
         }
 
         private void Initialize(GarageDefinition definition, float boardCellSize)
@@ -84,34 +93,64 @@ namespace BusPuzzle
 
         private void CreateBody()
         {
-            var baseMaterial = PuzzlePalette.CreateSolidMaterial("Garage Base", new Color(0.19f, 0.21f, 0.25f));
-            var doorMaterial = PuzzlePalette.CreateSolidMaterial("Garage Door", new Color(0.36f, 0.39f, 0.45f));
-            var topMaterial = PuzzlePalette.CreateSolidMaterial("Garage Top", new Color(0.09f, 0.10f, 0.12f));
+            var shadowMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Ground Shadow", new Color(0.18f, 0.24f, 0.32f));
+            var floorMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Floor", new Color(0.45f, 0.56f, 0.67f));
+            var floorHighlightMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Floor Highlight", new Color(0.62f, 0.73f, 0.84f));
+            var sideMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Side Wall", new Color(0.42f, 0.52f, 0.68f));
+            var sideHighlightMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Side Highlight", new Color(0.57f, 0.68f, 0.82f));
+            var interiorMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Interior", new Color(0.16f, 0.21f, 0.43f));
+            var interiorGlowMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Interior Glow", new Color(0.25f, 0.33f, 0.62f));
+            var roofMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Roof", new Color(0.34f, 0.46f, 0.66f));
+            var roofHighlightMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Roof Highlight", new Color(0.56f, 0.68f, 0.84f));
+            var frameMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Silver Frame", new Color(0.72f, 0.79f, 0.86f));
+            var frameShadowMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Frame Shadow", new Color(0.31f, 0.40f, 0.57f));
+            var directionMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Direction Mark", new Color(0.68f, 0.79f, 1.00f));
 
-            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            body.name = "Garage Body";
-            body.transform.SetParent(transform, false);
-            body.transform.localPosition = new Vector3(0f, cellSize * 0.17f, 0f);
-            body.transform.localScale = new Vector3(cellSize * 0.88f, cellSize * 0.34f, cellSize * 0.88f);
-            body.GetComponent<Renderer>().sharedMaterial = baseMaterial;
-            ConfigureRenderer(body);
+            var directionRoot = new GameObject("Garage Tunnel Direction Root");
+            directionRoot.transform.SetParent(transform, false);
+            directionRoot.transform.localRotation = GridDirectionUtility.ToRotation(ExitDirection);
+            const float taperDegrees = 7f;
 
-            var door = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            door.name = "Garage Door";
-            door.transform.SetParent(transform, false);
-            door.transform.localPosition = GridDirectionUtility.ToWorldVector(ExitDirection) * (cellSize * 0.455f) + Vector3.up * (cellSize * 0.17f);
-            door.transform.localRotation = GridDirectionUtility.ToRotation(ExitDirection);
-            door.transform.localScale = new Vector3(cellSize * 0.56f, cellSize * 0.24f, cellSize * 0.035f);
-            door.GetComponent<Renderer>().sharedMaterial = doorMaterial;
-            ConfigureRenderer(door);
+            CreateBox("Garage Portal Ground Shadow", directionRoot.transform, new Vector3(0f, cellSize * 0.020f, -cellSize * 0.025f), new Vector3(cellSize * 1.02f, cellSize * 0.040f, cellSize * 1.02f), shadowMaterial);
+            CreateBox("Garage Portal Floor", directionRoot.transform, new Vector3(0f, cellSize * 0.070f, 0f), new Vector3(cellSize * 0.92f, cellSize * 0.105f, cellSize * 0.94f), floorMaterial);
+            CreateBox("Garage Portal Floor Center Highlight", directionRoot.transform, new Vector3(0f, cellSize * 0.132f, cellSize * 0.10f), new Vector3(cellSize * 0.52f, cellSize * 0.018f, cellSize * 0.42f), floorHighlightMaterial);
+            CreateBox("Garage Portal Rear Floor Shade", directionRoot.transform, new Vector3(0f, cellSize * 0.134f, -cellSize * 0.30f), new Vector3(cellSize * 0.30f, cellSize * 0.020f, cellSize * 0.24f), interiorGlowMaterial);
+            CreateBox("Garage Portal Interior Back", directionRoot.transform, new Vector3(0f, cellSize * 0.22f, -cellSize * 0.43f), new Vector3(cellSize * 0.48f, cellSize * 0.31f, cellSize * 0.075f), interiorMaterial);
+            CreateBox("Garage Portal Interior Glow", directionRoot.transform, new Vector3(0f, cellSize * 0.21f, -cellSize * 0.34f), new Vector3(cellSize * 0.30f, cellSize * 0.22f, cellSize * 0.045f), interiorGlowMaterial);
+            CreateBox("Garage Portal Left Outer Wall", directionRoot.transform, new Vector3(-cellSize * 0.405f, cellSize * 0.22f, -cellSize * 0.04f), new Vector3(cellSize * 0.12f, cellSize * 0.36f, cellSize * 0.84f), sideMaterial, Quaternion.Euler(0f, -taperDegrees, 0f));
+            CreateBox("Garage Portal Right Outer Wall", directionRoot.transform, new Vector3(cellSize * 0.405f, cellSize * 0.22f, -cellSize * 0.04f), new Vector3(cellSize * 0.12f, cellSize * 0.36f, cellSize * 0.84f), sideMaterial, Quaternion.Euler(0f, taperDegrees, 0f));
+            CreateBox("Garage Portal Left Inner Highlight", directionRoot.transform, new Vector3(-cellSize * 0.305f, cellSize * 0.225f, cellSize * 0.03f), new Vector3(cellSize * 0.035f, cellSize * 0.28f, cellSize * 0.62f), sideHighlightMaterial, Quaternion.Euler(0f, -taperDegrees, 0f));
+            CreateBox("Garage Portal Right Inner Highlight", directionRoot.transform, new Vector3(cellSize * 0.305f, cellSize * 0.225f, cellSize * 0.03f), new Vector3(cellSize * 0.035f, cellSize * 0.28f, cellSize * 0.62f), sideHighlightMaterial, Quaternion.Euler(0f, taperDegrees, 0f));
+            CreateBox("Garage Portal Roof", directionRoot.transform, new Vector3(0f, cellSize * 0.43f, -cellSize * 0.04f), new Vector3(cellSize * 0.90f, cellSize * 0.105f, cellSize * 0.90f), roofMaterial);
+            CreateBox("Garage Portal Roof Highlight", directionRoot.transform, new Vector3(0f, cellSize * 0.492f, cellSize * 0.09f), new Vector3(cellSize * 0.54f, cellSize * 0.020f, cellSize * 0.34f), roofHighlightMaterial);
+            CreateBox("Garage Portal Rear Roof Shade", directionRoot.transform, new Vector3(0f, cellSize * 0.494f, -cellSize * 0.30f), new Vector3(cellSize * 0.30f, cellSize * 0.018f, cellSize * 0.22f), interiorGlowMaterial);
+            CreateBox("Garage Portal Mouth Shadow", directionRoot.transform, new Vector3(0f, cellSize * 0.23f, cellSize * 0.475f), new Vector3(cellSize * 0.58f, cellSize * 0.26f, cellSize * 0.050f), interiorMaterial);
+            CreateBox("Garage Portal Mouth Glow", directionRoot.transform, new Vector3(0f, cellSize * 0.245f, cellSize * 0.502f), new Vector3(cellSize * 0.42f, cellSize * 0.18f, cellSize * 0.024f), interiorGlowMaterial);
+            CreateBox("Garage Portal Left Frame Shadow", directionRoot.transform, new Vector3(-cellSize * 0.39f, cellSize * 0.23f, cellSize * 0.505f), new Vector3(cellSize * 0.055f, cellSize * 0.40f, cellSize * 0.080f), frameShadowMaterial);
+            CreateBox("Garage Portal Right Frame Shadow", directionRoot.transform, new Vector3(cellSize * 0.39f, cellSize * 0.23f, cellSize * 0.505f), new Vector3(cellSize * 0.055f, cellSize * 0.40f, cellSize * 0.080f), frameShadowMaterial);
+            CreateBox("Garage Portal Left Silver Frame", directionRoot.transform, new Vector3(-cellSize * 0.34f, cellSize * 0.245f, cellSize * 0.525f), new Vector3(cellSize * 0.075f, cellSize * 0.38f, cellSize * 0.065f), frameMaterial);
+            CreateBox("Garage Portal Right Silver Frame", directionRoot.transform, new Vector3(cellSize * 0.34f, cellSize * 0.245f, cellSize * 0.525f), new Vector3(cellSize * 0.075f, cellSize * 0.38f, cellSize * 0.065f), frameMaterial);
+            CreateBox("Garage Portal Top Silver Frame", directionRoot.transform, new Vector3(0f, cellSize * 0.425f, cellSize * 0.525f), new Vector3(cellSize * 0.74f, cellSize * 0.075f, cellSize * 0.065f), frameMaterial);
+            CreateBox("Garage Exit Arrow Shaft", directionRoot.transform, new Vector3(0f, cellSize * 0.145f, cellSize * 0.18f), new Vector3(cellSize * 0.070f, cellSize * 0.018f, cellSize * 0.34f), directionMaterial);
+            CreateBox("Garage Exit Arrow Left Head", directionRoot.transform, new Vector3(-cellSize * 0.075f, cellSize * 0.147f, cellSize * 0.36f), new Vector3(cellSize * 0.070f, cellSize * 0.018f, cellSize * 0.22f), directionMaterial, Quaternion.Euler(0f, -36f, 0f));
+            CreateBox("Garage Exit Arrow Right Head", directionRoot.transform, new Vector3(cellSize * 0.075f, cellSize * 0.147f, cellSize * 0.36f), new Vector3(cellSize * 0.070f, cellSize * 0.018f, cellSize * 0.22f), directionMaterial, Quaternion.Euler(0f, 36f, 0f));
+        }
 
-            var roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            roof.name = "Garage Roof";
-            roof.transform.SetParent(transform, false);
-            roof.transform.localPosition = new Vector3(0f, cellSize * 0.37f, 0f);
-            roof.transform.localScale = new Vector3(cellSize * 0.98f, cellSize * 0.08f, cellSize * 0.98f);
-            roof.GetComponent<Renderer>().sharedMaterial = topMaterial;
-            ConfigureRenderer(roof);
+        private static void CreateBox(string name, Transform parent, Vector3 localPosition, Vector3 localScale, Material material)
+        {
+            CreateBox(name, parent, localPosition, localScale, material, Quaternion.identity);
+        }
+
+        private static void CreateBox(string name, Transform parent, Vector3 localPosition, Vector3 localScale, Material material, Quaternion localRotation)
+        {
+            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            box.name = name;
+            box.transform.SetParent(parent, false);
+            box.transform.localPosition = localPosition;
+            box.transform.localRotation = localRotation;
+            box.transform.localScale = localScale;
+            box.GetComponent<Renderer>().sharedMaterial = material;
+            ConfigureRenderer(box);
         }
 
         private void CreateCounter()

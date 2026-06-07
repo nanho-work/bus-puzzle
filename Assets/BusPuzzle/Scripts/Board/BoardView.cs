@@ -230,6 +230,11 @@ namespace BusPuzzle
 
             var spawnedBus = CreateBusView(nextVehicle);
             spawnedBus.SetSourceGarage(garage);
+            var targetPosition = BoardLayoutConfig.GridToWorld(nextVehicle.GridPosition, nextVehicle.PositionOffsetCells);
+            spawnedBus.EmergeFromGarage(
+                garage.GetVehicleExitStartPosition(nextVehicle),
+                targetPosition,
+                garage.HideIfEmpty);
             buses.Add(spawnedBus);
             return true;
         }

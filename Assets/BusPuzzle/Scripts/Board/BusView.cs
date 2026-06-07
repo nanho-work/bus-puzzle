@@ -214,6 +214,16 @@ namespace BusPuzzle
 
         public void MoveToStation(BusRouteStep[] route, int stationSlotIndex, Vector3 counterWorldPosition, Action onComplete)
         {
+            MoveToStation(route, stationSlotIndex, counterWorldPosition, onComplete, null);
+        }
+
+        public void MoveToStation(
+            BusRouteStep[] route,
+            int stationSlotIndex,
+            Vector3 counterWorldPosition,
+            Action onComplete,
+            Action onLaunchClearanceReached)
+        {
             StopVipHighlight();
             boardingCounter?.SetWorldPosition(counterWorldPosition);
             if (route == null || route.Length == 0)
@@ -223,6 +233,7 @@ namespace BusPuzzle
                 StationSlotIndex = stationSlotIndex;
                 HideDirectionArrow();
                 ShowBoardingCounter();
+                onLaunchClearanceReached?.Invoke();
                 onComplete?.Invoke();
                 return;
             }
@@ -231,11 +242,48 @@ namespace BusPuzzle
             IsOnBoard = false;
             StationSlotIndex = stationSlotIndex;
             HideDirectionArrow();
+            var startPosition = transform.position;
+            var clearanceReached = false;
+
+            void InvokeLaunchClearanceOnce()
+            {
+                if (clearanceReached)
+                {
+                    return;
+                }
+
+                clearanceReached = true;
+                onLaunchClearanceReached?.Invoke();
+            }
+
             motionRoutine = StartCoroutine(MoveRouteRoutine(route, 0.17f, () =>
             {
+                InvokeLaunchClearanceOnce();
                 IsParkedAtStation = true;
                 motionRoutine = null;
                 ShowBoardingCounter();
+                onComplete?.Invoke();
+            }, progress =>
+            {
+                if (!clearanceReached && Vector3.Distance(startPosition, transform.position) >= cellSize * 2f)
+                {
+                    InvokeLaunchClearanceOnce();
+                }
+            }));
+        }
+
+        public void EmergeFromGarage(Vector3 startPosition, Vector3 targetPosition, Action onComplete = null)
+        {
+            StopMotion();
+            transform.position = startPosition;
+            var route = new[]
+            {
+                new BusRouteStep(targetPosition, transform.rotation)
+            };
+
+            motionRoutine = StartCoroutine(MoveRouteRoutine(route, 0.20f, () =>
+            {
+                motionRoutine = null;
                 onComplete?.Invoke();
             }));
         }

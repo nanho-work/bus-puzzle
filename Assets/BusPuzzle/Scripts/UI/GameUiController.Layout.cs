@@ -34,7 +34,7 @@ namespace BusPuzzle
             var goldIconObject = new GameObject("Gold Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             goldIconObject.transform.SetParent(goldCounter, false);
             var goldIconRect = goldIconObject.GetComponent<RectTransform>();
-            SetAnchors(goldIconRect, new Vector2(0f, 0f), new Vector2(0.34f, 1f), new Vector2(8f, 5f), new Vector2(-1f, -5f));
+            SetAnchors(goldIconRect, new Vector2(0f, 0f), new Vector2(0.30f, 1f), new Vector2(8f, 5f), new Vector2(-5f, -5f));
 
             var goldIconImage = goldIconObject.GetComponent<Image>();
             goldIconImage.sprite = LoadGoldIconSprite();
@@ -44,7 +44,7 @@ namespace BusPuzzle
 
             goldText = CreateText("Gold Text", goldCounter, TextAnchor.MiddleLeft, HeaderGoldFontSize, FontStyle.Bold);
             goldText.color = new Color(1.00f, 0.78f, 0.16f);
-            SetAnchors(goldText.rectTransform, new Vector2(0.33f, 0f), Vector2.one, new Vector2(2f, 1f), new Vector2(-8f, -1f));
+            SetAnchors(goldText.rectTransform, new Vector2(0.41f, 0f), Vector2.one, new Vector2(0f, 1f), new Vector2(-8f, -1f));
 
             settingsButton = CreateGearIconButton("Header Settings Button", topPanel, HeaderIconSize);
             SetAnchors(settingsButton.GetComponent<RectTransform>(), new Vector2(0.80f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(0f, 0f));

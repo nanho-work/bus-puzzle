@@ -221,6 +221,75 @@ namespace BusPuzzle
             return button;
         }
 
+        private static Button CreateImageTextButton(
+            string name,
+            Transform parent,
+            string baseResourcePath,
+            string label,
+            Color fallbackColor,
+            out Text labelText)
+        {
+            var baseSprite = LoadResourceSprite(baseResourcePath);
+            if (baseSprite == null)
+            {
+                var fallbackButton = CreateButton(name, parent, label, fallbackColor);
+                labelText = GetButtonLabel(fallbackButton);
+                return fallbackButton;
+            }
+
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+
+            var hitArea = buttonObject.GetComponent<Image>();
+            hitArea.color = new Color(1f, 1f, 1f, 0f);
+
+            var visualObject = new GameObject($"{name} Visual", typeof(RectTransform), typeof(AspectRatioFitter));
+            visualObject.transform.SetParent(buttonObject.transform, false);
+            var visualRect = visualObject.GetComponent<RectTransform>();
+            SetAnchors(visualRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var aspectFitter = visualObject.GetComponent<AspectRatioFitter>();
+            aspectFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            aspectFitter.aspectRatio = PromptButtonAspectRatio;
+
+            var shadowObject = new GameObject($"{name} Base Shadow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            shadowObject.transform.SetParent(visualObject.transform, false);
+            var shadowRect = shadowObject.GetComponent<RectTransform>();
+            SetAnchors(shadowRect, Vector2.zero, Vector2.one, new Vector2(0f, -5f), new Vector2(0f, -5f));
+
+            var shadowImage = shadowObject.GetComponent<Image>();
+            shadowImage.sprite = baseSprite;
+            shadowImage.color = new Color(0f, 0f, 0f, 0.22f);
+            shadowImage.preserveAspect = false;
+            shadowImage.raycastTarget = false;
+
+            var baseObject = new GameObject($"{name} Base", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            baseObject.transform.SetParent(visualObject.transform, false);
+            var baseRect = baseObject.GetComponent<RectTransform>();
+            SetAnchors(baseRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            var baseImage = baseObject.GetComponent<Image>();
+            baseImage.sprite = baseSprite;
+            baseImage.color = Color.white;
+            baseImage.preserveAspect = false;
+            baseImage.raycastTarget = false;
+
+            labelText = CreateText($"{name} Label", visualObject.transform, TextAnchor.MiddleCenter, 31, FontStyle.Bold);
+            labelText.text = label;
+            labelText.color = new Color(0.98f, 0.99f, 1f);
+            labelText.resizeTextMinSize = 18;
+            SetAnchors(labelText.rectTransform, new Vector2(0.16f, 0.18f), new Vector2(0.84f, 0.82f), Vector2.zero, Vector2.zero);
+
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = baseImage;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, 0.94f);
+            colors.pressedColor = new Color(0.86f, 0.86f, 0.86f, 1f);
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.42f);
+            button.colors = colors;
+            return button;
+        }
+
         private static Button CreateRoundIconButton(
             string name,
             Transform parent,
@@ -650,7 +719,7 @@ namespace BusPuzzle
             var checkImage = checkObject.GetComponent<Image>();
             checkImage.color = new Color(0.82f, 0.58f, 0.08f);
 
-            var labelText = CreateText($"{name} Label", toggleObject.transform, TextAnchor.MiddleLeft, 30, FontStyle.Bold);
+            var labelText = CreateText($"{name} Label", toggleObject.transform, TextAnchor.MiddleLeft, 30, FontStyle.Normal);
             labelText.text = label;
             SetAnchors(labelText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(64f, 2f), new Vector2(-12f, -2f));
 

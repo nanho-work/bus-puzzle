@@ -77,7 +77,7 @@ namespace BusPuzzle
 
     internal readonly struct RotaryLayout
     {
-        private const float FeederJoinGapRows = 1.00f;
+        private const float FeederMergeClearanceRows = 2.35f;
         private const float FeederQueueSpacingMultiplier = 0.78f;
         private const float FeederStartPaddingRows = 0.35f;
         private const float FeederHiddenTailRows = 14f;
@@ -181,7 +181,9 @@ namespace BusPuzzle
         public float GetFeederDistanceForSlot(int side, int slotIndex)
         {
             var feederPath = GetFeederPath(side);
-            var distanceFromJoin = (FeederJoinGapRows + Mathf.Max(0, slotIndex) * FeederQueueSpacingMultiplier) * Preset.FeederRowSpacing;
+            var distanceFromJoin =
+                (FeederMergeClearanceRows + Mathf.Max(0, slotIndex) * FeederQueueSpacingMultiplier) *
+                Preset.FeederRowSpacing;
             var maxDistanceFromJoin = Mathf.Max(Preset.FeederRowSpacing, feederPath.Length - Preset.FeederRowSpacing * FeederStartPaddingRows);
             distanceFromJoin = Mathf.Min(distanceFromJoin, maxDistanceFromJoin);
             return Mathf.Clamp(feederPath.Length - distanceFromJoin, 0f, feederPath.Length);

@@ -44,6 +44,7 @@ namespace BusPuzzle
         private Transform garageRoot;
         private Transform stationRoot;
         private Transform themeRoot;
+        private int currentPassengerUnitCount;
         private bool vipStationSlotOccupied;
 
         public int StationCapacity => stationSlots.Capacity;
@@ -65,14 +66,19 @@ namespace BusPuzzle
                 (BoardLayoutConfig.TotalStationSlots - 1) * BoardLayoutConfig.StationSlotSpacing * 0.5f +
                 BoardLayoutConfig.StationSlotWidth * 0.5f +
                 0.18f;
-            var halfFeederWidth = GetMaxAbsFeederX(rotaryLayout.LeftFeederPath, rotaryLayout.RightFeederPath) +
-                rotaryLayout.RoadWidth +
-                0.18f;
+            var hasVisibleFeederQueue = currentPassengerUnitCount > rotaryActiveTarget;
+            var halfFeederWidth = hasVisibleFeederQueue
+                ? GetMaxAbsFeederX(rotaryLayout.LeftFeederPath, rotaryLayout.RightFeederPath) +
+                    rotaryLayout.RoadWidth +
+                    0.18f
+                : rotaryLayout.OuterRadiusX + 0.30f;
             var halfWidth = Mathf.Max(halfGridWidth, halfStationWidth, halfFeederWidth);
             var bottomZ = BoardLayoutConfig.GridBottomZ - BoardLayoutConfig.CellSize * 0.48f;
-            var topZ = BoardLayoutConfig.RotaryCenterZ +
-                rotaryLayout.VisibleFeederTopY +
-                0.20f;
+            var rotaryTopY = rotaryLayout.OuterRadiusZ + 0.42f;
+            var feederTopY = hasVisibleFeederQueue
+                ? rotaryLayout.VisibleFeederTopY + 0.20f
+                : rotaryTopY;
+            var topZ = BoardLayoutConfig.RotaryCenterZ + Mathf.Max(rotaryTopY, feederTopY);
 
             var center = new Vector3(0f, 0.10f, (bottomZ + topZ) * 0.5f);
             var size = new Vector3(halfWidth * 2f, 0.36f, topZ - bottomZ);
@@ -93,6 +99,7 @@ namespace BusPuzzle
                     PassengerThirdPersonLocalZ,
                     PassengerOuterPersonLocalZ));
             rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count);
+            currentPassengerUnitCount = levelData.PassengerUnits.Count;
             passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
             vehicleTraffic = new VehicleTrafficEngine(CreateVehicleTrafficSettings());
 

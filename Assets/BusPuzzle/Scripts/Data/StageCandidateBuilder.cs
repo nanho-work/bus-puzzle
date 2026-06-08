@@ -16,6 +16,10 @@ namespace BusPuzzle
             level = null;
             report = null;
             analysis = default;
+            LevelData fallbackLevel = null;
+            LevelValidationReport fallbackReport = null;
+            StageSolutionAnalysis fallbackAnalysis = default;
+            var fallbackScore = int.MaxValue;
 
             for (var candidate = 0; candidate < config.CandidateAttemptsPerStage; candidate++)
             {
@@ -23,11 +27,25 @@ namespace BusPuzzle
                 var candidateReport = LevelValidator.Validate(candidateLevel, false);
                 var candidateAnalysis = StageSolutionAnalyzer.Analyze(candidateLevel.Buses, candidateLevel.Garages, config.SolutionCountLimit);
 
-                if (candidateReport.HasErrors ||
-                    !candidateAnalysis.IsSolvable ||
-                    candidateAnalysis.SolutionCount < request.MinSolutionCount ||
-                    candidateAnalysis.SolutionCount > request.MaxSolutionCount)
+                if (candidateReport.HasErrors || !candidateAnalysis.IsSolvable)
                 {
+                    report = candidateReport;
+                    analysis = candidateAnalysis;
+                    continue;
+                }
+
+                var solutionDistance = GetSolutionRangeDistance(candidateAnalysis, request);
+                if (solutionDistance > 0)
+                {
+                    var candidateScore = ScoreReleaseFallbackCandidate(request, candidateLevel, candidateReport, candidateAnalysis, solutionDistance);
+                    if (candidateScore < fallbackScore)
+                    {
+                        fallbackScore = candidateScore;
+                        fallbackLevel = candidateLevel;
+                        fallbackReport = candidateReport;
+                        fallbackAnalysis = candidateAnalysis;
+                    }
+
                     report = candidateReport;
                     analysis = candidateAnalysis;
                     continue;
@@ -36,6 +54,18 @@ namespace BusPuzzle
                 level = candidateLevel;
                 report = candidateReport;
                 analysis = candidateAnalysis;
+                return true;
+            }
+
+            if (fallbackLevel != null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"No stage {request.StageNumber:000} candidate matched preferred solution range " +
+                    $"{request.MinSolutionCount}-{request.MaxSolutionCount}. " +
+                    $"Using closest verified candidate with {fallbackAnalysis.SolutionCount} solutions.");
+                level = fallbackLevel;
+                report = fallbackReport;
+                analysis = fallbackAnalysis;
                 return true;
             }
 
@@ -141,6 +171,54 @@ namespace BusPuzzle
             score += UnityEngine.Mathf.Abs(level.AllVehicles.Count - request.Profile.TargetVehicleCount) * 100;
             score += UnityEngine.Mathf.Abs(CountUniqueVehicleColors(level.AllVehicles) - request.Profile.TargetColorCount) * 25;
             return score;
+        }
+
+        private static int ScoreReleaseFallbackCandidate(
+            StageGenerationRequest request,
+            LevelData level,
+            LevelValidationReport report,
+            StageSolutionAnalysis analysis,
+            int solutionDistance)
+        {
+            var score = solutionDistance * 1000;
+            score += analysis.HitLimit ? 10000 : 0;
+            score += CountWarnings(report) * 250;
+            score += ScoreRuntimeCandidate(request, level);
+            return score;
+        }
+
+        private static int GetSolutionRangeDistance(StageSolutionAnalysis analysis, StageGenerationRequest request)
+        {
+            if (analysis.SolutionCount < request.MinSolutionCount)
+            {
+                return request.MinSolutionCount - analysis.SolutionCount;
+            }
+
+            if (analysis.SolutionCount > request.MaxSolutionCount)
+            {
+                return analysis.SolutionCount - request.MaxSolutionCount;
+            }
+
+            return 0;
+        }
+
+        private static int CountWarnings(LevelValidationReport report)
+        {
+            if (report == null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var index = 0; index < report.Issues.Count; index++)
+            {
+                if (report.Issues[index].Severity == LevelValidationSeverity.Warning)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private static LevelData CreateEmergencySolvableStage(StageGenerationRequest request)

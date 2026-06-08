@@ -8,9 +8,12 @@ namespace BusPuzzle
         private const float CameraDistance = 8.15f;
         private const float MinOrthographicSize = 4.46f;
         private const float MaxOrthographicSize = 5.90f;
-        private const float TopUiInset = 0.055f;
-        private const float BottomUiInset = 0.105f;
-        private const float HorizontalUiInset = 0.045f;
+        private const float TopUiInset = 0.052f;
+        private const float BottomUiInset = 0.125f;
+        private const float HorizontalUiInset = 0.022f;
+        private const float NarrowAspectThreshold = 0.50f;
+        private const float NarrowAspectMinimum = 0.42f;
+        private const float NarrowAspectWidthFitScale = 0.80f;
 
         public static void Apply(Camera camera, Bounds contentBounds)
         {
@@ -24,7 +27,10 @@ namespace BusPuzzle
 
             var aspect = GetCameraAspect(camera);
             var usableHeight = Mathf.Clamp(1f - TopUiInset - BottomUiInset, 0.62f, 0.92f);
-            var usableWidth = Mathf.Clamp(1f - HorizontalUiInset * 2f, 0.72f, 0.96f);
+            var horizontalInset = aspect < NarrowAspectThreshold
+                ? Mathf.Lerp(0.004f, HorizontalUiInset, Mathf.InverseLerp(0.42f, NarrowAspectThreshold, aspect))
+                : HorizontalUiInset;
+            var usableWidth = Mathf.Clamp(1f - horizontalInset * 2f, 0.72f, 0.995f);
             var corners = GetBoundsCorners(contentBounds);
             var center = contentBounds.center;
             var right = camera.transform.right;
@@ -47,6 +53,12 @@ namespace BusPuzzle
 
             var requiredForHeight = (maxY - minY) / (2f * usableHeight);
             var requiredForWidth = (maxX - minX) / (2f * aspect * usableWidth);
+            if (aspect < NarrowAspectThreshold)
+            {
+                var narrowBlend = Mathf.InverseLerp(NarrowAspectMinimum, NarrowAspectThreshold, aspect);
+                requiredForWidth *= Mathf.Lerp(NarrowAspectWidthFitScale, 1f, narrowBlend);
+            }
+
             camera.orthographicSize = Mathf.Clamp(
                 Mathf.Max(requiredForHeight, requiredForWidth),
                 MinOrthographicSize,

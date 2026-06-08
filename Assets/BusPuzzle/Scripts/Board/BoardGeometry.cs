@@ -33,7 +33,7 @@ namespace BusPuzzle
                 new Vector2(0f, 1f)
             };
             mesh.triangles = new[] { 0, 3, 2, 0, 2, 1, 0, 2, 3, 0, 1, 2 };
-            mesh.RecalculateNormals();
+            AssignFlatNormals(mesh);
             mesh.RecalculateBounds();
 
             var meshFilter = flatObject.AddComponent<MeshFilter>();
@@ -261,7 +261,7 @@ namespace BusPuzzle
             var mesh = new Mesh { name = $"{name} Mesh" };
             mesh.vertices = vertices;
             mesh.triangles = triangles;
-            mesh.RecalculateNormals();
+            AssignFlatNormals(mesh);
             mesh.RecalculateBounds();
 
             var meshFilter = meshObject.AddComponent<MeshFilter>();
@@ -272,6 +272,22 @@ namespace BusPuzzle
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             return meshObject;
+        }
+
+        private static void AssignFlatNormals(Mesh mesh)
+        {
+            if (mesh == null || mesh.vertexCount <= 0)
+            {
+                return;
+            }
+
+            var normals = new Vector3[mesh.vertexCount];
+            for (var index = 0; index < normals.Length; index++)
+            {
+                normals[index] = Vector3.up;
+            }
+
+            mesh.normals = normals;
         }
     }
 }

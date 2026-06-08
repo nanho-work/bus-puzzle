@@ -4,6 +4,10 @@ namespace BusPuzzle
 {
     public static class PuzzlePalette
     {
+        private const string LitShaderResourcePath = "Shaders/BusPuzzleLitColor";
+        private const string FlatShaderResourcePath = "Shaders/BusPuzzleFlatColor";
+        private const string TransparentShaderResourcePath = "Shaders/BusPuzzleTransparentColor";
+
         public static Color ToColor(PuzzleColor color)
         {
             switch (color)
@@ -64,23 +68,50 @@ namespace BusPuzzle
 
         public static Material CreateMaterial(PuzzleColor color, string nameSuffix)
         {
-            var material = new Material(FindDefaultShader());
-            material.name = $"{DisplayName(color)} {nameSuffix}";
+            var material = CreateMaterialFromShader(FindDefaultShader(), $"{DisplayName(color)} {nameSuffix}");
             SetMaterialColor(material, ToColor(color));
             return material;
         }
 
         public static Material CreateSolidMaterial(string materialName, Color color)
         {
-            var material = new Material(FindFlatShader());
-            material.name = materialName;
+            var material = CreateMaterialFromShader(FindFlatShader(), materialName);
             SetMaterialColor(material, color);
             return material;
         }
 
+        public static Material CreateMaterialFromShader(Shader shader, string materialName)
+        {
+            Material material = null;
+            if (shader != null)
+            {
+                material = new Material(shader) { name = materialName };
+                ConfigureCommonRenderState(material);
+                return material;
+            }
+
+            var fallbackMaterial = Resources.GetBuiltinResource<Material>("Default-Material.mat");
+            if (fallbackMaterial != null)
+            {
+                material = new Material(fallbackMaterial) { name = materialName };
+                ConfigureCommonRenderState(material);
+                Debug.LogWarning($"Using Unity built-in default material for {materialName}; no requested shader was found.");
+                return material;
+            }
+
+            Debug.LogError($"No shader or built-in default material was found for {materialName}.");
+            return null;
+        }
+
         public static Material CreateTransparentMaterial(string materialName, Color color)
         {
-            var material = CreateSolidMaterial(materialName, color);
+            var material = CreateMaterialFromShader(FindTransparentShader(), materialName);
+            if (material == null)
+            {
+                return null;
+            }
+
+            SetMaterialColor(material, color);
             material.SetOverrideTag("RenderType", "Transparent");
             material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
 
@@ -123,23 +154,83 @@ namespace BusPuzzle
                 color.a);
         }
 
-        private static Shader FindDefaultShader()
+        public static Shader FindDefaultShader()
         {
-            return Shader.Find("Universal Render Pipeline/Lit")
+            return LoadResourceShader(LitShaderResourcePath)
+                ?? Shader.Find("Universal Render Pipeline/Lit")
+                ?? Shader.Find("Universal Render Pipeline/Simple Lit")
                 ?? Shader.Find("Standard")
-                ?? Shader.Find("Unlit/Color");
+                ?? Shader.Find("Mobile/Diffuse")
+                ?? FindAlwaysAvailableFallbackShader();
         }
 
-        private static Shader FindFlatShader()
+        public static Shader FindFlatShader()
         {
-            return Shader.Find("Universal Render Pipeline/Unlit")
+            return LoadResourceShader(FlatShaderResourcePath)
+                ?? Shader.Find("Universal Render Pipeline/Unlit")
                 ?? Shader.Find("Unlit/Color")
                 ?? Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard");
+                ?? Shader.Find("Universal Render Pipeline/Simple Lit")
+                ?? Shader.Find("Standard")
+                ?? Shader.Find("Mobile/Diffuse")
+                ?? FindAlwaysAvailableFallbackShader();
+        }
+
+        public static Shader FindTransparentShader()
+        {
+            return LoadResourceShader(TransparentShaderResourcePath)
+                ?? Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Unlit/Color")
+                ?? Shader.Find("Sprites/Default")
+                ?? FindAlwaysAvailableFallbackShader();
+        }
+
+        private static Shader LoadResourceShader(string resourcePath)
+        {
+            var shader = Resources.Load<Shader>(resourcePath);
+            if (shader != null)
+            {
+                return shader;
+            }
+
+            return Shader.Find(resourcePath.Replace("Shaders/", "BusPuzzle/"));
+        }
+
+        private static Shader FindAlwaysAvailableFallbackShader()
+        {
+            var shader = Shader.Find("Sprites/Default")
+                ?? Shader.Find("UI/Default")
+                ?? Shader.Find("Hidden/Internal-Colored")
+                ?? Shader.Find("Hidden/InternalErrorShader");
+
+            if (shader == null)
+            {
+                Debug.LogError("No usable fallback shader was found. Add a built-in shader to Always Included Shaders.");
+            }
+
+            return shader;
+        }
+
+        private static void ConfigureCommonRenderState(Material material)
+        {
+            if (material == null)
+            {
+                return;
+            }
+
+            if (material.HasProperty("_Cull"))
+            {
+                material.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Off);
+            }
         }
 
         private static void SetMaterialColor(Material material, Color color)
         {
+            if (material == null)
+            {
+                return;
+            }
+
             material.color = color;
             if (material.HasProperty("_BaseColor"))
             {

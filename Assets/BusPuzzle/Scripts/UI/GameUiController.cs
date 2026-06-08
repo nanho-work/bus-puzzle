@@ -15,11 +15,13 @@ namespace BusPuzzle
         private const string SettingsButtonIconResource = "UI/Boosters/Setting";
         private const string RetryButtonIconResource = "UI/Boosters/retry";
         private const string NextButtonIconResource = "UI/Boosters/NEXT";
+        private const string PromptButtonBaseResource = "UI/Boosters/base";
         private const string GoldIconResource = "UI/Boosters/gold 1";
         private const float HeaderIconSize = 117f;
         private const int HeaderStageFontSize = 60;
         private const int HeaderGoldFontSize = 34;
         private const float BoosterIconSize = 144f;
+        private const float PromptButtonAspectRatio = 1530f / 607f;
         private static readonly Color UiOverlayColor = new Color(0.03f, 0.05f, 0.07f, 0.56f);
         private static readonly Color UiPanelColor = new Color(0.11f, 0.15f, 0.18f, 0.96f);
         private static readonly Color UiPanelAccentColor = new Color(0.18f, 0.56f, 0.74f, 0.34f);

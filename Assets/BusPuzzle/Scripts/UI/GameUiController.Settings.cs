@@ -159,7 +159,7 @@ namespace BusPuzzle
                 SetAnchors(fallbackText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             }
 
-            var labelText = CreateText($"{name} Label", toggleObject.transform, TextAnchor.MiddleCenter, 24, FontStyle.Bold);
+            var labelText = CreateText($"{name} Label", toggleObject.transform, TextAnchor.MiddleCenter, 24, FontStyle.Normal);
             labelText.text = label;
             SetAnchors(labelText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.25f), new Vector2(0f, 0f), new Vector2(0f, -2f));
 

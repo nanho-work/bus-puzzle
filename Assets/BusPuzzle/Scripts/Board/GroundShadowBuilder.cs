@@ -111,28 +111,18 @@ namespace BusPuzzle
 
         private static Material CreateShadowMaterial(string name, Color color)
         {
-            var shader = Shader.Find("Universal Render Pipeline/Unlit")
-                ?? Shader.Find("Unlit/Color")
-                ?? Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard");
-            var material = new Material(shader) { name = name, color = color };
-
-            if (material.HasProperty("_BaseColor"))
-            {
-                material.SetColor("_BaseColor", color);
-            }
-
-            if (material.HasProperty("_Color"))
-            {
-                material.SetColor("_Color", color);
-            }
-
+            var material = PuzzlePalette.CreateTransparentMaterial(name, color);
             ConfigureTransparent(material);
             return material;
         }
 
         private static void ConfigureTransparent(Material material)
         {
+            if (material == null)
+            {
+                return;
+            }
+
             if (material.HasProperty("_Surface"))
             {
                 material.SetFloat("_Surface", 1f);

@@ -407,10 +407,14 @@ namespace BusPuzzle
 
             private static Material CreateLitMaterial(string name, Color color, float smoothness)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Lit")
-                    ?? Shader.Find("Standard")
-                    ?? Shader.Find("Unlit/Color");
-                var material = new Material(shader) { name = name, color = color };
+                var shader = PuzzlePalette.FindDefaultShader();
+                var material = PuzzlePalette.CreateMaterialFromShader(shader, name);
+                if (material == null)
+                {
+                    return null;
+                }
+
+                material.color = color;
                 if (material.HasProperty("_BaseColor"))
                 {
                     material.SetColor("_BaseColor", color);

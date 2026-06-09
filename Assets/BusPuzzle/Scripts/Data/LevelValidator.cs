@@ -70,6 +70,7 @@ namespace BusPuzzle
         private const float BoardBoundaryPadding = 0.16f;
         private const float MaxRecommendedPositionOffsetCells = 0.45f;
         private const float MaxRecommendedAngleOffsetDegrees = 35f;
+        private const int VehicleExitNodeVisitLimit = 20000;
 
         public static LevelValidationReport Validate(
             LevelData levelData,
@@ -315,7 +316,7 @@ namespace BusPuzzle
                 return;
             }
 
-            var analysis = StageSolutionAnalyzer.Analyze(buses, garages, solutionCountLimit);
+            var analysis = StageSolutionAnalyzer.Analyze(buses, garages, solutionCountLimit, VehicleExitNodeVisitLimit);
             if (analysis.IsSolvable)
             {
                 return;

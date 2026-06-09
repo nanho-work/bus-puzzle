@@ -17,48 +17,100 @@ namespace BusPuzzle.EditorTools
         public static void RebuildGeneratedStageSet()
         {
             var config = LoadConfig();
-            var generatedLevels = new LevelData[config.GeneratedStageCount];
-            for (var stageNumber = 1; stageNumber <= config.GeneratedStageCount; stageNumber++)
+            Directory.CreateDirectory(GeneratedLevelDirectory);
+            var savedLevels = new LevelData[config.GeneratedStageCount];
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var cancelled = false;
+            var timedOut = false;
+
+            try
             {
-                var request = StageGenerationPlanner.CreateRequest(config, stageNumber);
-                if (!StageCandidateBuilder.TryBuildVerifiedStageCandidate(
-                    config,
-                    request,
-                    out var generatedLevel,
-                    out var report,
-                    out var analysis))
+                for (var stageNumber = 1; stageNumber <= config.GeneratedStageCount; stageNumber++)
                 {
-                    Debug.LogError(
-                        $"Generated stage set rebuild aborted at stage {stageNumber:000}. " +
-                        $"No verified candidate found after {config.CandidateAttemptsPerStage} attempts. " +
-                        $"Last solution count: {analysis.SolutionCount}, target range: {request.MinSolutionCount}-{request.MaxSolutionCount}. " +
-                        $"{CreateReportMessage(generatedLevel, report)}");
-                    return;
+                    var request = StageGenerationPlanner.CreateRequest(config, stageNumber);
+                    if (TryReuseExistingLevel(config, request, out var existingLevel))
+                    {
+                        savedLevels[stageNumber - 1] = existingLevel;
+                        Debug.Log($"Reused generated stage {stageNumber:000}/{config.GeneratedStageCount}: {request.Difficulty}.");
+                        continue;
+                    }
+
+                    if (!StageCandidateBuilder.TryBuildVerifiedStageCandidate(
+                        config,
+                        request,
+                        out var generatedLevel,
+                        out var report,
+                        out var analysis,
+                        candidate =>
+                        {
+                            var stageProgress = (stageNumber - 1f + candidate / (float)config.CandidateAttemptsPerStage) /
+                                config.GeneratedStageCount;
+                            cancelled = EditorUtility.DisplayCancelableProgressBar(
+                                "Rebuilding Bus Pop Stage Set",
+                                $"Stage {stageNumber:000}/{config.GeneratedStageCount} - candidate {candidate + 1}/{config.CandidateAttemptsPerStage}",
+                                Mathf.Clamp01(stageProgress));
+                            if (cancelled)
+                            {
+                                return true;
+                            }
+
+                            timedOut = stopwatch.Elapsed.TotalSeconds > config.ReleaseBuildTimeBudgetSeconds;
+                            return timedOut;
+                        }))
+                    {
+                        if (cancelled)
+                        {
+                            Debug.LogWarning($"Generated stage set rebuild cancelled at stage {stageNumber:000}.");
+                            return;
+                        }
+
+                        if (timedOut)
+                        {
+                            Debug.LogError(
+                                $"Generated stage set rebuild timed out at stage {stageNumber:000} after " +
+                                $"{config.ReleaseBuildTimeBudgetSeconds} seconds. Lower generation pressure or try again.");
+                            return;
+                        }
+
+                        Debug.LogError(
+                            $"Generated stage set rebuild aborted at stage {stageNumber:000}. " +
+                            $"No verified candidate found after {config.CandidateAttemptsPerStage} attempts. " +
+                            $"Last solution count: {analysis.SolutionCount}, target range: {request.MinSolutionCount}-{request.MaxSolutionCount}. " +
+                            $"{CreateReportMessage(generatedLevel, report)}");
+                        return;
+                    }
+
+                    savedLevels[stageNumber - 1] = SaveLevel($"Level_{stageNumber:000}", generatedLevel);
+                    if (stageNumber % 5 == 0)
+                    {
+                        AssetDatabase.SaveAssets();
+                    }
+
+                    Debug.Log(
+                        $"Generated stage {stageNumber:000}/{config.GeneratedStageCount}: " +
+                        $"{request.Difficulty}, solutions {analysis.SolutionCount}, road {request.RoadPresetId}.");
                 }
 
-                generatedLevels[stageNumber - 1] = generatedLevel;
+                EditorUtility.DisplayProgressBar("Rebuilding Bus Pop Stage Set", "Saving generated level sequence...", 1f);
+                SaveVerifiedGeneratedSequence(savedLevels, GeneratedLevelSequencePath);
+                SaveVerifiedGeneratedSequence(savedLevels, ActiveLevelSequencePath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log(
+                    $"Generated Bus Pop stage set rebuilt: {savedLevels.Length} verified levels saved under {GeneratedLevelDirectory}. " +
+                    $"The active sequence now points to the generated set: {ActiveLevelSequencePath}.");
             }
-
-            Directory.CreateDirectory(GeneratedLevelDirectory);
-            var savedLevels = new LevelData[generatedLevels.Length];
-            for (var index = 0; index < generatedLevels.Length; index++)
+            finally
             {
-                savedLevels[index] = SaveLevel($"Level_{index + 1:000}", generatedLevels[index]);
+                EditorUtility.ClearProgressBar();
             }
-
-            SaveVerifiedGeneratedSequence(savedLevels, GeneratedLevelSequencePath);
-            SaveVerifiedGeneratedSequence(savedLevels, ActiveLevelSequencePath);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log(
-                $"Generated Bus Puzzle stage set rebuilt: {savedLevels.Length} verified levels saved under {GeneratedLevelDirectory}. " +
-                $"The active sequence now points to the generated set: {ActiveLevelSequencePath}.");
         }
 
         private static LevelData SaveLevel(string assetName, LevelData generatedLevel)
         {
-            var path = $"{GeneratedLevelDirectory}/{assetName}.asset";
+            var path = GetLevelPath(assetName);
             var existing = AssetDatabase.LoadAssetAtPath<LevelData>(path);
+            generatedLevel.hideFlags = HideFlags.None;
             if (existing == null)
             {
                 AssetDatabase.CreateAsset(generatedLevel, path);
@@ -66,8 +118,45 @@ namespace BusPuzzle.EditorTools
             }
 
             EditorUtility.CopySerialized(generatedLevel, existing);
+            existing.hideFlags = HideFlags.None;
             EditorUtility.SetDirty(existing);
             return existing;
+        }
+
+        private static bool TryReuseExistingLevel(
+            StageGenerationConfig config,
+            StageGenerationRequest request,
+            out LevelData level)
+        {
+            level = AssetDatabase.LoadAssetAtPath<LevelData>(GetLevelPath($"Level_{request.StageNumber:000}"));
+            if (level == null)
+            {
+                return false;
+            }
+
+            var report = LevelValidator.Validate(level, false, GetValidationSolutionLimit(config, request));
+            if (!report.HasErrors)
+            {
+                level.hideFlags = HideFlags.None;
+                EditorUtility.SetDirty(level);
+                return true;
+            }
+
+            Debug.LogWarning(
+                $"Existing generated stage {request.StageNumber:000} failed validation and will be rebuilt. " +
+                report.ToConsoleMessage(level.LevelName));
+            return false;
+        }
+
+        private static int GetValidationSolutionLimit(StageGenerationConfig config, StageGenerationRequest request)
+        {
+            var upperBoundProbe = Mathf.Max(1, request.MaxSolutionCount + 1);
+            return Mathf.Clamp(Mathf.Min(config.SolutionCountLimit, upperBoundProbe), 1, config.SolutionCountLimit);
+        }
+
+        private static string GetLevelPath(string assetName)
+        {
+            return $"{GeneratedLevelDirectory}/{assetName}.asset";
         }
 
         private static void SaveVerifiedGeneratedSequence(LevelData[] levels, string path)

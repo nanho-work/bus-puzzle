@@ -47,7 +47,7 @@ namespace BusPuzzle
         public void SetPose(PassengerView passenger)
         {
             var pose = GetFeederPose(passenger.FeederSide, passenger.FeederSlotIndex);
-            passenger.SetPose(pose.Position, pose.Rotation);
+            passenger.SetPose(pose);
         }
 
         public void Promote(IReadOnlyList<PassengerView> passengers, float trafficTimeScale)
@@ -223,7 +223,7 @@ namespace BusPuzzle
 
                 passenger.AssignFeeder(side, slotIndex);
                 var pose = GetFeederPose(side, slotIndex);
-                passenger.MoveToPose(pose.Position, pose.Rotation, settings.FeederQueueStepDuration);
+                passenger.MoveToPose(pose, settings.FeederQueueStepDuration);
             }
 
             compactScratch.Clear();
@@ -315,7 +315,7 @@ namespace BusPuzzle
 
                 passenger.AssignFeeder(side, passenger.FeederSlotIndex - 1);
                 var pose = GetFeederPose(side, passenger.FeederSlotIndex);
-                passenger.MoveToPose(pose.Position, pose.Rotation, queueStepDuration);
+                passenger.MoveToPose(pose, queueStepDuration);
             }
         }
 
@@ -355,11 +355,13 @@ namespace BusPuzzle
         private PassengerUnitRoadPose BlendPassengerRoadPose(PassengerUnitRoadPose from, PassengerUnitRoadPose to, float t)
         {
             t = Mathf.Clamp01(t);
+            var forward = Quaternion.Slerp(from.Rotation, to.Rotation, t) * Vector3.forward;
             return PassengerUnitRoadPose.FromPersonWorldPositions(
                 Vector3.Lerp(GetPosePersonWorldPosition(from, 0), GetPosePersonWorldPosition(to, 0), t),
                 Vector3.Lerp(GetPosePersonWorldPosition(from, 1), GetPosePersonWorldPosition(to, 1), t),
                 Vector3.Lerp(GetPosePersonWorldPosition(from, 2), GetPosePersonWorldPosition(to, 2), t),
-                Vector3.Lerp(GetPosePersonWorldPosition(from, 3), GetPosePersonWorldPosition(to, 3), t));
+                Vector3.Lerp(GetPosePersonWorldPosition(from, 3), GetPosePersonWorldPosition(to, 3), t),
+                forward);
         }
 
         private Vector3 GetPosePersonWorldPosition(PassengerUnitRoadPose pose, int personIndex)

@@ -79,12 +79,22 @@ namespace BusPuzzle
             SetAnchors(languageButton.GetComponent<RectTransform>(), new Vector2(0.76f, 0.39f), new Vector2(0.97f, 0.72f), Vector2.zero, Vector2.zero);
             languageButton.onClick.AddListener(ShowLanguagePrompt);
 
-            var feedbackButton = CreateRoundIconButton("Feedback Button", modal, "i", 78f, 36, true);
-            SetAnchors(feedbackButton.GetComponent<RectTransform>(), new Vector2(0.28f, 0.12f), new Vector2(0.45f, 0.32f), Vector2.zero, Vector2.zero);
+            var feedbackButton = CreatePromptTextButton(
+                "Feedback Button",
+                modal,
+                Localization.Text("contact_short"),
+                UiSecondaryActionColor,
+                out feedbackButtonText);
+            SetAnchors(feedbackButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.08f), new Vector2(0.48f, 0.30f), Vector2.zero, Vector2.zero);
             feedbackButton.onClick.AddListener(OpenFeedbackMail);
 
-            var privacyButton = CreateRoundIconButton("Privacy Button", modal, "≡", 78f, 36, true);
-            SetAnchors(privacyButton.GetComponent<RectTransform>(), new Vector2(0.55f, 0.12f), new Vector2(0.72f, 0.32f), Vector2.zero, Vector2.zero);
+            var privacyButton = CreatePromptTextButton(
+                "Legal Button",
+                modal,
+                Localization.Text("legal_short"),
+                UiSecondaryActionColor,
+                out legalButtonText);
+            SetAnchors(privacyButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.08f), new Vector2(0.87f, 0.30f), Vector2.zero, Vector2.zero);
             privacyButton.onClick.AddListener(OpenPrivacyPolicy);
 
             BuildLanguagePrompt();
@@ -273,6 +283,16 @@ namespace BusPuzzle
             if (languageLabelText != null)
             {
                 languageLabelText.text = Localization.Text("language");
+            }
+
+            if (feedbackButtonText != null)
+            {
+                feedbackButtonText.text = Localization.Text("contact_short");
+            }
+
+            if (legalButtonText != null)
+            {
+                legalButtonText.text = Localization.Text("legal_short");
             }
 
             if (languagePromptTitleText != null)

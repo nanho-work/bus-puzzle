@@ -164,8 +164,7 @@ namespace BusPuzzle
 
         private static GameObject CreateEffectCube(string name, Vector3 position, Quaternion rotation, Vector3 scale, Material material)
         {
-            var effect = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            effect.name = name;
+            var effect = VisualPrimitiveFactory.Create(PrimitiveType.Cube, name);
             effect.transform.SetPositionAndRotation(position, rotation);
             effect.transform.localScale = scale;
             DisableCollider(effect);
@@ -186,8 +185,7 @@ namespace BusPuzzle
             Material material,
             float duration)
         {
-            var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.name = name;
+            var sphere = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, name);
             sphere.transform.position = start;
             sphere.transform.localScale = scale;
             DisableCollider(sphere);

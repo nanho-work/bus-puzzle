@@ -6,7 +6,7 @@ namespace BusPuzzle
 {
     public sealed class PassengerModelRig : MonoBehaviour
     {
-        private const float PassengerVisualScale = 1.26f;
+        private const float PassengerVisualScale = 3.47f;
 
         [SerializeField] private Transform[] personRoots = Array.Empty<Transform>();
         [SerializeField] private Transform[] leftLegs = Array.Empty<Transform>();
@@ -125,8 +125,8 @@ namespace BusPuzzle
                 GroundShadowBuilder.CreatePassengerShadow(
                     roots[index],
                     new Vector3(0f, 0.006f * PassengerVisualScale, 0.002f * PassengerVisualScale),
-                    0.145f * PassengerVisualScale,
-                    0.095f * PassengerVisualScale);
+                    0.092f * PassengerVisualScale,
+                    0.058f * PassengerVisualScale);
             }
         }
 

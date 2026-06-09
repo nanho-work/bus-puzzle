@@ -348,7 +348,7 @@ namespace BusPuzzle
                 return;
             }
 
-            var outerRoadOffset = layout.RoadWidth - settings.PassengerPivotOffset;
+            var outerRoadOffset = layout.RoadOuterOffset;
             BoardGeometry.CreateOpenPathBand(
                 name,
                 root,
@@ -374,7 +374,7 @@ namespace BusPuzzle
                 return;
             }
 
-            var outerRoadOffset = layout.RoadWidth - settings.PassengerPivotOffset + 0.36f;
+            var outerRoadOffset = layout.RoadOuterOffset + 0.36f;
             for (var index = 0; index < 5; index++)
             {
                 var progress = Mathf.Lerp(0.16f, 0.84f, index / 4f);
@@ -565,8 +565,7 @@ namespace BusPuzzle
 
         private static GameObject CreateBox(string name, Transform root, Vector3 position, Vector3 scale, Material material, Quaternion rotation)
         {
-            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = name;
+            var box = VisualPrimitiveFactory.Create(PrimitiveType.Cube, name);
             box.transform.SetParent(root, false);
             box.transform.SetPositionAndRotation(position, rotation);
             box.transform.localScale = scale;
@@ -577,8 +576,7 @@ namespace BusPuzzle
 
         private static GameObject CreateSphere(string name, Transform root, Vector3 position, float radius, Material material)
         {
-            var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.name = name;
+            var sphere = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, name);
             sphere.transform.SetParent(root, false);
             sphere.transform.position = position;
             sphere.transform.localScale = Vector3.one * radius;

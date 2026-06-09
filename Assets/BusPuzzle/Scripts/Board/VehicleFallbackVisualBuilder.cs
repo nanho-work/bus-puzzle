@@ -33,15 +33,13 @@ namespace BusPuzzle
         {
             var color = PuzzlePalette.ToColor(colorId);
 
-            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            body.name = "Body";
+            var body = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Body");
             body.transform.SetParent(parent, false);
             body.transform.localPosition = new Vector3(0f, visualHeight * 0.5f, visualCenterZ);
             body.transform.localScale = new Vector3(visualWidth, visualHeight, visualLength);
             body.GetComponent<Renderer>().sharedMaterial = PuzzlePalette.CreateSolidMaterial($"{PuzzlePalette.DisplayName(colorId)} Bus Body", color);
 
-            var cabin = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cabin.name = "Front Cabin";
+            var cabin = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Front Cabin");
             cabin.transform.SetParent(parent, false);
             cabin.transform.localPosition = new Vector3(0f, visualHeight + cellSize * 0.14f, visualFrontZ - visualCharacterLength * 0.18f);
             cabin.transform.localScale = new Vector3(visualWidth * 0.86f, cellSize * 0.22f, visualCharacterLength * 0.58f);
@@ -72,8 +70,7 @@ namespace BusPuzzle
 
             foreach (var localPosition in wheelPositions)
             {
-                var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                wheel.name = "Wheel";
+                var wheel = VisualPrimitiveFactory.Create(PrimitiveType.Cylinder, "Wheel");
                 wheel.transform.SetParent(parent, false);
                 wheel.transform.localPosition = localPosition;
                 wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);

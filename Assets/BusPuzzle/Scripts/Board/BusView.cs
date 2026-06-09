@@ -17,6 +17,8 @@ namespace BusPuzzle
         private const float BoardingShakeHorizontalScale = 0.018f;
         private const float BoardingShakeVerticalScale = 0.010f;
         private const float BoardingShakeYawDegrees = 1.2f;
+        private const float MysteryBadgeCharacterSize = 0.115f;
+        private const float MysteryBadgeShadowOffset = 0.007f;
 
         private Coroutine motionRoutine;
         private Coroutine hitShakeRoutine;
@@ -67,8 +69,12 @@ namespace BusPuzzle
         private float VisualHeight => BoardLayoutConfig.VehicleVisualHeightCells * cellSize;
         private float VisualCharacterLength => VisualLength / Mathf.Max(1, BusSizeUtility.ToVisualCharacterUnits(Size));
         private float VisualCenterZ => (VisualLength - VisualCharacterLength) * 0.5f;
-        private float VisualFrontZ => VisualLength - VisualCharacterLength * 0.5f;
-        private float VisualRearZ => -VisualCharacterLength * 0.5f;
+        private float BodyVisualWidth => VisualWidth * BoardLayoutConfig.VehicleBodyVisualWidthScale;
+        private float BodyVisualLength => VisualLength * BoardLayoutConfig.VehicleBodyVisualLengthScale;
+        private float BodyVisualCharacterLength => BodyVisualLength / Mathf.Max(1, BusSizeUtility.ToVisualCharacterUnits(Size));
+        private float BodyVisualCenterZ => VisualCenterZ;
+        private float BodyVisualFrontZ => BodyVisualCenterZ + BodyVisualLength * 0.5f;
+        private float BodyVisualRearZ => BodyVisualCenterZ - BodyVisualLength * 0.5f;
         public Vector3 VehicleForwardWorld
         {
             get
@@ -359,7 +365,7 @@ namespace BusPuzzle
             reservedUnits = Mathf.Max(0, reservedUnits - 1);
             boardingUnitsInProgress++;
             ResetStationIdlePulse();
-            VehicleBoardingSequence.BoardPassenger(passenger, transform, Color, cellSize, VisualFrontZ, VisualCharacterLength, () =>
+            VehicleBoardingSequence.BoardPassenger(passenger, transform, Color, cellSize, BodyVisualFrontZ, BodyVisualCharacterLength, () =>
             {
                 var wasFull = IsFull;
                 boardingUnitsInProgress = Mathf.Max(0, boardingUnitsInProgress - 1);
@@ -566,10 +572,10 @@ namespace BusPuzzle
                 "VIP Select Highlight",
                 transform,
                 Vector3.zero,
-                new Vector2(VisualWidth + cellSize * 0.20f, VisualLength + cellSize * 0.18f),
+                new Vector2(BodyVisualWidth + cellSize * 0.20f, BodyVisualLength + cellSize * 0.18f),
                 cellSize * 0.12f,
                 material);
-            vipHighlight.transform.localPosition = new Vector3(0f, 0.018f, VisualCenterZ);
+            vipHighlight.transform.localPosition = new Vector3(0f, 0.018f, BodyVisualCenterZ);
             vipHighlight.transform.localRotation = Quaternion.identity;
             vipHighlight.SetActive(true);
         }
@@ -622,12 +628,12 @@ namespace BusPuzzle
 
         private bool CreateModelBody()
         {
-            return AssignVisualBodyRoot(VehicleModelBuilder.Create(Size, Color, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize));
+            return AssignVisualBodyRoot(VehicleModelBuilder.Create(Size, Color, transform, BodyVisualWidth, VisualHeight, BodyVisualLength, BodyVisualCenterZ, cellSize));
         }
 
         private bool CreateConcealedModelBody()
         {
-            return AssignVisualBodyRoot(VehicleModelBuilder.CreateSilhouette(Size, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize));
+            return AssignVisualBodyRoot(VehicleModelBuilder.CreateSilhouette(Size, transform, BodyVisualWidth, VisualHeight, BodyVisualLength, BodyVisualCenterZ, cellSize));
         }
 
         private bool AssignVisualBodyRoot(GameObject modelRoot)
@@ -653,18 +659,21 @@ namespace BusPuzzle
                 VehicleFallbackVisualBuilder.Create(
                     Color,
                     transform,
-                    VisualWidth,
+                    BodyVisualWidth,
                     VisualHeight,
-                    VisualLength,
-                    VisualCharacterLength,
-                    VisualCenterZ,
-                    VisualFrontZ,
-                    VisualRearZ,
+                    BodyVisualLength,
+                    BodyVisualCharacterLength,
+                    BodyVisualCenterZ,
+                    BodyVisualFrontZ,
+                    BodyVisualRearZ,
                     cellSize);
             }
 
-            GroundShadowBuilder.CreateVehicleShadow(transform, VisualWidth, VisualLength, VisualCenterZ, cellSize);
-            CreateArrow();
+            GroundShadowBuilder.CreateVehicleShadow(transform, BodyVisualWidth, BodyVisualLength, BodyVisualCenterZ, cellSize);
+            if (!IsConcealed)
+            {
+                CreateArrow();
+            }
 
             if (IsConcealed)
             {
@@ -672,7 +681,7 @@ namespace BusPuzzle
             }
             else
             {
-                boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
+                boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, BodyVisualRearZ);
                 UpdateBoardingCounter();
                 CreateUnitMarkers();
             }
@@ -699,17 +708,17 @@ namespace BusPuzzle
 
         private void CreateArrow()
         {
-            directionArrow = VehicleDirectionArrow.Create(transform, VisualWidth, VisualLength, VisualHeight, VisualCenterZ, cellSize);
+            directionArrow = VehicleDirectionArrow.Create(transform, BodyVisualWidth, BodyVisualLength, VisualHeight, BodyVisualCenterZ, cellSize);
         }
 
         private void CreateMysteryBadge()
         {
             mysteryBadge = new GameObject("Mystery Badge");
             mysteryBadge.transform.SetParent(transform, false);
-            mysteryBadge.transform.localPosition = new Vector3(0f, VisualHeight + cellSize * 0.18f, VisualCenterZ + VisualLength * 0.04f);
+            mysteryBadge.transform.localPosition = new Vector3(0f, VisualHeight + cellSize * 0.18f, BodyVisualCenterZ);
             mysteryBadge.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 
-            CreateMysteryText("Mystery Shadow", new Color(0.015f, 0.018f, 0.024f, 0.96f), new Vector3(cellSize * 0.014f, -cellSize * 0.014f, 0.010f));
+            CreateMysteryText("Mystery Shadow", new Color(0.015f, 0.018f, 0.024f, 0.96f), new Vector3(cellSize * MysteryBadgeShadowOffset, -cellSize * MysteryBadgeShadowOffset, 0.010f));
             CreateMysteryText("Mystery Mark", new Color(0.86f, 0.94f, 1.00f, 0.96f), Vector3.zero);
         }
 
@@ -723,7 +732,7 @@ namespace BusPuzzle
             text.text = "?";
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
-            text.characterSize = cellSize * 0.23f;
+            text.characterSize = cellSize * MysteryBadgeCharacterSize;
             text.fontSize = 48;
             text.color = color;
             GameFontProvider.ApplyToTextMesh(text, FontStyle.Bold);
@@ -785,8 +794,8 @@ namespace BusPuzzle
         private void CreateUnitMarkers()
         {
             var rows = Mathf.CeilToInt(CapacityUnits / 2f);
-            var rearZ = VisualRearZ + VisualCharacterLength * 0.18f;
-            var frontZ = VisualFrontZ - VisualCharacterLength * 0.18f;
+            var rearZ = BodyVisualRearZ + BodyVisualCharacterLength * 0.18f;
+            var frontZ = BodyVisualFrontZ - BodyVisualCharacterLength * 0.18f;
             var markerY = usingModelVisual ? VisualHeight + cellSize * 0.12f : VisualHeight + cellSize * 0.44f;
 
             for (var index = 0; index < CapacityUnits; index++)
@@ -798,7 +807,7 @@ namespace BusPuzzle
                 var marker = new GameObject($"Unit Seat {index + 1}");
                 marker.name = $"Unit Seat {index + 1}";
                 marker.transform.SetParent(transform, false);
-                marker.transform.localPosition = new Vector3(column == 0 ? -VisualWidth * 0.24f : VisualWidth * 0.24f, markerY, Mathf.Lerp(rearZ, frontZ, t));
+                marker.transform.localPosition = new Vector3(column == 0 ? -BodyVisualWidth * 0.24f : BodyVisualWidth * 0.24f, markerY, Mathf.Lerp(rearZ, frontZ, t));
 
             }
         }
@@ -834,7 +843,7 @@ namespace BusPuzzle
                 if (playDrivingTrail && elapsed >= nextTrailTime && progress > 0.03f && progress < 0.96f)
                 {
                     EffectFactory.PlayDrivingTrail(
-                        transform.TransformPoint(new Vector3(0f, 0f, VisualRearZ - cellSize * 0.04f)),
+                        transform.TransformPoint(new Vector3(0f, 0f, BodyVisualRearZ - cellSize * 0.04f)),
                         -VehicleForwardWorld,
                         cellSize);
                     nextTrailTime = elapsed + DrivingTrailInterval;
@@ -884,7 +893,7 @@ namespace BusPuzzle
             IsParkedAtStation = false;
             yield return new WaitForSeconds(0.12f);
             EffectFactory.PlayDepartureTrail(
-                transform.TransformPoint(new Vector3(0f, 0f, VisualRearZ - cellSize * 0.08f)),
+                transform.TransformPoint(new Vector3(0f, 0f, BodyVisualRearZ - cellSize * 0.08f)),
                 -VehicleForwardWorld,
                 Color,
                 cellSize);

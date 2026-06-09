@@ -8,6 +8,8 @@ namespace BusPuzzle
     {
         private const int CornerSegments = 5;
         private const float DetailLift = 0.006f;
+        private const float PrefabFitScale = 1.00f;
+        private const float PrefabHeightFitRelaxation = 1.22f;
         private static readonly int[] BoxTriangles =
         {
             0, 4, 5, 0, 5, 1,
@@ -93,6 +95,37 @@ namespace BusPuzzle
             return true;
         }
 
+        private static bool TryCreatePrefabMysteryModel(
+            BusSize size,
+            Transform parent,
+            float visualWidth,
+            float visualHeight,
+            float visualLength,
+            float visualCenterZ,
+            float cellSize,
+            out GameObject root)
+        {
+            root = null;
+            var library = VehiclePrefabLibrary.Load();
+            if (library == null || !library.TryGetPrefab(size, out var prefab))
+            {
+                return false;
+            }
+
+            root = new GameObject($"{BusSizeUtility.DisplayName(size)} Mystery Low Poly Model");
+            root.transform.SetParent(parent, false);
+
+            var instance = Object.Instantiate(prefab, root.transform, false);
+            instance.name = $"{prefab.name} Mystery Instance";
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+
+            ApplyPrefabMysteryMaterials(instance, new SilhouetteMaterials());
+            RemovePrefabColliders(instance);
+            NormalizePrefabBounds(root.transform, instance.transform, size, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
+            return true;
+        }
+
         private static void ApplyPrefabMaterials(GameObject instance, VehicleMaterials materials)
         {
             var renderers = instance.GetComponentsInChildren<Renderer>(true);
@@ -120,6 +153,56 @@ namespace BusPuzzle
                     renderer.sharedMaterials = sharedMaterials;
                 }
             }
+        }
+
+        private static void ApplyPrefabMysteryMaterials(GameObject instance, SilhouetteMaterials materials)
+        {
+            var renderers = instance.GetComponentsInChildren<Renderer>(true);
+            for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            {
+                var renderer = renderers[rendererIndex];
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+
+                var sharedMaterials = renderer.sharedMaterials;
+                for (var materialIndex = 0; materialIndex < sharedMaterials.Length; materialIndex++)
+                {
+                    sharedMaterials[materialIndex] = GetPrefabMysteryMaterial(sharedMaterials[materialIndex], materials);
+                }
+
+                renderer.sharedMaterials = sharedMaterials;
+            }
+        }
+
+        private static Material GetPrefabMysteryMaterial(Material sourceMaterial, SilhouetteMaterials materials)
+        {
+            var materialName = sourceMaterial != null ? sourceMaterial.name : string.Empty;
+            if (ContainsMaterialName(materialName, "Rubber"))
+            {
+                return materials.Wheel;
+            }
+
+            if (ContainsMaterialName(materialName, "Window") || ContainsMaterialName(materialName, "Glass"))
+            {
+                return materials.Top;
+            }
+
+            if (ContainsMaterialName(materialName, "Lamp") || ContainsMaterialName(materialName, "Light"))
+            {
+                return materials.RimLight;
+            }
+
+            if (ContainsMaterialName(materialName, "Paint"))
+            {
+                return materials.Body;
+            }
+
+            return materials.Shade;
+        }
+
+        private static bool ContainsMaterialName(string materialName, string token)
+        {
+            return materialName.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsVehiclePaintMaterial(Material material)
@@ -154,7 +237,7 @@ namespace BusPuzzle
             var widthScale = visualWidth / Mathf.Max(0.001f, bounds.size.x);
             var lengthScale = visualLength / Mathf.Max(0.001f, bounds.size.z);
             var heightScale = visualHeight / Mathf.Max(0.001f, bounds.size.y);
-            var scale = Mathf.Min(widthScale, lengthScale, heightScale) * 0.96f;
+            var scale = Mathf.Min(widthScale, lengthScale, heightScale * PrefabHeightFitRelaxation) * PrefabFitScale;
             instance.localScale *= scale;
             ApplyPrefabVisualSizeTuning(instance, size);
 
@@ -172,11 +255,12 @@ namespace BusPuzzle
 
         private static void ApplyPrefabVisualSizeTuning(Transform instance, BusSize size)
         {
-            var widthScale = 1.10f;
-            var lengthScale = size == BusSize.Large ? 0.93f : 1.00f;
+            var widthScale = size == BusSize.Large ? 1.04f : 1.06f;
+            var lengthScale = size == BusSize.Small ? 0.92f : size == BusSize.Medium ? 0.88f : 0.84f;
+            var heightScale = size == BusSize.Large ? 0.98f : 1.00f;
             instance.localScale = new Vector3(
                 instance.localScale.x * widthScale,
-                instance.localScale.y,
+                instance.localScale.y * heightScale,
                 instance.localScale.z * lengthScale);
         }
 
@@ -246,6 +330,11 @@ namespace BusPuzzle
             float visualCenterZ,
             float cellSize)
         {
+            if (TryCreatePrefabMysteryModel(size, parent, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize, out var prefabRoot))
+            {
+                return prefabRoot;
+            }
+
             var root = new GameObject($"{BusSizeUtility.DisplayName(size)} Mystery Model");
             root.transform.SetParent(parent, false);
 
@@ -264,18 +353,18 @@ namespace BusPuzzle
             float centerZ,
             float cellSize)
         {
-            var bodyWidth = width * (size == BusSize.Large ? 1.02f : 0.99f);
-            var bodyLength = length * 0.95f;
+            var bodyWidth = width * (size == BusSize.Large ? 0.94f : 0.92f);
+            var bodyLength = length * (size == BusSize.Small ? 0.86f : size == BusSize.Medium ? 0.82f : 0.78f);
             var bodyBottom = height * 0.10f;
             var bodyHeight = height * (size == BusSize.Small ? 0.48f : 0.56f);
             var cornerRadius = width * (size == BusSize.Large ? 0.15f : 0.18f);
 
-            CreateRoundedPrism("Mystery Outer Rim", parent, materials.Rim, bodyWidth * 1.08f, bodyLength * 1.05f, bodyBottom - height * 0.022f, bodyHeight * 0.63f, centerZ, cornerRadius * 1.10f);
+            CreateRoundedPrism("Mystery Outer Rim", parent, materials.Rim, bodyWidth * 1.015f, bodyLength * 1.015f, bodyBottom - height * 0.018f, bodyHeight * 0.60f, centerZ, cornerRadius * 1.02f);
             CreateRoundedPrism("Mystery Body", parent, materials.Body, bodyWidth, bodyLength, bodyBottom, bodyHeight, centerZ, cornerRadius);
-            CreateRoundedPrism("Mystery Roof Mass", parent, materials.Top, width * 0.76f, length * 0.54f, bodyBottom + bodyHeight * 0.62f, height * 0.20f, centerZ - length * 0.02f, width * 0.10f);
-            CreateRoundedPrism("Mystery Front Lip", parent, materials.RimLight, width * 0.56f, length * 0.062f, bodyBottom + bodyHeight * 0.48f, height * 0.050f, centerZ + bodyLength * 0.47f, width * 0.035f);
-            CreateRoundedPrism("Mystery Rear Shade", parent, materials.Shade, width * 0.58f, length * 0.050f, bodyBottom + height * 0.14f, height * 0.036f, centerZ - bodyLength * 0.48f, width * 0.030f);
-            CreateMysteryWheels(parent, materials, width, height, bodyLength, centerZ, cellSize);
+            CreateRoundedPrism("Mystery Roof Mass", parent, materials.Top, bodyWidth * 0.72f, bodyLength * 0.54f, bodyBottom + bodyHeight * 0.62f, height * 0.20f, centerZ - bodyLength * 0.02f, bodyWidth * 0.10f);
+            CreateRoundedPrism("Mystery Front Lip", parent, materials.RimLight, bodyWidth * 0.56f, bodyLength * 0.062f, bodyBottom + bodyHeight * 0.48f, height * 0.050f, centerZ + bodyLength * 0.47f, bodyWidth * 0.035f);
+            CreateRoundedPrism("Mystery Rear Shade", parent, materials.Shade, bodyWidth * 0.58f, bodyLength * 0.050f, bodyBottom + height * 0.14f, height * 0.036f, centerZ - bodyLength * 0.48f, bodyWidth * 0.030f);
+            CreateMysteryWheels(parent, materials, bodyWidth, height, bodyLength, centerZ, cellSize);
         }
 
         private static void CreateCompactCar(
@@ -463,8 +552,7 @@ namespace BusPuzzle
             float height,
             float length)
         {
-            var panel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            panel.name = name;
+            var panel = VisualPrimitiveFactory.Create(PrimitiveType.Cube, name);
             panel.transform.SetParent(parent, false);
             panel.transform.localPosition = new Vector3(x, y, z);
             panel.transform.localScale = new Vector3(bodyWidth * 0.030f, height, length);
@@ -704,8 +792,7 @@ namespace BusPuzzle
             Vector3 localPosition,
             Vector3 localScale)
         {
-            var detail = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            detail.name = name;
+            var detail = VisualPrimitiveFactory.Create(PrimitiveType.Cube, name);
             detail.transform.SetParent(parent, false);
             detail.transform.localPosition = localPosition;
             detail.transform.localRotation = Quaternion.identity;
@@ -721,8 +808,7 @@ namespace BusPuzzle
             Vector3 localPosition,
             Vector3 localScale)
         {
-            var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.name = name;
+            var sphere = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, name);
             sphere.transform.SetParent(parent, false);
             sphere.transform.localPosition = localPosition;
             sphere.transform.localRotation = Quaternion.identity;
@@ -855,16 +941,14 @@ namespace BusPuzzle
 
         private static void CreateWheel(string name, Transform parent, Material wheelMaterial, Material hubMaterial, Vector3 localPosition, float radius, float width)
         {
-            var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            wheel.name = name;
+            var wheel = VisualPrimitiveFactory.Create(PrimitiveType.Cylinder, name);
             wheel.transform.SetParent(parent, false);
             wheel.transform.localPosition = localPosition;
             wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             wheel.transform.localScale = new Vector3(width, radius, radius);
             ConfigureRenderer(wheel, wheelMaterial);
 
-            var hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            hub.name = $"{name} Hub";
+            var hub = VisualPrimitiveFactory.Create(PrimitiveType.Cylinder, $"{name} Hub");
             hub.transform.SetParent(parent, false);
             hub.transform.localPosition = localPosition + Vector3.up * 0.001f;
             hub.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);

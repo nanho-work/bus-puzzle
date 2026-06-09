@@ -9,6 +9,9 @@ namespace BusPuzzle
         private const float BoardingPersonLift = 0.030f;
         private const float BoardingDoorProgress = 0.42f;
         private const float BoardingEffectProgress = 0.82f;
+        private const float BoardingLineupStartProgress = 0.14f;
+        private const float BoardingLineupEndProgress = 0.88f;
+        private const float BoardingLineSpacingMin = 0.105f;
 
         public static IEnumerator WalkToBoard(
             Transform target,
@@ -27,6 +30,9 @@ namespace BusPuzzle
             var startPosition = target.position;
             var startRotation = target.rotation;
             var approachRotation = GetFlatLookRotation(approachPosition - startPosition, startRotation);
+            var enterRotation = GetFlatLookRotation(doorPosition - approachPosition, approachRotation);
+            var boardingOrder = BuildBoardingOrder(model);
+            var linePositions = BuildBoardingLineLocalPositions(model, boardingOrder);
             var elapsed = 0f;
             walkDuration = Mathf.Max(0.01f, walkDuration);
 
@@ -35,20 +41,25 @@ namespace BusPuzzle
                 elapsed += Time.deltaTime;
                 var normalizedTime = Mathf.Clamp01(elapsed / walkDuration);
                 var easedTime = Mathf.SmoothStep(0f, 1f, normalizedTime);
+                var lineupTime = Mathf.SmoothStep(
+                    0f,
+                    1f,
+                    Mathf.InverseLerp(BoardingLineupStartProgress, BoardingLineupEndProgress, normalizedTime));
+
                 target.SetPositionAndRotation(
                     Vector3.Lerp(startPosition, approachPosition, easedTime),
-                    Quaternion.Slerp(startRotation, approachRotation, easedTime));
+                    Quaternion.Slerp(startRotation, enterRotation, easedTime));
+                ApplyBoardingLineLocalPositions(model, linePositions, lineupTime);
                 yield return null;
             }
 
-            var enterRotation = GetFlatLookRotation(doorPosition - approachPosition, approachRotation);
             target.SetPositionAndRotation(approachPosition, enterRotation);
-            model.ApplyDefaultPersonLocalPositions();
+            ApplyBoardingLineLocalPositions(model, linePositions, 1f);
 
             yield return MovePeopleIntoBus(
                 target,
                 model,
-                BuildBoardingOrder(model, doorPosition),
+                boardingOrder,
                 doorPosition,
                 entryPosition,
                 personEnterDuration,
@@ -79,9 +90,6 @@ namespace BusPuzzle
             interval = Mathf.Max(0f, interval);
             var doorLocalPosition = target.InverseTransformPoint(doorPosition);
             var entryLocalPosition = target.InverseTransformPoint(entryPosition);
-            var startLocalPositions = new Vector3[boardingOrder.Length];
-            var startScales = new Vector3[boardingOrder.Length];
-            var entered = new bool[boardingOrder.Length];
 
             for (var orderIndex = 0; orderIndex < boardingOrder.Length; orderIndex++)
             {
@@ -91,48 +99,19 @@ namespace BusPuzzle
                     continue;
                 }
 
-                startLocalPositions[orderIndex] = personRoot.localPosition;
-                startScales[orderIndex] = personRoot.localScale;
-            }
+                yield return MoveOnePersonIntoBus(
+                    personRoot,
+                    personRoot.localPosition,
+                    personRoot.localScale,
+                    doorLocalPosition,
+                    entryLocalPosition,
+                    duration,
+                    onPersonEntered);
 
-            var elapsed = 0f;
-            var totalDuration = duration + interval * Mathf.Max(0, boardingOrder.Length - 1);
-
-            while (elapsed < totalDuration)
-            {
-                elapsed += Time.deltaTime;
-                for (var orderIndex = 0; orderIndex < boardingOrder.Length; orderIndex++)
+                if (interval > 0f && orderIndex < boardingOrder.Length - 1)
                 {
-                    var personRoot = model.GetPersonRoot(boardingOrder[orderIndex]);
-                    if (personRoot == null)
-                    {
-                        continue;
-                    }
-
-                    var personTime = Mathf.Clamp01((elapsed - interval * orderIndex) / duration);
-                    if (personTime <= 0f)
-                    {
-                        continue;
-                    }
-
-                    var localPosition = GetBoardingPersonLocalPosition(startLocalPositions[orderIndex], doorLocalPosition, entryLocalPosition, personTime);
-                    localPosition.y += Mathf.Sin(personTime * Mathf.PI) * BoardingPersonLift;
-                    personRoot.localPosition = localPosition;
-                    personRoot.localScale = GetBoardingPersonScale(startScales[orderIndex], personTime);
-
-                    if (personTime >= BoardingEffectProgress && !entered[orderIndex])
-                    {
-                        entered[orderIndex] = true;
-                        onPersonEntered?.Invoke(personRoot.position);
-                    }
-
-                    if (personTime >= 1f && personRoot.gameObject.activeSelf)
-                    {
-                        personRoot.gameObject.SetActive(false);
-                    }
+                    yield return new WaitForSeconds(interval);
                 }
-
-                yield return null;
             }
 
             for (var orderIndex = 0; orderIndex < boardingOrder.Length; orderIndex++)
@@ -149,42 +128,115 @@ namespace BusPuzzle
             }
         }
 
-        private static int[] BuildBoardingOrder(PassengerModel model, Vector3 entryPosition)
+        private static IEnumerator MoveOnePersonIntoBus(
+            Transform personRoot,
+            Vector3 startLocalPosition,
+            Vector3 startScale,
+            Vector3 doorLocalPosition,
+            Vector3 entryLocalPosition,
+            float duration,
+            Action<Vector3> onPersonEntered)
+        {
+            var elapsed = 0f;
+            var entered = false;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                var personTime = Mathf.Clamp01(elapsed / duration);
+                var localPosition = GetBoardingPersonLocalPosition(startLocalPosition, doorLocalPosition, entryLocalPosition, personTime);
+                localPosition.y += Mathf.Sin(personTime * Mathf.PI) * BoardingPersonLift;
+                personRoot.localPosition = localPosition;
+                personRoot.localScale = GetBoardingPersonScale(startScale, personTime);
+
+                if (personTime >= BoardingEffectProgress && !entered)
+                {
+                    entered = true;
+                    onPersonEntered?.Invoke(personRoot.position);
+                }
+
+                yield return null;
+            }
+
+            personRoot.localPosition = entryLocalPosition;
+            personRoot.localScale = Vector3.zero;
+            personRoot.gameObject.SetActive(false);
+        }
+
+        private static int[] BuildBoardingOrder(PassengerModel model)
         {
             var count = model.PersonCount;
             var order = new int[count];
             for (var index = 0; index < count; index++)
             {
-                order[index] = index;
+                order[index] = count - 1 - index;
             }
 
-            for (var index = 0; index < count - 1; index++)
+            return order;
+        }
+
+        private static Vector3[] BuildBoardingLineLocalPositions(PassengerModel model, int[] boardingOrder)
+        {
+            var count = model.PersonCount;
+            var linePositions = new Vector3[count];
+            var spacing = EstimateDefaultPersonSpacing(model);
+            var centerIndex = (count - 1) * 0.5f;
+
+            for (var orderIndex = 0; orderIndex < count; orderIndex++)
             {
-                var bestIndex = index;
-                var bestDistance = model.GetPersonDistanceToEntry(order[index], entryPosition);
-                for (var candidate = index + 1; candidate < count; candidate++)
-                {
-                    var candidateDistance = model.GetPersonDistanceToEntry(order[candidate], entryPosition);
-                    if (candidateDistance >= bestDistance)
-                    {
-                        continue;
-                    }
-
-                    bestIndex = candidate;
-                    bestDistance = candidateDistance;
-                }
-
-                if (bestIndex == index)
+                var personIndex = boardingOrder != null && orderIndex < boardingOrder.Length
+                    ? boardingOrder[orderIndex]
+                    : orderIndex;
+                if (personIndex < 0 || personIndex >= count)
                 {
                     continue;
                 }
 
-                var swap = order[index];
-                order[index] = order[bestIndex];
-                order[bestIndex] = swap;
+                var defaultPosition = model.GetDefaultPersonLocalPosition(personIndex);
+                linePositions[personIndex] = new Vector3(
+                    0f,
+                    defaultPosition.y,
+                    (centerIndex - orderIndex) * spacing);
             }
 
-            return order;
+            return linePositions;
+        }
+
+        private static float EstimateDefaultPersonSpacing(PassengerModel model)
+        {
+            if (model.PersonCount < 2)
+            {
+                return BoardingLineSpacingMin;
+            }
+
+            var minX = float.MaxValue;
+            var maxX = float.MinValue;
+            for (var index = 0; index < model.PersonCount; index++)
+            {
+                var localPosition = model.GetDefaultPersonLocalPosition(index);
+                minX = Mathf.Min(minX, localPosition.x);
+                maxX = Mathf.Max(maxX, localPosition.x);
+            }
+
+            return Mathf.Max(BoardingLineSpacingMin, (maxX - minX) / Mathf.Max(1, model.PersonCount - 1));
+        }
+
+        private static void ApplyBoardingLineLocalPositions(PassengerModel model, Vector3[] linePositions, float t)
+        {
+            for (var index = 0; index < model.PersonCount; index++)
+            {
+                var personRoot = model.GetPersonRoot(index);
+                if (personRoot == null)
+                {
+                    continue;
+                }
+
+                var defaultPosition = model.GetDefaultPersonLocalPosition(index);
+                var linePosition = linePositions != null && index < linePositions.Length
+                    ? linePositions[index]
+                    : defaultPosition;
+                personRoot.localPosition = Vector3.Lerp(defaultPosition, linePosition, t);
+            }
         }
 
         private static Vector3 GetBoardingPersonLocalPosition(Vector3 startPosition, Vector3 doorPosition, Vector3 entryPosition, float personTime)

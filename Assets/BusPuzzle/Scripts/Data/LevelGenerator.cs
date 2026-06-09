@@ -6,6 +6,7 @@ namespace BusPuzzle
     public static class LevelGenerator
     {
         private const int DefaultMaxGenerationAttempts = 80;
+        private const int VehicleBuildSolutionNodeVisitLimit = 4096;
         private const int MaxPlacementAttemptsPerVehicle = 420;
         private const int MysteryMinVehicles = 5;
         private const int MysteryMaxVehicles = 12;
@@ -169,7 +170,7 @@ namespace BusPuzzle
                 return vehicles != null && vehicles.Count > 0 && exitOrder.Count == vehicles.Count;
             }
 
-            return StageSolutionAnalyzer.Analyze(vehicles, garages, 2).IsSolvable;
+            return StageSolutionAnalyzer.Analyze(vehicles, garages, 2, VehicleBuildSolutionNodeVisitLimit).IsSolvable;
         }
 
         private static List<BusDefinition> ApplyMysteryVehicleModifiers(

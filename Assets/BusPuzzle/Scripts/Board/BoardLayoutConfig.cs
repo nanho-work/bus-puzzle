@@ -23,8 +23,10 @@ namespace BusPuzzle
 
         public const float VehicleBaseVisualWidthCells = 0.72f;
         public const float VehicleBaseVisualHeightCells = 0.90f;
-        public const float VehicleVisualWidthScale = 1.08f;
-        public const float VehicleVisualHeightScale = 1.08f;
+        public const float VehicleVisualWidthScale = 1.18f;
+        public const float VehicleVisualHeightScale = 1.16f;
+        public const float VehicleBodyVisualWidthScale = 1.12f;
+        public const float VehicleBodyVisualLengthScale = 1.01f;
         public const float VehicleVisualWidthCells = VehicleBaseVisualWidthCells * VehicleVisualWidthScale;
         public const float VehicleVisualHeightCells = VehicleBaseVisualHeightCells * VehicleVisualHeightScale;
         public const float VehicleFootprintWidthFactor = 0.96f;

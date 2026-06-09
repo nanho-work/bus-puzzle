@@ -7,7 +7,7 @@ namespace BusPuzzle
     public sealed partial class GameUiController : MonoBehaviour
     {
         private const string FeedbackEmailAddress = "koofylab@gmail.com";
-        private const string PrivacyPolicyUrl = "https://buspuzzle.app/privacy";
+        private const string PrivacyPolicyUrl = "https://www.koofy.co.kr/bus-pop/privacy";
         private const string VipBoosterIconResource = "UI/Boosters/booster_vip 1";
         private const string MixBoosterIconResource = "UI/Boosters/booster_mix 1";
         private const string DepartBoosterIconResource = "UI/Boosters/Depart";
@@ -63,6 +63,8 @@ namespace BusPuzzle
         private Text mainSoundLabelText;
         private Text vibrationLabelText;
         private Text languageLabelText;
+        private Text feedbackButtonText;
+        private Text legalButtonText;
         private Button languageButton;
         private RectTransform languagePrompt;
         private Text languagePromptTitleText;

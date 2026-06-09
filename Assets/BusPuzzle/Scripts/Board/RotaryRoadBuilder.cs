@@ -35,6 +35,10 @@ namespace BusPuzzle
         private static readonly Color RailShadowColor = new Color(0.24f, 0.28f, 0.34f);
         private static readonly Color GateMarkerColor = new Color(0.90f, 0.69f, 0.10f);
         private const float FeederRoadScreenExitExtension = 1.55f;
+        private const float FeederRoadJoinExtensionScale = 0.24f;
+        private const float FeederRailJoinExtensionScale = 0.08f;
+        private const float FeederJunctionPatchWidthScale = 0.96f;
+        private const float FeederJunctionPatchLengthScale = 0.74f;
 
         public static void CreateGround(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
         {
@@ -84,7 +88,7 @@ namespace BusPuzzle
                 layout,
                 settings.RotaryCenterZ,
                 -0.058f,
-                -settings.PassengerPivotOffset - 0.060f,
+                layout.RoadInnerOffset - 0.060f,
                 PuzzlePalette.CreateSolidMaterial("Rotary Island", new Color(0.72f, 0.77f, 0.82f)));
 
             CreateRotaryGarden(parent, layout, settings);
@@ -101,8 +105,8 @@ namespace BusPuzzle
 
             const float railWidth = 0.104f;
             const float rimWidth = 0.018f;
-            var innerOffset = -settings.PassengerPivotOffset;
-            var outerOffset = layout.RoadWidth - settings.PassengerPivotOffset;
+            var innerOffset = layout.RoadInnerOffset;
+            var outerOffset = layout.RoadOuterOffset;
             BoardGeometry.CreatePathBand("Rotary Soft Shadow", parent, layout, settings.RotaryCenterZ, -0.078f, innerOffset - 0.045f, outerOffset + 0.055f, shadowMaterial);
             BoardGeometry.CreatePathBand("Rotary Road", parent, layout, settings.RotaryCenterZ, -0.066f, innerOffset, outerOffset, roadMaterial);
             BoardGeometry.CreatePathBand("Outer Rotary Guardrail Shadow", parent, layout, settings.RotaryCenterZ, -0.050f, outerOffset - 0.006f, outerOffset + railWidth + 0.020f, railShadowMaterial);
@@ -116,22 +120,64 @@ namespace BusPuzzle
         private static void CreateFeederLane(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, int side)
         {
             var name = side < 0 ? "Left Passenger Feeder" : "Right Passenger Feeder";
-            var feederPath = CreateRenderedFeederPath(layout.GetFeederPath(side));
+            var logicFeederPath = layout.GetFeederPath(side);
+            var roadFeederPath = CreateRenderedFeederPath(
+                logicFeederPath,
+                FeederRoadScreenExitExtension,
+                layout.RoadWidth * FeederRoadJoinExtensionScale);
+            var railFeederPath = CreateRenderedFeederPath(
+                logicFeederPath,
+                FeederRoadScreenExitExtension,
+                layout.RoadWidth * FeederRailJoinExtensionScale);
             var laneMaterial = PuzzlePalette.CreateSolidMaterial(name, new Color(0.43f, 0.47f, 0.55f));
             var railMaterial = PuzzlePalette.CreateSolidMaterial($"{name} Guardrail", new Color(0.88f, 0.92f, 0.96f));
             var railShadowMaterial = PuzzlePalette.CreateSolidMaterial($"{name} Guardrail Shadow", new Color(0.25f, 0.29f, 0.35f));
 
             const float railWidth = 0.066f;
-            var innerOffset = -settings.PassengerPivotOffset;
-            var outerOffset = layout.RoadWidth - settings.PassengerPivotOffset;
-            BoardGeometry.CreateOpenPathBand($"{name} Road", parent, layout, feederPath, settings.RotaryCenterZ, -0.060f, innerOffset, outerOffset, laneMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Outer Rail Shadow", parent, layout, feederPath, settings.RotaryCenterZ, -0.042f, outerOffset - 0.004f, outerOffset + railWidth + 0.018f, railShadowMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Outer Rail", parent, layout, feederPath, settings.RotaryCenterZ, -0.024f, outerOffset, outerOffset + railWidth, railMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Inner Rail Shadow", parent, layout, feederPath, settings.RotaryCenterZ, -0.042f, innerOffset - railWidth - 0.018f, innerOffset + 0.004f, railShadowMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Inner Rail", parent, layout, feederPath, settings.RotaryCenterZ, -0.024f, innerOffset - railWidth, innerOffset, railMaterial);
+            var innerOffset = layout.RoadInnerOffset;
+            var outerOffset = layout.RoadOuterOffset;
+            BoardGeometry.CreateOpenPathBand($"{name} Road", parent, layout, roadFeederPath, settings.RotaryCenterZ, -0.060f, innerOffset, outerOffset, laneMaterial);
+            CreateFeederJunctionPatch($"{name} Junction Patch", parent, layout, logicFeederPath, settings, laneMaterial);
+            BoardGeometry.CreateOpenPathBand($"{name} Outer Rail Shadow", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.042f, outerOffset - 0.004f, outerOffset + railWidth + 0.018f, railShadowMaterial);
+            BoardGeometry.CreateOpenPathBand($"{name} Outer Rail", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.024f, outerOffset, outerOffset + railWidth, railMaterial);
+            BoardGeometry.CreateOpenPathBand($"{name} Inner Rail Shadow", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.042f, innerOffset - railWidth - 0.018f, innerOffset + 0.004f, railShadowMaterial);
+            BoardGeometry.CreateOpenPathBand($"{name} Inner Rail", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.024f, innerOffset - railWidth, innerOffset, railMaterial);
         }
 
-        private static FeederRoadPath CreateRenderedFeederPath(FeederRoadPath path)
+        private static void CreateFeederJunctionPatch(
+            string name,
+            Transform parent,
+            RotaryLayout layout,
+            FeederRoadPath path,
+            RotaryRoadBuildSettings settings,
+            Material roadMaterial)
+        {
+            if (path == null || path.Points.Length < 2)
+            {
+                return;
+            }
+
+            var sample = path.Sample(1f);
+            var tangent = new Vector3(sample.Tangent.x, 0f, sample.Tangent.y);
+            tangent = tangent.sqrMagnitude > 0.0001f ? tangent.normalized : Vector3.forward;
+            var center = layout.ToWorldPoint(
+                sample.Point + sample.Tangent * layout.RoadWidth * 0.08f,
+                settings.RotaryCenterZ,
+                -0.058f);
+            var width = layout.RoadWidth * FeederJunctionPatchWidthScale;
+            var length = layout.RoadWidth * FeederJunctionPatchLengthScale;
+
+            BoardGeometry.CreateFlatRoundedRect(
+                name,
+                parent,
+                center,
+                new Vector2(width, length),
+                Mathf.Min(width, length) * 0.34f,
+                roadMaterial,
+                Quaternion.LookRotation(tangent, Vector3.up));
+        }
+
+        private static FeederRoadPath CreateRenderedFeederPath(FeederRoadPath path, float startExtension, float endExtension)
         {
             if (path == null || path.Points.Length < 2)
             {
@@ -148,11 +194,21 @@ namespace BusPuzzle
 
             extensionDirection.Normalize();
 
-            var points = new Vector2[path.Points.Length + 1];
-            points[0] = start + extensionDirection * FeederRoadScreenExitExtension;
+            var addEndExtension = endExtension > 0.001f;
+            var points = new Vector2[path.Points.Length + (addEndExtension ? 2 : 1)];
+            points[0] = start + extensionDirection * Mathf.Max(0f, startExtension);
             for (var index = 0; index < path.Points.Length; index++)
             {
                 points[index + 1] = path.Points[index];
+            }
+
+            if (addEndExtension)
+            {
+                var end = path.Points[path.Points.Length - 1];
+                var previous = path.Points[path.Points.Length - 2];
+                var endDirection = end - previous;
+                endDirection = endDirection.sqrMagnitude > 0.0001f ? endDirection.normalized : Vector2.up;
+                points[points.Length - 1] = end + endDirection * endExtension;
             }
 
             return new FeederRoadPath(points);
@@ -209,7 +265,7 @@ namespace BusPuzzle
             var sample = layout.Path.Sample(layout.Preset.BoardingGateProgress);
             var tangent = new Vector3(sample.Tangent.x, 0f, sample.Tangent.y).normalized;
             var outward = new Vector3(sample.Outward.x, 0f, sample.Outward.y).normalized;
-            var outerOffset = layout.RoadWidth - settings.PassengerPivotOffset;
+            var outerOffset = layout.RoadOuterOffset;
             var centerPoint = layout.ToWorldPoint(sample.Point + sample.Outward * outerOffset, settings.RotaryCenterZ, 0f);
             var throatStart = centerPoint + outward * 0.04f;
             var throatEnd = centerPoint + outward * 0.17f;
@@ -299,8 +355,7 @@ namespace BusPuzzle
 
         private static void CreateGardenBush(Transform parent, string name, Vector3 position, float radius, Material material)
         {
-            var bush = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            bush.name = name;
+            var bush = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, name);
             bush.transform.SetParent(parent, false);
             bush.transform.position = position;
             bush.transform.localScale = new Vector3(radius * 1.20f, radius * 0.58f, radius);

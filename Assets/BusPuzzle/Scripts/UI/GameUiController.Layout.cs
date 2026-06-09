@@ -46,7 +46,7 @@ namespace BusPuzzle
             goldIconImage.preserveAspect = true;
             goldIconImage.raycastTarget = false;
 
-            goldText = CreateText("Gold Text", goldCounter, TextAnchor.MiddleLeft, HeaderGoldFontSize, FontStyle.Normal);
+            goldText = CreateText("Gold Text", goldCounter, TextAnchor.MiddleLeft, HeaderGoldFontSize, FontStyle.Bold);
             goldText.color = UiGoldTextColor;
             var goldTextOutline = goldText.gameObject.AddComponent<Outline>();
             goldTextOutline.effectColor = UiGoldTextOutlineColor;

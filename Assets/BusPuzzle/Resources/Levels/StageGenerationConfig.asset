@@ -14,7 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   generatedStageCount: 50
   baseSeed: 10000
-  candidateAttemptsPerStage: 80
+  candidateAttemptsPerStage: 36
+  releaseVehicleGenerationAttempts: 8
+  releaseSolutionNodeVisitLimit: 12000
+  releaseBuildTimeBudgetSeconds: 600
   runtimeCandidateAttemptsPerStage: 8
   runtimeVehicleGenerationAttempts: 8
   solutionCountLimit: 256

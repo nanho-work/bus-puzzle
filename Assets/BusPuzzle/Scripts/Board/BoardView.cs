@@ -9,26 +9,22 @@ namespace BusPuzzle
 
         private const float BoardingGateProgressWindow = 0.070f;
         private const float BoardingReservationProgressWindow = 0.180f;
-        private const float PassengerVisualScale = 1.26f;
-        private const float PassengerInnerPersonLocalZ = -0.155f * PassengerVisualScale;
-        private const float PassengerSecondPersonLocalZ = -0.052f * PassengerVisualScale;
-        private const float PassengerThirdPersonLocalZ = 0.052f * PassengerVisualScale;
-        private const float PassengerOuterPersonLocalZ = 0.155f * PassengerVisualScale;
+        private const float PassengerVisualScale = 3.47f;
+        private const float PassengerSetSpacingScale = 1.82f;
+        private const float PassengerInnerPersonLocalZ = -0.155f * PassengerSetSpacingScale;
+        private const float PassengerSecondPersonLocalZ = -0.052f * PassengerSetSpacingScale;
+        private const float PassengerThirdPersonLocalZ = 0.052f * PassengerSetSpacingScale;
+        private const float PassengerOuterPersonLocalZ = 0.155f * PassengerSetSpacingScale;
         private const float PassengerPersonRadius = 0.065f * PassengerVisualScale;
-        private const float PassengerInnerRailOverlap = 0.110f * PassengerVisualScale;
-        private const float PassengerOuterRoadClearance = 0.008f * PassengerVisualScale;
-        private const float PassengerTangentialSlotSpacing = 0.126f;
+        private const float PassengerRailClearance = 0.032f;
+        private const float PassengerTangentialSlotSpacing = 0.108f;
         private const float PassengerUnitY = 0.08f;
         private const float FeederMergeDuration = 0.34f;
         private const float FeederQueueStepDuration = 0.20f;
         private const float FeederVacancyWindowDistance = PassengerTangentialSlotSpacing * 0.62f;
-        private const float PassengerSetRoadWidth =
-            PassengerOuterPersonLocalZ - PassengerInnerPersonLocalZ +
-            PassengerPersonRadius * 2f -
-            PassengerInnerRailOverlap +
-            PassengerOuterRoadClearance;
-        private const float PassengerSetPivotOffset =
-            PassengerPersonRadius - PassengerInnerPersonLocalZ - PassengerInnerRailOverlap;
+        private const float StationUpperRoadForwardCells = 2.50f;
+        private const float RotaryStationLaneClearanceCells = 0.78f;
+        private const float RotaryVisualGuardrailPaddingCells = 0.45f;
 
         private readonly StationSlotController stationSlots = new StationSlotController(
             BoardLayoutConfig.ActiveStationSlots,
@@ -45,6 +41,7 @@ namespace BusPuzzle
         private Transform stationRoot;
         private Transform themeRoot;
         private int currentPassengerUnitCount;
+        private float rotaryCenterZ = BoardLayoutConfig.RotaryCenterZ;
         private bool vipStationSlotOccupied;
 
         public int StationCapacity => stationSlots.Capacity;
@@ -78,7 +75,7 @@ namespace BusPuzzle
             var feederTopY = hasVisibleFeederQueue
                 ? rotaryLayout.VisibleFeederTopY + 0.20f
                 : rotaryTopY;
-            var topZ = BoardLayoutConfig.RotaryCenterZ + Mathf.Max(rotaryTopY, feederTopY);
+            var topZ = rotaryCenterZ + Mathf.Max(rotaryTopY, feederTopY);
 
             var center = new Vector3(0f, 0.10f, (bottomZ + topZ) * 0.5f);
             var size = new Vector3(halfWidth * 2f, 0.36f, topZ - bottomZ);
@@ -91,13 +88,8 @@ namespace BusPuzzle
                 levelData.RoadPreset,
                 levelData.RotaryStartCapacity,
                 PassengerTangentialSlotSpacing,
-                PassengerSetRoadWidth,
-                PassengerSetPivotOffset,
-                new Vector4(
-                    PassengerInnerPersonLocalZ,
-                    PassengerSecondPersonLocalZ,
-                    PassengerThirdPersonLocalZ,
-                    PassengerOuterPersonLocalZ));
+                CreatePassengerRoadProfile(levelData.RoadPreset));
+            rotaryCenterZ = CalculateRotaryCenterZ(rotaryLayout);
             rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count);
             currentPassengerUnitCount = levelData.PassengerUnits.Count;
             passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
@@ -359,15 +351,15 @@ namespace BusPuzzle
             return bus;
         }
 
-        private static RotaryRoadBuildSettings CreateRotaryRoadBuildSettings()
+        private RotaryRoadBuildSettings CreateRotaryRoadBuildSettings()
         {
             return new RotaryRoadBuildSettings(
-                BoardLayoutConfig.RotaryCenterZ,
+                rotaryCenterZ,
                 BoardLayoutConfig.StationZ,
                 BoardLayoutConfig.GridWorldWidth,
                 BoardLayoutConfig.GridWorldDepth,
                 BoardLayoutConfig.GridCenterZ,
-                PassengerSetPivotOffset);
+                rotaryLayout.PassengerPivotOffset);
         }
 
         private static VehicleTrafficSettings CreateVehicleTrafficSettings()
@@ -385,10 +377,10 @@ namespace BusPuzzle
                 BoardLayoutConfig.StationRight);
         }
 
-        private static PassengerTrafficSettings CreatePassengerTrafficSettings()
+        private PassengerTrafficSettings CreatePassengerTrafficSettings()
         {
             return new PassengerTrafficSettings(
-                BoardLayoutConfig.RotaryCenterZ,
+                rotaryCenterZ,
                 PassengerUnitY,
                 FeederMergeDuration,
                 FeederQueueStepDuration,
@@ -400,6 +392,27 @@ namespace BusPuzzle
                     PassengerSecondPersonLocalZ,
                     PassengerThirdPersonLocalZ,
                     PassengerOuterPersonLocalZ));
+        }
+
+        private static PassengerRoadProfile CreatePassengerRoadProfile(RoadPresetDefinition preset)
+        {
+            return PassengerRoadProfile.Create(
+                new Vector4(
+                    PassengerInnerPersonLocalZ,
+                    PassengerSecondPersonLocalZ,
+                    PassengerThirdPersonLocalZ,
+                    PassengerOuterPersonLocalZ),
+                PassengerPersonRadius,
+                PassengerRailClearance,
+                preset.RoadShoulder);
+        }
+
+        private static float CalculateRotaryCenterZ(RotaryLayout layout)
+        {
+            var upperRoadZ = BoardLayoutConfig.StationZ + BoardLayoutConfig.CellSize * StationUpperRoadForwardCells;
+            var desiredRotaryBottomZ = upperRoadZ + BoardLayoutConfig.CellSize * RotaryStationLaneClearanceCells;
+            var visualRadiusZ = layout.OuterRadiusZ + BoardLayoutConfig.CellSize * RotaryVisualGuardrailPaddingCells;
+            return Mathf.Max(BoardLayoutConfig.RotaryCenterZ, desiredRotaryBottomZ + visualRadiusZ);
         }
 
         private VehicleTrafficEngine GetVehicleTraffic()

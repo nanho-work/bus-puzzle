@@ -190,6 +190,18 @@ namespace BusPuzzle
             StartMoveRoutine(PassengerPoseAnimator.MoveToPose(transform, model, targetPosition, targetRotation, duration, CreateMoveComplete(onComplete)));
         }
 
+        internal void MoveToPose(PassengerUnitRoadPose targetPose, float duration, Action onComplete = null)
+        {
+            if (!isActiveAndEnabled || duration <= 0f)
+            {
+                SetPose(targetPose);
+                onComplete?.Invoke();
+                return;
+            }
+
+            StartMoveRoutine(PassengerPoseAnimator.MoveToPose(transform, model, targetPose, duration, CreateMoveComplete(onComplete)));
+        }
+
         internal void MoveAlongPoses(PassengerUnitRoadPose[] poses, float duration, Action onComplete = null)
         {
             if (poses == null || poses.Length == 0)
@@ -259,8 +271,14 @@ namespace BusPuzzle
 
         private void Update()
         {
-            if (model == null || (!canCirculate && moveRoutine == null))
+            if (model == null)
             {
+                return;
+            }
+
+            if (!canCirculate && moveRoutine == null)
+            {
+                model.ResetWalkCycle();
                 return;
             }
 

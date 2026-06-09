@@ -10,7 +10,8 @@ namespace BusPuzzle
             StageGenerationRequest request,
             out LevelData level,
             out LevelValidationReport report,
-            out StageSolutionAnalysis analysis)
+            out StageSolutionAnalysis analysis,
+            System.Func<int, bool> shouldCancel = null)
         {
             config = config != null ? config : UnityEngine.ScriptableObject.CreateInstance<StageGenerationConfig>();
             level = null;
@@ -23,9 +24,23 @@ namespace BusPuzzle
 
             for (var candidate = 0; candidate < config.CandidateAttemptsPerStage; candidate++)
             {
-                var candidateLevel = LevelGenerator.CreateRuntimeStage(request, config.SuperHardGarageRule, candidate);
+                if (shouldCancel != null && shouldCancel(candidate))
+                {
+                    return false;
+                }
+
+                var candidateLevel = LevelGenerator.CreateRuntimeStage(
+                    request,
+                    config.SuperHardGarageRule,
+                    candidate,
+                    config.ReleaseVehicleGenerationAttempts,
+                    false);
                 var candidateReport = LevelValidator.Validate(candidateLevel, false);
-                var candidateAnalysis = StageSolutionAnalyzer.Analyze(candidateLevel.Buses, candidateLevel.Garages, config.SolutionCountLimit);
+                var candidateAnalysis = StageSolutionAnalyzer.Analyze(
+                    candidateLevel.Buses,
+                    candidateLevel.Garages,
+                    GetCandidateSolutionCountLimit(config, request),
+                    config.ReleaseSolutionNodeVisitLimit);
 
                 if (candidateReport.HasErrors || !candidateAnalysis.IsSolvable)
                 {
@@ -48,6 +63,16 @@ namespace BusPuzzle
 
                     report = candidateReport;
                     analysis = candidateAnalysis;
+                    if (IsAcceptableReleaseFallback(solutionDistance))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            $"Stage {request.StageNumber:000} is using a near-range verified candidate with " +
+                            $"{candidateAnalysis.SolutionCount} solutions; preferred range is " +
+                            $"{request.MinSolutionCount}-{request.MaxSolutionCount}.");
+                        level = candidateLevel;
+                        return true;
+                    }
+
                     continue;
                 }
 
@@ -200,6 +225,20 @@ namespace BusPuzzle
             }
 
             return 0;
+        }
+
+        private static int GetCandidateSolutionCountLimit(StageGenerationConfig config, StageGenerationRequest request)
+        {
+            var upperBoundProbe = UnityEngine.Mathf.Max(1, request.MaxSolutionCount + 1);
+            return UnityEngine.Mathf.Clamp(
+                UnityEngine.Mathf.Min(config.SolutionCountLimit, upperBoundProbe),
+                1,
+                config.SolutionCountLimit);
+        }
+
+        private static bool IsAcceptableReleaseFallback(int solutionDistance)
+        {
+            return solutionDistance <= 2;
         }
 
         private static int CountWarnings(LevelValidationReport report)

@@ -152,8 +152,7 @@ namespace BusPuzzle
 
         private static void CreateBox(string name, Transform parent, Vector3 localPosition, Vector3 localScale, Material material, Quaternion localRotation)
         {
-            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = name;
+            var box = VisualPrimitiveFactory.Create(PrimitiveType.Cube, name);
             box.transform.SetParent(parent, false);
             box.transform.localPosition = localPosition;
             box.transform.localRotation = localRotation;

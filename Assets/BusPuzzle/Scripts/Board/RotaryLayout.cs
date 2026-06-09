@@ -40,29 +40,29 @@ namespace BusPuzzle
             Person4LocalPosition = person4LocalPosition;
         }
 
-        public static PassengerUnitRoadPose FromPathSample(Vector3 position, RotaryPathSample sample)
+        public static PassengerUnitRoadPose FromPathSample(Vector3 position, RotaryPathSample sample, Vector4 personLocalOffsets)
         {
-            var widthAxis = new Vector3(sample.Outward.x, 0f, sample.Outward.y);
-            widthAxis = widthAxis.sqrMagnitude > 0.0001f ? widthAxis.normalized : Vector3.forward;
+            var forwardAxis = ToWorldDirection(sample.Tangent, Vector3.forward);
 
-            // PassengerView places person 1 on local -Z and person 4 on local +Z.
-            // This rotation keeps person 1 near the inner guardrail and person 4 near the opposite guardrail.
+            // Local X follows the road width, so 1/4 stay on the guardrail sides while the unit faces forward.
             return new PassengerUnitRoadPose(
                 position,
-                Quaternion.LookRotation(widthAxis, Vector3.up));
+                Quaternion.LookRotation(forwardAxis, Vector3.up),
+                new Vector3(personLocalOffsets.x, 0f, 0f),
+                new Vector3(personLocalOffsets.y, 0f, 0f),
+                new Vector3(personLocalOffsets.z, 0f, 0f),
+                new Vector3(personLocalOffsets.w, 0f, 0f));
         }
 
         public static PassengerUnitRoadPose FromPersonWorldPositions(
             Vector3 person1Position,
             Vector3 person2Position,
             Vector3 person3Position,
-            Vector3 person4Position)
+            Vector3 person4Position,
+            Vector3 forwardDirection)
         {
             var position = (person1Position + person2Position + person3Position + person4Position) * 0.25f;
-            var widthAxis = person4Position - person1Position;
-            widthAxis.y = 0f;
-            widthAxis = widthAxis.sqrMagnitude > 0.0001f ? widthAxis.normalized : Vector3.forward;
-            var rotation = Quaternion.LookRotation(widthAxis, Vector3.up);
+            var rotation = Quaternion.LookRotation(NormalizeFlat(forwardDirection, Vector3.forward), Vector3.up);
             var inverseRotation = Quaternion.Inverse(rotation);
 
             return new PassengerUnitRoadPose(
@@ -73,12 +73,29 @@ namespace BusPuzzle
                 inverseRotation * (person3Position - position),
                 inverseRotation * (person4Position - position));
         }
+
+        private static Vector3 ToWorldDirection(Vector2 direction, Vector3 fallback)
+        {
+            return NormalizeFlat(new Vector3(direction.x, 0f, direction.y), fallback);
+        }
+
+        private static Vector3 NormalizeFlat(Vector3 direction, Vector3 fallback)
+        {
+            direction.y = 0f;
+            if (direction.sqrMagnitude > 0.0001f)
+            {
+                return direction.normalized;
+            }
+
+            fallback.y = 0f;
+            return fallback.sqrMagnitude > 0.0001f ? fallback.normalized : Vector3.forward;
+        }
     }
 
     internal readonly struct RotaryLayout
     {
         private const float FeederMergeClearanceRows = 2.35f;
-        private const float FeederQueueSpacingMultiplier = 0.78f;
+        private const float FeederQueueSpacingMultiplier = 1.17f;
         private const float FeederStartPaddingRows = 0.35f;
         private const float FeederHiddenTailRows = 14f;
 
@@ -165,7 +182,7 @@ namespace BusPuzzle
             var feederPath = GetFeederPath(side);
             var sample = feederPath.SampleByDistance(distance);
             var localPoint = sample.Point + sample.Outward * RoadProfile.PivotOffset;
-            return PassengerUnitRoadPose.FromPathSample(ToWorldPoint(localPoint, centerZ, y), sample);
+            return PassengerUnitRoadPose.FromPathSample(ToWorldPoint(localPoint, centerZ, y), sample, PassengerPersonLocalZ);
         }
 
         public float GetFeederDistanceForSlot(int side, int slotIndex)

@@ -355,13 +355,11 @@ namespace BusPuzzle
         private PassengerUnitRoadPose BlendPassengerRoadPose(PassengerUnitRoadPose from, PassengerUnitRoadPose to, float t)
         {
             t = Mathf.Clamp01(t);
-            var forward = Quaternion.Slerp(from.Rotation, to.Rotation, t) * Vector3.forward;
             return PassengerUnitRoadPose.FromPersonWorldPositions(
                 Vector3.Lerp(GetPosePersonWorldPosition(from, 0), GetPosePersonWorldPosition(to, 0), t),
                 Vector3.Lerp(GetPosePersonWorldPosition(from, 1), GetPosePersonWorldPosition(to, 1), t),
                 Vector3.Lerp(GetPosePersonWorldPosition(from, 2), GetPosePersonWorldPosition(to, 2), t),
-                Vector3.Lerp(GetPosePersonWorldPosition(from, 3), GetPosePersonWorldPosition(to, 3), t),
-                forward);
+                Vector3.Lerp(GetPosePersonWorldPosition(from, 3), GetPosePersonWorldPosition(to, 3), t));
         }
 
         private Vector3 GetPosePersonWorldPosition(PassengerUnitRoadPose pose, int personIndex)

@@ -31,19 +31,11 @@ namespace BusPuzzle
 
         public PassengerUnitRoadPose GetPose(float routeDistance, float centerZ, float y)
         {
-            var person1Sample = SamplePersonLanePath(0, routeDistance);
-            var person2Sample = SamplePersonLanePath(1, routeDistance);
-            var person3Sample = SamplePersonLanePath(2, routeDistance);
-            var person4Sample = SamplePersonLanePath(3, routeDistance);
-            var tangent = person1Sample.Tangent + person2Sample.Tangent + person3Sample.Tangent + person4Sample.Tangent;
-            tangent = tangent.sqrMagnitude > 0.0001f ? tangent.normalized : person4Sample.Tangent;
-
             return PassengerUnitRoadPose.FromPersonWorldPositions(
-                layout.ToWorldPoint(person1Sample.Point, centerZ, y),
-                layout.ToWorldPoint(person2Sample.Point, centerZ, y),
-                layout.ToWorldPoint(person3Sample.Point, centerZ, y),
-                layout.ToWorldPoint(person4Sample.Point, centerZ, y),
-                new Vector3(tangent.x, 0f, tangent.y));
+                GetLaneWorldPoint(0, routeDistance, centerZ, y),
+                GetLaneWorldPoint(1, routeDistance, centerZ, y),
+                GetLaneWorldPoint(2, routeDistance, centerZ, y),
+                GetLaneWorldPoint(3, routeDistance, centerZ, y));
         }
 
         public float GetProgressDistance(float progress)
@@ -145,6 +137,12 @@ namespace BusPuzzle
 
             var fallbackTangent = cache.Tangents.Length > 0 ? cache.Tangents[0] : Vector2.right;
             return new RotaryPathSample(cache.Points[0], fallbackTangent, new Vector2(fallbackTangent.y, -fallbackTangent.x).normalized);
+        }
+
+        private Vector3 GetLaneWorldPoint(int personIndex, float outerDistance, float centerZ, float y)
+        {
+            var sample = SamplePersonLanePath(personIndex, outerDistance);
+            return layout.ToWorldPoint(sample.Point, centerZ, y);
         }
 
         private float MapCenterDistanceToOuterDistance(float centerDistance)

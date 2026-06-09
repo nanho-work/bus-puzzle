@@ -5,8 +5,8 @@ namespace BusPuzzle
 {
     internal static class PassengerModelBuilder
     {
-        private const float PassengerVisualScale = 3.47f;
-        private const float PassengerSetSpacingScale = 1.82f;
+        private const float PassengerVisualScale = 4.08f;
+        private const float PassengerSetSpacingScale = 4.08f;
         private const string PassengerModelResourcePath = "PassengerModels/PassengerUnit";
         private const float NpcTargetHeight = 0.405f;
         private const float NpcTargetWidth = 0.115f;
@@ -28,10 +28,10 @@ namespace BusPuzzle
             var legMaterial = PuzzlePalette.CreateSolidMaterial("Passenger Legs", PuzzlePalette.Darken(PuzzlePalette.ToColor(color), 0.18f));
             var offsets = new[]
             {
-                new Vector3(-0.155f * PassengerSetSpacingScale, 0f, 0f),
-                new Vector3(-0.052f * PassengerSetSpacingScale, 0f, 0f),
-                new Vector3(0.052f * PassengerSetSpacingScale, 0f, 0f),
-                new Vector3(0.155f * PassengerSetSpacingScale, 0f, 0f)
+                new Vector3(0f, 0f, -0.155f * PassengerSetSpacingScale),
+                new Vector3(0f, 0f, -0.052f * PassengerSetSpacingScale),
+                new Vector3(0f, 0f, 0.052f * PassengerSetSpacingScale),
+                new Vector3(0f, 0f, 0.155f * PassengerSetSpacingScale)
             };
 
             var personRoots = new Transform[offsets.Length];
@@ -122,10 +122,10 @@ namespace BusPuzzle
 
             var offsets = new[]
             {
-                new Vector3(-0.155f * PassengerSetSpacingScale, 0f, 0f),
-                new Vector3(-0.052f * PassengerSetSpacingScale, 0f, 0f),
-                new Vector3(0.052f * PassengerSetSpacingScale, 0f, 0f),
-                new Vector3(0.155f * PassengerSetSpacingScale, 0f, 0f)
+                new Vector3(0f, 0f, -0.155f * PassengerSetSpacingScale),
+                new Vector3(0f, 0f, -0.052f * PassengerSetSpacingScale),
+                new Vector3(0f, 0f, 0.052f * PassengerSetSpacingScale),
+                new Vector3(0f, 0f, 0.155f * PassengerSetSpacingScale)
             };
 
             var personRoots = new Transform[offsets.Length];

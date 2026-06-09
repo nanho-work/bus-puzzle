@@ -12,6 +12,17 @@ namespace BusPuzzle
         public readonly Vector3 Person3LocalPosition;
         public readonly Vector3 Person4LocalPosition;
 
+        private PassengerUnitRoadPose(Vector3 position, Quaternion rotation)
+        {
+            Position = position;
+            Rotation = rotation;
+            HasCustomPersonLocalPositions = false;
+            Person1LocalPosition = Vector3.zero;
+            Person2LocalPosition = Vector3.zero;
+            Person3LocalPosition = Vector3.zero;
+            Person4LocalPosition = Vector3.zero;
+        }
+
         private PassengerUnitRoadPose(
             Vector3 position,
             Quaternion rotation,
@@ -29,28 +40,29 @@ namespace BusPuzzle
             Person4LocalPosition = person4LocalPosition;
         }
 
-        public static PassengerUnitRoadPose FromPathSample(Vector3 position, RotaryPathSample sample, Vector4 personLocalOffsets)
+        public static PassengerUnitRoadPose FromPathSample(Vector3 position, RotaryPathSample sample)
         {
-            var forwardAxis = ToWorldDirection(sample.Tangent, Vector3.forward);
+            var widthAxis = new Vector3(sample.Outward.x, 0f, sample.Outward.y);
+            widthAxis = widthAxis.sqrMagnitude > 0.0001f ? widthAxis.normalized : Vector3.forward;
 
+            // PassengerView places person 1 on local -Z and person 4 on local +Z.
+            // This rotation keeps person 1 near the inner guardrail and person 4 near the opposite guardrail.
             return new PassengerUnitRoadPose(
                 position,
-                Quaternion.LookRotation(forwardAxis, Vector3.up),
-                new Vector3(personLocalOffsets.x, 0f, 0f),
-                new Vector3(personLocalOffsets.y, 0f, 0f),
-                new Vector3(personLocalOffsets.z, 0f, 0f),
-                new Vector3(personLocalOffsets.w, 0f, 0f));
+                Quaternion.LookRotation(widthAxis, Vector3.up));
         }
 
         public static PassengerUnitRoadPose FromPersonWorldPositions(
             Vector3 person1Position,
             Vector3 person2Position,
             Vector3 person3Position,
-            Vector3 person4Position,
-            Vector3 forwardDirection)
+            Vector3 person4Position)
         {
             var position = (person1Position + person2Position + person3Position + person4Position) * 0.25f;
-            var rotation = Quaternion.LookRotation(NormalizeFlat(forwardDirection, Vector3.forward), Vector3.up);
+            var widthAxis = person4Position - person1Position;
+            widthAxis.y = 0f;
+            widthAxis = widthAxis.sqrMagnitude > 0.0001f ? widthAxis.normalized : Vector3.forward;
+            var rotation = Quaternion.LookRotation(widthAxis, Vector3.up);
             var inverseRotation = Quaternion.Inverse(rotation);
 
             return new PassengerUnitRoadPose(
@@ -61,23 +73,6 @@ namespace BusPuzzle
                 inverseRotation * (person3Position - position),
                 inverseRotation * (person4Position - position));
         }
-
-        private static Vector3 ToWorldDirection(Vector2 direction, Vector3 fallback)
-        {
-            return NormalizeFlat(new Vector3(direction.x, 0f, direction.y), fallback);
-        }
-
-        private static Vector3 NormalizeFlat(Vector3 direction, Vector3 fallback)
-        {
-            direction.y = 0f;
-            if (direction.sqrMagnitude > 0.0001f)
-            {
-                return direction.normalized;
-            }
-
-            fallback.y = 0f;
-            return fallback.sqrMagnitude > 0.0001f ? fallback.normalized : Vector3.forward;
-        }
     }
 
     internal readonly struct RotaryLayout
@@ -86,9 +81,6 @@ namespace BusPuzzle
         private const float FeederQueueSpacingMultiplier = 0.78f;
         private const float FeederStartPaddingRows = 0.35f;
         private const float FeederHiddenTailRows = 14f;
-        private const float FeederJoinApproachRows = 1.55f;
-        private const float FeederJoinOverlapRoadScale = 0.24f;
-        private const float FeederJoinOverlapMax = 0.18f;
 
         public RotaryLayout(
             RoadPresetDefinition preset,
@@ -173,7 +165,7 @@ namespace BusPuzzle
             var feederPath = GetFeederPath(side);
             var sample = feederPath.SampleByDistance(distance);
             var localPoint = sample.Point + sample.Outward * RoadProfile.PivotOffset;
-            return PassengerUnitRoadPose.FromPathSample(ToWorldPoint(localPoint, centerZ, y), sample, PassengerPersonLocalZ);
+            return PassengerUnitRoadPose.FromPathSample(ToWorldPoint(localPoint, centerZ, y), sample);
         }
 
         public float GetFeederDistanceForSlot(int side, int slotIndex)
@@ -213,7 +205,7 @@ namespace BusPuzzle
             var sideSign = side < 0 ? -1f : 1f;
             var laneX = sideSign * (rotaryPath.RadiusX + roadWidth * 1.05f + 0.16f);
             var start = new Vector2(laneX, joinPoint.y + laneLength * 0.82f);
-            var verticalEnd = new Vector2(laneX, joinPoint.y + laneLength * 0.18f);
+            var verticalEnd = new Vector2(laneX, joinPoint.y + laneLength * 0.24f);
             visibleTopY = start.y;
             var hiddenTailDirection = start - verticalEnd;
             if (hiddenTailDirection.sqrMagnitude < 0.0001f)
@@ -223,16 +215,10 @@ namespace BusPuzzle
 
             hiddenTailDirection.Normalize();
             var hiddenStart = start + hiddenTailDirection * preset.FeederRowSpacing * FeederHiddenTailRows;
-            var approachDirection = joinPoint - verticalEnd;
-            if (approachDirection.sqrMagnitude < 0.0001f)
-            {
-                approachDirection = -joinSample.Outward;
-            }
-
-            approachDirection.Normalize();
-            var approachDistance = Mathf.Max(preset.FeederRowSpacing * FeederJoinApproachRows, roadWidth * 0.70f);
-            var approach = joinPoint - approachDirection * approachDistance;
-            var joinOverlap = joinPoint + approachDirection * Mathf.Min(FeederJoinOverlapMax, roadWidth * FeederJoinOverlapRoadScale);
+            var joinOverlap = joinPoint - joinSample.Outward * Mathf.Min(0.085f, roadWidth * 0.18f);
+            var approach = new Vector2(
+                Mathf.Lerp(laneX, joinPoint.x, 0.68f),
+                joinPoint.y + laneLength * 0.06f);
 
             return new FeederRoadPath(new[]
             {
@@ -240,7 +226,6 @@ namespace BusPuzzle
                 start,
                 verticalEnd,
                 approach,
-                joinPoint,
                 joinOverlap
             });
         }

@@ -9,8 +9,8 @@ namespace BusPuzzle
 
         private const float BoardingGateProgressWindow = 0.070f;
         private const float BoardingReservationProgressWindow = 0.180f;
-        private const float PassengerVisualScale = 3.47f;
-        private const float PassengerSetSpacingScale = 1.82f;
+        private const float PassengerVisualScale = 4.08f;
+        private const float PassengerSetSpacingScale = 4.08f;
         private const float PassengerInnerPersonLocalZ = -0.155f * PassengerSetSpacingScale;
         private const float PassengerSecondPersonLocalZ = -0.052f * PassengerSetSpacingScale;
         private const float PassengerThirdPersonLocalZ = 0.052f * PassengerSetSpacingScale;

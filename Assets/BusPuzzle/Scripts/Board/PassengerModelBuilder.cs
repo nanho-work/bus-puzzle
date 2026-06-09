@@ -6,7 +6,7 @@ namespace BusPuzzle
     internal static class PassengerModelBuilder
     {
         private const float PassengerVisualScale = 4.08f;
-        private const float PassengerSetSpacingScale = 4.08f;
+        private const float PassengerSetSpacingScale = 3.05f;
         private const string PassengerModelResourcePath = "PassengerModels/PassengerUnit";
         private const float NpcTargetHeight = 0.405f;
         private const float NpcTargetWidth = 0.115f;

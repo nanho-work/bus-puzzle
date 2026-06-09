@@ -7,12 +7,21 @@ namespace BusPuzzle
     public sealed class BusView : MonoBehaviour
     {
         private const float DepartureStationClearProgress = 0.20f;
+        private const float DrivingTrailInterval = 0.040f;
+        private const float StationIdlePulseSpeed = 5.2f;
+        private const float StationIdlePulseSettleSpeed = 12f;
+        private const float StationIdlePulseHorizontalScale = 0.026f;
+        private const float StationIdlePulseVerticalScale = 0.012f;
+        private const float BoardingShakeSpeed = 34f;
+        private const float BoardingShakeHorizontalScale = 0.010f;
+        private const float BoardingShakeVerticalScale = 0.006f;
 
         private Coroutine motionRoutine;
         private Coroutine hitShakeRoutine;
         private Coroutine vipHighlightRoutine;
         private GameObject directionArrow;
         private GameObject vipHighlight;
+        private GameObject mysteryBadge;
         private VehicleBoardingCounter boardingCounter;
         private BoxCollider touchCollider;
         private Vector3 hitShakeStartPosition;
@@ -22,6 +31,8 @@ namespace BusPuzzle
         private int reservedUnits;
         private int boardingUnitsInProgress;
         private bool usingModelVisual;
+        private Vector3 baseLocalScale = Vector3.one;
+        private float idlePulsePhase;
 
         public PuzzleColor Color { get; private set; }
         public BusSize Size { get; private set; }
@@ -34,6 +45,7 @@ namespace BusPuzzle
         public bool IsParkedAtStation { get; private set; }
         public bool IsDeparted { get; private set; }
         public bool IsDeparting { get; private set; }
+        public bool IsConcealed { get; private set; }
         public bool IsMoving => motionRoutine != null || hitShakeRoutine != null;
         internal GarageView SourceGarage { get; private set; }
         public int CapacityUnits => BusSizeUtility.ToPassengerUnits(Size);
@@ -63,7 +75,7 @@ namespace BusPuzzle
 
         public static BusView Create(BusDefinition definition, Transform parent, float cellSize)
         {
-            var busObject = new GameObject($"{PuzzlePalette.DisplayName(definition.Color)} {BusSizeUtility.DisplayName(definition.Size)}");
+            var busObject = new GameObject(GetDisplayName(definition));
             busObject.transform.SetParent(parent, false);
 
             var view = busObject.AddComponent<BusView>();
@@ -87,32 +99,14 @@ namespace BusPuzzle
             IsParkedAtStation = false;
             IsDeparted = false;
             IsDeparting = false;
+            IsConcealed = definition.StartsConcealed;
             SourceGarage = null;
+            baseLocalScale = Vector3.one;
+            transform.localScale = baseLocalScale;
+            idlePulsePhase = UnityEngine.Random.value * Mathf.PI * 2f;
 
             transform.rotation = definition.Rotation;
-
-            usingModelVisual = CreateModelBody();
-            if (!usingModelVisual)
-            {
-                VehicleFallbackVisualBuilder.Create(
-                    Color,
-                    transform,
-                    VisualWidth,
-                    VisualHeight,
-                    VisualLength,
-                    VisualCharacterLength,
-                    VisualCenterZ,
-                    VisualFrontZ,
-                    VisualRearZ,
-                    cellSize);
-            }
-
-            GroundShadowBuilder.CreateVehicleShadow(transform, VisualWidth, VisualLength, VisualCenterZ, cellSize);
-            CreateArrow();
-            boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
-            UpdateBoardingCounter();
-            CreateUnitMarkers();
-            ConfigureTouchCollider();
+            BuildVisuals();
         }
 
         public void SetGridPosition(Vector2Int gridPosition, Vector3 worldPosition)
@@ -128,7 +122,7 @@ namespace BusPuzzle
 
         public void Recolor(PuzzleColor newColor)
         {
-            if (Color == newColor || !IsOnBoard || IsMoving || IsDeparted)
+            if (Color == newColor || !IsOnBoard || IsMoving || IsDeparted || IsConcealed)
             {
                 return;
             }
@@ -137,29 +131,22 @@ namespace BusPuzzle
             ClearVisualChildren();
             Color = newColor;
             gameObject.name = $"{PuzzlePalette.DisplayName(Color)} {BusSizeUtility.DisplayName(Size)}";
+            BuildVisuals();
+        }
 
-            usingModelVisual = CreateModelBody();
-            if (!usingModelVisual)
+        public bool RevealConcealed()
+        {
+            if (!IsConcealed || IsMoving || IsDeparted)
             {
-                VehicleFallbackVisualBuilder.Create(
-                    Color,
-                    transform,
-                    VisualWidth,
-                    VisualHeight,
-                    VisualLength,
-                    VisualCharacterLength,
-                    VisualCenterZ,
-                    VisualFrontZ,
-                    VisualRearZ,
-                    cellSize);
+                return false;
             }
 
-            GroundShadowBuilder.CreateVehicleShadow(transform, VisualWidth, VisualLength, VisualCenterZ, cellSize);
-            CreateArrow();
-            boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
-            UpdateBoardingCounter();
-            CreateUnitMarkers();
-            ConfigureTouchCollider();
+            StopVipHighlight();
+            ClearVisualChildren();
+            IsConcealed = false;
+            gameObject.name = $"{PuzzlePalette.DisplayName(Color)} {BusSizeUtility.DisplayName(Size)}";
+            BuildVisuals();
+            return true;
         }
 
         public void SetVipHighlight(bool highlighted)
@@ -228,6 +215,7 @@ namespace BusPuzzle
             Action onLaunchClearanceReached)
         {
             StopVipHighlight();
+            ResetStationIdlePulse();
             boardingCounter?.SetWorldPosition(counterWorldPosition);
             if (route == null || route.Length == 0)
             {
@@ -272,12 +260,13 @@ namespace BusPuzzle
                 {
                     InvokeLaunchClearanceOnce();
                 }
-            }));
+            }, true));
         }
 
         public void EmergeFromGarage(Vector3 startPosition, Vector3 targetPosition, Action onComplete = null)
         {
             StopMotion();
+            ResetStationIdlePulse();
             transform.position = startPosition;
             var route = new[]
             {
@@ -295,6 +284,7 @@ namespace BusPuzzle
         {
             StopMotion();
             StopVipHighlight();
+            ResetStationIdlePulse();
 
             var rootPosition = GetRootPositionForVisualCenter(stationVisualCenterPosition, stationRotation);
             transform.SetPositionAndRotation(rootPosition, stationRotation);
@@ -358,11 +348,19 @@ namespace BusPuzzle
 
             reservedUnits = Mathf.Max(0, reservedUnits - 1);
             boardingUnitsInProgress++;
+            ResetStationIdlePulse();
             VehicleBoardingSequence.BoardPassenger(passenger, transform, Color, cellSize, VisualFrontZ, VisualCharacterLength, () =>
             {
+                var wasFull = IsFull;
                 boardingUnitsInProgress = Mathf.Max(0, boardingUnitsInProgress - 1);
                 boardedUnits++;
                 UpdateBoardingCounter();
+                if (!wasFull && IsFull)
+                {
+                    EffectAudioPlayer.PlayBusFull();
+                    HapticFeedback.PlayBusFull();
+                }
+
                 onComplete?.Invoke();
             });
         }
@@ -382,6 +380,7 @@ namespace BusPuzzle
 
             StopMotion();
             StopVipHighlight();
+            ResetStationIdlePulse();
             HideBoardingCounter();
             IsDeparting = true;
             motionRoutine = StartCoroutine(DepartRoutine(route, onStationCleared, onComplete));
@@ -389,6 +388,7 @@ namespace BusPuzzle
 
         private void LateUpdate()
         {
+            ApplyStationIdlePulse();
             boardingCounter?.LateUpdate();
         }
 
@@ -413,6 +413,67 @@ namespace BusPuzzle
 
             StopCoroutine(motionRoutine);
             motionRoutine = null;
+            ResetStationIdlePulse();
+        }
+
+        private void ApplyStationIdlePulse()
+        {
+            if (ShouldPlayBoardingShake())
+            {
+                var waveA = Mathf.Sin(Time.time * BoardingShakeSpeed + idlePulsePhase);
+                var waveB = Mathf.Sin(Time.time * (BoardingShakeSpeed * 1.37f) + idlePulsePhase * 0.6f);
+                transform.localScale = new Vector3(
+                    baseLocalScale.x * (1f + waveA * BoardingShakeHorizontalScale),
+                    baseLocalScale.y * (1f + Mathf.Abs(waveB) * BoardingShakeVerticalScale),
+                    baseLocalScale.z * (1f - waveA * BoardingShakeHorizontalScale * 0.55f));
+                return;
+            }
+
+            if (ShouldPlayStationIdlePulse())
+            {
+                var pulse = (Mathf.Sin(Time.time * StationIdlePulseSpeed + idlePulsePhase) + 1f) * 0.5f;
+                transform.localScale = new Vector3(
+                    baseLocalScale.x * (1f + pulse * StationIdlePulseHorizontalScale),
+                    baseLocalScale.y * (1f + pulse * StationIdlePulseVerticalScale),
+                    baseLocalScale.z * (1f + pulse * StationIdlePulseHorizontalScale));
+                return;
+            }
+
+            if ((transform.localScale - baseLocalScale).sqrMagnitude <= 0.00001f)
+            {
+                transform.localScale = baseLocalScale;
+                return;
+            }
+
+            transform.localScale = Vector3.Lerp(
+                transform.localScale,
+                baseLocalScale,
+                Time.deltaTime * StationIdlePulseSettleSpeed);
+        }
+
+        private bool ShouldPlayStationIdlePulse()
+        {
+            return IsParkedAtStation &&
+                   !IsDeparted &&
+                   !IsDeparting &&
+                   !IsFull &&
+                   !IsMoving &&
+                   !IsBoardingPassengers &&
+                   !HasBoardingReservations;
+        }
+
+        private bool ShouldPlayBoardingShake()
+        {
+            return IsParkedAtStation &&
+                   !IsDeparted &&
+                   !IsDeparting &&
+                   !IsMoving &&
+                   IsBoardingPassengers;
+        }
+
+        private void ResetStationIdlePulse()
+        {
+            transform.localScale = baseLocalScale;
         }
 
         private void EnsureVipHighlight()
@@ -487,10 +548,51 @@ namespace BusPuzzle
             return VehicleModelBuilder.Create(Size, Color, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize) != null;
         }
 
+        private bool CreateConcealedModelBody()
+        {
+            return VehicleModelBuilder.CreateSilhouette(Size, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize) != null;
+        }
+
+        private void BuildVisuals()
+        {
+            usingModelVisual = IsConcealed ? CreateConcealedModelBody() : CreateModelBody();
+            if (!usingModelVisual && !IsConcealed)
+            {
+                VehicleFallbackVisualBuilder.Create(
+                    Color,
+                    transform,
+                    VisualWidth,
+                    VisualHeight,
+                    VisualLength,
+                    VisualCharacterLength,
+                    VisualCenterZ,
+                    VisualFrontZ,
+                    VisualRearZ,
+                    cellSize);
+            }
+
+            GroundShadowBuilder.CreateVehicleShadow(transform, VisualWidth, VisualLength, VisualCenterZ, cellSize);
+            CreateArrow();
+
+            if (IsConcealed)
+            {
+                CreateMysteryBadge();
+            }
+            else
+            {
+                boardingCounter = VehicleBoardingCounter.Create(transform, Color, cellSize, VisualRearZ);
+                UpdateBoardingCounter();
+                CreateUnitMarkers();
+            }
+
+            ConfigureTouchCollider();
+        }
+
         private void ClearVisualChildren()
         {
             directionArrow = null;
             vipHighlight = null;
+            mysteryBadge = null;
             boardingCounter = null;
 
             for (var index = transform.childCount - 1; index >= 0; index--)
@@ -502,6 +604,45 @@ namespace BusPuzzle
         private void CreateArrow()
         {
             directionArrow = VehicleDirectionArrow.Create(transform, VisualWidth, VisualLength, VisualHeight, VisualCenterZ, cellSize);
+        }
+
+        private void CreateMysteryBadge()
+        {
+            mysteryBadge = new GameObject("Mystery Badge");
+            mysteryBadge.transform.SetParent(transform, false);
+            mysteryBadge.transform.localPosition = new Vector3(0f, VisualHeight + cellSize * 0.18f, VisualCenterZ + VisualLength * 0.04f);
+            mysteryBadge.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+            CreateMysteryText("Mystery Shadow", new Color(0.015f, 0.018f, 0.024f, 0.96f), new Vector3(cellSize * 0.014f, -cellSize * 0.014f, 0.010f));
+            CreateMysteryText("Mystery Mark", new Color(0.86f, 0.94f, 1.00f, 0.96f), Vector3.zero);
+        }
+
+        private TextMesh CreateMysteryText(string name, Color color, Vector3 localPosition)
+        {
+            var textObject = new GameObject(name);
+            textObject.transform.SetParent(mysteryBadge.transform, false);
+            textObject.transform.localPosition = localPosition;
+
+            var text = textObject.AddComponent<TextMesh>();
+            text.text = "?";
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.characterSize = cellSize * 0.23f;
+            text.fontSize = 48;
+            text.color = color;
+            GameFontProvider.ApplyToTextMesh(text, FontStyle.Bold);
+
+            var renderer = textObject.GetComponent<MeshRenderer>();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            return text;
+        }
+
+        private static string GetDisplayName(BusDefinition definition)
+        {
+            return definition.StartsConcealed
+                ? $"Mystery {BusSizeUtility.DisplayName(definition.Size)}"
+                : $"{PuzzlePalette.DisplayName(definition.Color)} {BusSizeUtility.DisplayName(definition.Size)}";
         }
 
         private void ConfigureTouchCollider()
@@ -566,7 +707,12 @@ namespace BusPuzzle
             }
         }
 
-        private IEnumerator MoveRouteRoutine(BusRouteStep[] route, float secondsPerSegment, Action onComplete, Action<float> onProgress = null)
+        private IEnumerator MoveRouteRoutine(
+            BusRouteStep[] route,
+            float secondsPerSegment,
+            Action onComplete,
+            Action<float> onProgress = null,
+            bool playDrivingTrail = false)
         {
             var smoothRoute = VehicleRouteMotion.Build(route, transform.position, transform.rotation, cellSize);
             if (smoothRoute.Points.Count < 2 || smoothRoute.Length < 0.001f)
@@ -579,6 +725,7 @@ namespace BusPuzzle
 
             var duration = Mathf.Max(0.10f, secondsPerSegment * smoothRoute.Length);
             var elapsed = 0f;
+            var nextTrailTime = 0f;
 
             while (elapsed < duration)
             {
@@ -588,6 +735,15 @@ namespace BusPuzzle
                 var position = VehicleRouteMotion.EvaluatePosition(smoothRoute, travelDistance);
                 var rotation = VehicleRouteMotion.EvaluateRotation(smoothRoute, travelDistance, progress, transform.rotation, cellSize);
                 transform.SetPositionAndRotation(position, rotation);
+                if (playDrivingTrail && elapsed >= nextTrailTime && progress > 0.03f && progress < 0.96f)
+                {
+                    EffectFactory.PlayDrivingTrail(
+                        transform.TransformPoint(new Vector3(0f, 0f, VisualRearZ - cellSize * 0.04f)),
+                        -VehicleForwardWorld,
+                        cellSize);
+                    nextTrailTime = elapsed + DrivingTrailInterval;
+                }
+
                 onProgress?.Invoke(progress);
                 yield return null;
             }

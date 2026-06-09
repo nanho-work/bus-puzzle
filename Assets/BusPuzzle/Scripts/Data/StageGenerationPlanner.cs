@@ -7,6 +7,7 @@ namespace BusPuzzle
         public readonly int StageNumber;
         public readonly int Seed;
         public readonly LevelDifficulty Difficulty;
+        public readonly StageModifierFlags Modifiers;
         public readonly LevelDifficultyProfile Profile;
         public readonly RotaryRoadPresetId RoadPresetId;
         public readonly int VehicleLayoutVariantIndex;
@@ -19,6 +20,7 @@ namespace BusPuzzle
             int stageNumber,
             int seed,
             LevelDifficulty difficulty,
+            StageModifierFlags modifiers,
             LevelDifficultyProfile profile,
             RotaryRoadPresetId roadPresetId,
             int vehicleLayoutVariantIndex,
@@ -30,6 +32,7 @@ namespace BusPuzzle
             StageNumber = stageNumber;
             Seed = seed;
             Difficulty = difficulty;
+            Modifiers = modifiers;
             Profile = profile;
             RoadPresetId = roadPresetId;
             VehicleLayoutVariantIndex = vehicleLayoutVariantIndex;
@@ -59,12 +62,14 @@ namespace BusPuzzle
         {
             config = config != null ? config : ScriptableObject.CreateInstance<StageGenerationConfig>();
 
-            var difficulty = config.GetDifficultyForStage(stageNumber);
+            var patternEntry = config.GetPatternEntryForStage(stageNumber);
+            var difficulty = patternEntry.Difficulty;
+            var modifiers = patternEntry.Modifiers;
             var progress = config.GetProgress(stageNumber);
             var rule = config.GetRule(difficulty);
             var seed = config.BaseSeed + stageNumber * 1009;
             var random = new System.Random(seed);
-            var garageCount = difficulty == LevelDifficulty.SuperHard
+            var garageCount = (modifiers & StageModifierFlags.Garages) != 0
                 ? config.SuperHardGarageRule.PickGarageCount(random, progress)
                 : 0;
 
@@ -72,6 +77,7 @@ namespace BusPuzzle
                 stageNumber,
                 seed,
                 difficulty,
+                modifiers,
                 rule.CreateProfile(progress),
                 PickRoadPreset(stageNumber, config.BaseSeed),
                 PickVehicleLayoutVariant(stageNumber, config.BaseSeed),

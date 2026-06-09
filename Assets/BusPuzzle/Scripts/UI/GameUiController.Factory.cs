@@ -229,6 +229,18 @@ namespace BusPuzzle
             Color fallbackColor,
             out Text labelText)
         {
+            return CreateImageTextButton(name, parent, baseResourcePath, null, label, fallbackColor, out labelText);
+        }
+
+        private static Button CreateImageTextButton(
+            string name,
+            Transform parent,
+            string baseResourcePath,
+            string leadingIconResourcePath,
+            string label,
+            Color fallbackColor,
+            out Text labelText)
+        {
             var baseSprite = LoadResourceSprite(baseResourcePath);
             if (baseSprite == null)
             {
@@ -273,11 +285,36 @@ namespace BusPuzzle
             baseImage.preserveAspect = false;
             baseImage.raycastTarget = false;
 
+            var hasLeadingIcon = !string.IsNullOrEmpty(leadingIconResourcePath);
+            if (hasLeadingIcon)
+            {
+                var iconSprite = LoadResourceSprite(leadingIconResourcePath);
+                hasLeadingIcon = iconSprite != null;
+                if (hasLeadingIcon)
+                {
+                    var iconObject = new GameObject($"{name} Leading Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    iconObject.transform.SetParent(visualObject.transform, false);
+                    var iconRect = iconObject.GetComponent<RectTransform>();
+                    SetAnchors(iconRect, new Vector2(0.18f, 0.24f), new Vector2(0.36f, 0.76f), Vector2.zero, Vector2.zero);
+
+                    var iconImage = iconObject.GetComponent<Image>();
+                    iconImage.sprite = iconSprite;
+                    iconImage.color = Color.white;
+                    iconImage.preserveAspect = true;
+                    iconImage.raycastTarget = false;
+                }
+            }
+
             labelText = CreateText($"{name} Label", visualObject.transform, TextAnchor.MiddleCenter, 31, FontStyle.Bold);
             labelText.text = label;
             labelText.color = new Color(0.98f, 0.99f, 1f);
             labelText.resizeTextMinSize = 18;
-            SetAnchors(labelText.rectTransform, new Vector2(0.16f, 0.18f), new Vector2(0.84f, 0.82f), Vector2.zero, Vector2.zero);
+            SetAnchors(
+                labelText.rectTransform,
+                hasLeadingIcon ? new Vector2(0.35f, 0.18f) : new Vector2(0.16f, 0.18f),
+                new Vector2(0.84f, 0.82f),
+                Vector2.zero,
+                Vector2.zero);
 
             var button = buttonObject.GetComponent<Button>();
             button.targetGraphic = baseImage;

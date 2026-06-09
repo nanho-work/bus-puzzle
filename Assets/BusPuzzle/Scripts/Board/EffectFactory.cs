@@ -7,6 +7,7 @@ namespace BusPuzzle
     {
         private static Material sparkMaterial;
         private static Material dustMaterial;
+        private static Material drivingDustMaterial;
         private static Material speedLineMaterial;
         private static readonly Dictionary<PuzzleColor, Material> AbsorbMaterials = new Dictionary<PuzzleColor, Material>();
 
@@ -54,6 +55,28 @@ namespace BusPuzzle
                 var length = safeCellSize * (0.24f + index * 0.045f);
                 var linePosition = rearPosition + right * lateral + backward * depth + Vector3.up * (safeCellSize * 0.055f);
                 CreateSpeedLine(linePosition, backward, length, safeCellSize * 0.018f, 0.24f + index * 0.025f);
+            }
+        }
+
+        public static void PlayDrivingTrail(Vector3 rearPosition, Vector3 backwardDirection, float cellSize)
+        {
+            var safeCellSize = Mathf.Max(0.1f, cellSize);
+            var backward = NormalizeFlat(backwardDirection, Vector3.back);
+            var right = Vector3.Cross(Vector3.up, backward).normalized;
+            if (right.sqrMagnitude < 0.0001f)
+            {
+                right = Vector3.right;
+            }
+
+            var dustPosition = rearPosition + backward * (safeCellSize * 0.13f) + Vector3.up * (safeCellSize * 0.034f);
+            for (var index = 0; index < 5; index++)
+            {
+                var lateral = (index - 2f) * safeCellSize * 0.050f;
+                var start = dustPosition + right * lateral + backward * (safeCellSize * 0.026f * index);
+                var target = start + backward * safeCellSize * (0.105f + index * 0.020f) + Vector3.up * safeCellSize * 0.018f;
+                var scale = Vector3.one * safeCellSize * (0.062f + index * 0.007f);
+                var endScale = Vector3.one * safeCellSize * (0.116f + index * 0.010f);
+                CreateMovingSphere("Driving Dust Puff", start, target, scale, endScale, GetDrivingDustMaterial(), 0.24f + index * 0.018f);
             }
         }
 
@@ -245,6 +268,16 @@ namespace BusPuzzle
             }
 
             return dustMaterial;
+        }
+
+        private static Material GetDrivingDustMaterial()
+        {
+            if (drivingDustMaterial == null)
+            {
+                drivingDustMaterial = PuzzlePalette.CreateSolidMaterial("Effect Driving Dust", new Color(0.86f, 0.90f, 0.92f));
+            }
+
+            return drivingDustMaterial;
         }
 
         private static Material GetSpeedLineMaterial()

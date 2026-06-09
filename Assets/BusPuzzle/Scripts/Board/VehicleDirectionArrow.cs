@@ -5,22 +5,23 @@ namespace BusPuzzle
 {
     internal static class VehicleDirectionArrow
     {
-        private const float ChevronWidthScale = 0.42f;
-        private const float ChevronLengthScale = 0.32f;
-        private const float StrokeWidthScale = 0.12f;
-        private const float OutlineScale = 1.22f;
-        private const float MarkerFrontOffsetScale = 0.24f;
+        private const float ChevronWidthScale = 0.30f;
+        private const float ChevronLengthScale = 0.23f;
+        private const float StrokeWidthScale = 0.070f;
+        private const float OutlineScale = 1.14f;
+        private const float MarkerFrontOffsetScale = 0.34f;
+        private const float MarkerLiftScale = 0.045f;
 
         public static GameObject Create(Transform parent, float visualWidth, float visualLength, float visualHeight, float visualCenterZ, float cellSize)
         {
-            var arrowMaterial = PuzzlePalette.CreateTransparentMaterial("White Direction Chevron", new UnityEngine.Color(1f, 1f, 1f, 0.70f));
-            var outlineMaterial = PuzzlePalette.CreateTransparentMaterial("Direction Chevron Outline", new UnityEngine.Color(0.08f, 0.11f, 0.14f, 0.38f));
+            var arrowMaterial = PuzzlePalette.CreateTransparentMaterial("White Direction Chevron", new UnityEngine.Color(1f, 1f, 1f, 0.64f));
+            var outlineMaterial = PuzzlePalette.CreateTransparentMaterial("Direction Chevron Outline", new UnityEngine.Color(0.04f, 0.06f, 0.08f, 0.32f));
             ConfigureMarkerMaterial(arrowMaterial);
             ConfigureMarkerMaterial(outlineMaterial);
 
             var arrow = new GameObject("Direction Chevron Icon");
             arrow.transform.SetParent(parent, false);
-            arrow.transform.localPosition = new Vector3(0f, visualHeight + cellSize * 0.08f, visualCenterZ + visualLength * MarkerFrontOffsetScale);
+            arrow.transform.localPosition = new Vector3(0f, visualHeight + cellSize * MarkerLiftScale, visualCenterZ + visualLength * MarkerFrontOffsetScale);
             arrow.transform.localRotation = Quaternion.identity;
 
             CreateChevronLayer(

@@ -121,6 +121,25 @@ namespace BusPuzzle
         }
     }
 
+    [Serializable]
+    public sealed class StagePatternEntry
+    {
+        [SerializeField] private LevelDifficulty difficulty = LevelDifficulty.Normal;
+        [SerializeField] private StageModifierFlags modifiers = StageModifierFlags.None;
+
+        public LevelDifficulty Difficulty => difficulty;
+        public StageModifierFlags Modifiers => modifiers;
+
+        public static StagePatternEntry Create(LevelDifficulty difficulty, StageModifierFlags modifiers)
+        {
+            return new StagePatternEntry
+            {
+                difficulty = difficulty,
+                modifiers = modifiers
+            };
+        }
+    }
+
     [CreateAssetMenu(menuName = "Bus Puzzle/Stage Generation Config", fileName = "StageGenerationConfig")]
     public sealed class StageGenerationConfig : ScriptableObject
     {
@@ -131,12 +150,20 @@ namespace BusPuzzle
         [SerializeField, Range(1, 80)] private int runtimeVehicleGenerationAttempts = 8;
         [SerializeField, Range(1, 512)] private int solutionCountLimit = 256;
         [SerializeField, Range(0, 10)] private int runtimePreloadAheadCount = 3;
-        [SerializeField] private List<LevelDifficulty> difficultyPattern = new List<LevelDifficulty>
+        [SerializeField] private List<StagePatternEntry> stagePattern = new List<StagePatternEntry>
+        {
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages),
+            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.LightMysteryVehicles)
+        };
+        [SerializeField, HideInInspector] private List<LevelDifficulty> difficultyPattern = new List<LevelDifficulty>
         {
             LevelDifficulty.Normal,
             LevelDifficulty.Normal,
-            LevelDifficulty.Normal,
             LevelDifficulty.Hard,
+            LevelDifficulty.SuperHard,
             LevelDifficulty.SuperHard
         };
         [SerializeField] private StageDifficultyGenerationRule normalRule = StageDifficultyGenerationRule.DefaultFor(LevelDifficulty.Normal);
@@ -153,7 +180,45 @@ namespace BusPuzzle
         public int RuntimePreloadAheadCount => Mathf.Clamp(runtimePreloadAheadCount, 0, 10);
         public GarageGenerationRule SuperHardGarageRule => superHardGarageRule ?? new GarageGenerationRule();
 
+        public StagePatternEntry GetPatternEntryForStage(int stageNumber)
+        {
+            if (stagePattern != null && stagePattern.Count > 0)
+            {
+                var entry = stagePattern[Mathf.Abs(stageNumber - 1) % stagePattern.Count];
+                if (entry != null)
+                {
+                    return entry;
+                }
+            }
+
+            var difficulty = GetLegacyDifficultyForStage(stageNumber);
+            return StagePatternEntry.Create(difficulty, GetDefaultModifiers(difficulty));
+        }
+
         public LevelDifficulty GetDifficultyForStage(int stageNumber)
+        {
+            return GetPatternEntryForStage(stageNumber).Difficulty;
+        }
+
+        public StageModifierFlags GetModifiersForStage(int stageNumber)
+        {
+            return GetPatternEntryForStage(stageNumber).Modifiers;
+        }
+
+        public static StageModifierFlags GetDefaultModifiers(LevelDifficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    return StageModifierFlags.MysteryVehicles;
+                case LevelDifficulty.SuperHard:
+                    return StageModifierFlags.Garages;
+                default:
+                    return StageModifierFlags.None;
+            }
+        }
+
+        private LevelDifficulty GetLegacyDifficultyForStage(int stageNumber)
         {
             var pattern = difficultyPattern;
             if (pattern == null || pattern.Count == 0)

@@ -5,8 +5,13 @@ namespace BusPuzzle
 {
     internal sealed class GarageView : MonoBehaviour
     {
+        private const float CounterCharacterScale = 0.145f;
+        private const float CounterBadgeWidthScale = 0.54f;
+        private const float CounterBadgeHeightScale = 0.36f;
+
         private readonly Queue<BusDefinition> queuedVehicles = new Queue<BusDefinition>();
 
+        private Transform counterRoot;
         private TextMesh counterText;
         private TextMesh shadowText;
         private float cellSize;
@@ -104,7 +109,8 @@ namespace BusPuzzle
             var roofHighlightMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Roof Highlight", new Color(0.56f, 0.68f, 0.84f));
             var frameMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Silver Frame", new Color(0.72f, 0.79f, 0.86f));
             var frameShadowMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Frame Shadow", new Color(0.31f, 0.40f, 0.57f));
-            var directionMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Direction Mark", new Color(0.68f, 0.79f, 1.00f));
+            var directionShadowMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Direction Mark Shadow", new Color(0.08f, 0.11f, 0.14f));
+            var directionMaterial = PuzzlePalette.CreateSolidMaterial("Garage Portal Direction Mark", new Color(0.92f, 0.97f, 1.00f));
 
             var directionRoot = new GameObject("Garage Tunnel Direction Root");
             directionRoot.transform.SetParent(transform, false);
@@ -131,9 +137,12 @@ namespace BusPuzzle
             CreateBox("Garage Portal Left Silver Frame", directionRoot.transform, new Vector3(-cellSize * 0.34f, cellSize * 0.245f, cellSize * 0.525f), new Vector3(cellSize * 0.075f, cellSize * 0.38f, cellSize * 0.065f), frameMaterial);
             CreateBox("Garage Portal Right Silver Frame", directionRoot.transform, new Vector3(cellSize * 0.34f, cellSize * 0.245f, cellSize * 0.525f), new Vector3(cellSize * 0.075f, cellSize * 0.38f, cellSize * 0.065f), frameMaterial);
             CreateBox("Garage Portal Top Silver Frame", directionRoot.transform, new Vector3(0f, cellSize * 0.425f, cellSize * 0.525f), new Vector3(cellSize * 0.74f, cellSize * 0.075f, cellSize * 0.065f), frameMaterial);
-            CreateBox("Garage Exit Arrow Shaft", directionRoot.transform, new Vector3(0f, cellSize * 0.145f, cellSize * 0.18f), new Vector3(cellSize * 0.070f, cellSize * 0.018f, cellSize * 0.34f), directionMaterial);
-            CreateBox("Garage Exit Arrow Left Head", directionRoot.transform, new Vector3(-cellSize * 0.075f, cellSize * 0.147f, cellSize * 0.36f), new Vector3(cellSize * 0.070f, cellSize * 0.018f, cellSize * 0.22f), directionMaterial, Quaternion.Euler(0f, -36f, 0f));
-            CreateBox("Garage Exit Arrow Right Head", directionRoot.transform, new Vector3(cellSize * 0.075f, cellSize * 0.147f, cellSize * 0.36f), new Vector3(cellSize * 0.070f, cellSize * 0.018f, cellSize * 0.22f), directionMaterial, Quaternion.Euler(0f, 36f, 0f));
+            CreateBox("Garage Exit Arrow Shadow Shaft", directionRoot.transform, new Vector3(0f, cellSize * 0.142f, cellSize * 0.18f), new Vector3(cellSize * 0.088f, cellSize * 0.016f, cellSize * 0.35f), directionShadowMaterial);
+            CreateBox("Garage Exit Arrow Shadow Left Head", directionRoot.transform, new Vector3(-cellSize * 0.076f, cellSize * 0.143f, cellSize * 0.36f), new Vector3(cellSize * 0.084f, cellSize * 0.016f, cellSize * 0.23f), directionShadowMaterial, Quaternion.Euler(0f, -36f, 0f));
+            CreateBox("Garage Exit Arrow Shadow Right Head", directionRoot.transform, new Vector3(cellSize * 0.076f, cellSize * 0.143f, cellSize * 0.36f), new Vector3(cellSize * 0.084f, cellSize * 0.016f, cellSize * 0.23f), directionShadowMaterial, Quaternion.Euler(0f, 36f, 0f));
+            CreateBox("Garage Exit Arrow Shaft", directionRoot.transform, new Vector3(0f, cellSize * 0.148f, cellSize * 0.18f), new Vector3(cellSize * 0.060f, cellSize * 0.017f, cellSize * 0.32f), directionMaterial);
+            CreateBox("Garage Exit Arrow Left Head", directionRoot.transform, new Vector3(-cellSize * 0.070f, cellSize * 0.150f, cellSize * 0.35f), new Vector3(cellSize * 0.058f, cellSize * 0.017f, cellSize * 0.20f), directionMaterial, Quaternion.Euler(0f, -36f, 0f));
+            CreateBox("Garage Exit Arrow Right Head", directionRoot.transform, new Vector3(cellSize * 0.070f, cellSize * 0.150f, cellSize * 0.35f), new Vector3(cellSize * 0.058f, cellSize * 0.017f, cellSize * 0.20f), directionMaterial, Quaternion.Euler(0f, 36f, 0f));
         }
 
         private static void CreateBox(string name, Transform parent, Vector3 localPosition, Vector3 localScale, Material material)
@@ -155,31 +164,55 @@ namespace BusPuzzle
 
         private void CreateCounter()
         {
-            var badgeMaterial = PuzzlePalette.CreateSolidMaterial("Garage Counter Badge", new Color(0.96f, 0.76f, 0.16f));
-            var badge = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            badge.name = "Garage Counter Badge";
-            badge.transform.SetParent(transform, false);
-            badge.transform.localPosition = new Vector3(0f, cellSize * 0.48f, 0f);
-            badge.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            badge.transform.localScale = new Vector3(cellSize * 0.18f, cellSize * 0.018f, cellSize * 0.18f);
-            badge.GetComponent<Renderer>().sharedMaterial = badgeMaterial;
-            ConfigureRenderer(badge);
+            counterRoot = new GameObject("Garage Counter").transform;
+            counterRoot.SetParent(transform, false);
+            var exit = GridDirectionUtility.ToWorldVector(ExitDirection);
+            counterRoot.localPosition = exit * (cellSize * 0.42f) + Vector3.up * (cellSize * 0.63f);
 
-            shadowText = CreateCounterText("Garage Counter Shadow", new Color(0.03f, 0.03f, 0.035f), new Vector3(cellSize * 0.006f, cellSize * 0.006f, -cellSize * 0.015f));
-            counterText = CreateCounterText("Garage Counter Text", Color.white, new Vector3(0f, 0f, -cellSize * 0.024f));
+            CreateCounterBadge(
+                counterRoot,
+                "Garage Counter Background Shadow",
+                new Color(0.04f, 0.05f, 0.06f),
+                new Vector3(cellSize * 0.008f, -cellSize * 0.008f, cellSize * 0.010f));
+            CreateCounterBadge(
+                counterRoot,
+                "Garage Counter Badge",
+                new Color(0.96f, 0.66f, 0.12f),
+                Vector3.zero);
+
+            shadowText = CreateCounterText("Garage Counter Shadow", new Color(0.03f, 0.025f, 0.02f), new Vector3(cellSize * 0.004f, -cellSize * 0.004f, -cellSize * 0.018f));
+            counterText = CreateCounterText("Garage Counter Text", Color.white, new Vector3(0f, 0f, -cellSize * 0.028f));
+        }
+
+        private void CreateCounterBadge(Transform parent, string name, Color color, Vector3 localPosition)
+        {
+            var badge = new GameObject(name);
+            badge.transform.SetParent(parent, false);
+            badge.transform.localPosition = localPosition;
+
+            var meshFilter = badge.AddComponent<MeshFilter>();
+            meshFilter.sharedMesh = CreateRoundedBadgeMesh(
+                cellSize * CounterBadgeWidthScale,
+                cellSize * CounterBadgeHeightScale,
+                cellSize * 0.105f);
+
+            var renderer = badge.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = PuzzlePalette.CreateSolidMaterial(name, color);
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
         }
 
         private TextMesh CreateCounterText(string name, Color color, Vector3 localPosition)
         {
             var textObject = new GameObject(name);
-            textObject.transform.SetParent(transform, false);
-            textObject.transform.localPosition = new Vector3(0f, cellSize * 0.50f, 0f) + localPosition;
+            textObject.transform.SetParent(counterRoot, false);
+            textObject.transform.localPosition = localPosition;
 
             var text = textObject.AddComponent<TextMesh>();
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
-            text.characterSize = cellSize * 0.20f;
-            text.fontSize = 48;
+            text.characterSize = cellSize * CounterCharacterScale;
+            text.fontSize = 40;
             text.color = color;
             GameFontProvider.ApplyToTextMesh(text, FontStyle.Bold);
 
@@ -211,14 +244,9 @@ namespace BusPuzzle
                 return;
             }
 
-            if (counterText != null)
+            if (counterRoot != null)
             {
-                counterText.transform.rotation = camera.transform.rotation;
-            }
-
-            if (shadowText != null)
-            {
-                shadowText.transform.rotation = camera.transform.rotation;
+                counterRoot.rotation = camera.transform.rotation;
             }
         }
 
@@ -227,6 +255,61 @@ namespace BusPuzzle
             var renderer = gameObject.GetComponent<Renderer>();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+        }
+
+        private static Mesh CreateRoundedBadgeMesh(float width, float height, float radius)
+        {
+            const int cornerSegments = 5;
+            radius = Mathf.Clamp(radius, 0.01f, Mathf.Min(width, height) * 0.5f);
+
+            var halfWidth = width * 0.5f;
+            var halfHeight = height * 0.5f;
+            var centers = new[]
+            {
+                new Vector2(halfWidth - radius, halfHeight - radius),
+                new Vector2(-halfWidth + radius, halfHeight - radius),
+                new Vector2(-halfWidth + radius, -halfHeight + radius),
+                new Vector2(halfWidth - radius, -halfHeight + radius)
+            };
+            var startAngles = new[] { 0f, 90f, 180f, 270f };
+            var points = new List<Vector2>();
+
+            for (var corner = 0; corner < centers.Length; corner++)
+            {
+                for (var segment = 0; segment <= cornerSegments; segment++)
+                {
+                    var angle = (startAngles[corner] + segment * 90f / cornerSegments) * Mathf.Deg2Rad;
+                    points.Add(centers[corner] + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius);
+                }
+            }
+
+            var vertices = new Vector3[points.Count + 1];
+            vertices[0] = Vector3.zero;
+            for (var index = 0; index < points.Count; index++)
+            {
+                vertices[index + 1] = new Vector3(points[index].x, points[index].y, 0f);
+            }
+
+            var triangles = new int[points.Count * 6];
+            for (var index = 0; index < points.Count; index++)
+            {
+                var current = index + 1;
+                var next = index + 1 == points.Count ? 1 : index + 2;
+                var triangleIndex = index * 6;
+                triangles[triangleIndex] = 0;
+                triangles[triangleIndex + 1] = current;
+                triangles[triangleIndex + 2] = next;
+                triangles[triangleIndex + 3] = 0;
+                triangles[triangleIndex + 4] = next;
+                triangles[triangleIndex + 5] = current;
+            }
+
+            var mesh = new Mesh { name = "Garage Counter Badge Mesh" };
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
         }
     }
 }

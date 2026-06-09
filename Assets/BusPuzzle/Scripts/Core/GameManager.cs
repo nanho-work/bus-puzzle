@@ -285,6 +285,7 @@ namespace BusPuzzle
                 uiController,
                 buses,
                 UpdateCounters,
+                RevealReadyConcealedBuses,
                 StartBoardingResolver,
                 CheckBlocked,
                 GetCurrentLevelName);
@@ -331,6 +332,7 @@ namespace BusPuzzle
             ClearPendingFailureRecoveryState();
 
             boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses);
+            RevealReadyConcealedBuses();
             BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds());
             UpdateCounters();
             UpdateGoldUi();
@@ -1045,6 +1047,7 @@ namespace BusPuzzle
                 boardView.CanReserveVipStationSlot &&
                 bus != null &&
                 bus.IsOnBoard &&
+                !bus.IsConcealed &&
                 !bus.IsMoving &&
                 !bus.IsDeparted;
         }
@@ -1158,6 +1161,7 @@ namespace BusPuzzle
         {
             return bus != null &&
                 bus.IsOnBoard &&
+                !bus.IsConcealed &&
                 !bus.IsMoving &&
                 !bus.IsDeparted;
         }
@@ -1600,6 +1604,8 @@ namespace BusPuzzle
 
         private void CheckBlocked()
         {
+            RevealReadyConcealedBuses();
+
             switch (GameProgressEngine.EvaluateBlockedState(CreateProgressSnapshot(true)))
             {
                 case GameProgressDecision.Complete:
@@ -1625,6 +1631,17 @@ namespace BusPuzzle
                     ClearPendingFailureRecoveryState();
                     break;
             }
+        }
+
+        private void RevealReadyConcealedBuses()
+        {
+            if (boardView == null || !boardView.RevealPathClearConcealedBuses(buses))
+            {
+                return;
+            }
+
+            ApplyVipHighlights();
+            UpdateRewardedAdUi();
         }
 
         private bool ShouldDeferFailureUntilRotaryFill()

@@ -232,6 +232,35 @@ namespace BusPuzzle
             return GetVehicleTraffic().IsPathClear(movingBus, buses, garages, out blockingBus, out collisionPosition);
         }
 
+        public bool RevealPathClearConcealedBuses(IReadOnlyList<BusView> buses)
+        {
+            if (buses == null)
+            {
+                return false;
+            }
+
+            var revealedAny = false;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                if (bus == null ||
+                    !bus.IsConcealed ||
+                    !bus.IsOnBoard ||
+                    bus.IsMoving ||
+                    bus.IsDeparted)
+                {
+                    continue;
+                }
+
+                if (IsPathClear(bus, buses, out _))
+                {
+                    revealedAny |= bus.RevealConcealed();
+                }
+            }
+
+            return revealedAny;
+        }
+
         public bool TryAdvanceGarageAfterLaunch(BusView launchedBus, List<BusView> buses)
         {
             var garage = launchedBus != null ? launchedBus.SourceGarage : null;

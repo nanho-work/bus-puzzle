@@ -54,6 +54,51 @@ namespace BusPuzzle
             return CreateImageTextButton(name, parent, PromptButtonBaseResource, label, fallbackColor, out labelText);
         }
 
+        private static Button CreatePromptAdButton(
+            string name,
+            Transform parent,
+            string label,
+            Color fallbackColor,
+            out Text labelText)
+        {
+            return CreateImageTextButton(name, parent, PromptButtonBaseResource, AdIconResource, label, fallbackColor, out labelText);
+        }
+
+        private static Button CreatePromptGoldButton(
+            string name,
+            Transform parent,
+            string label,
+            Color fallbackColor,
+            out Text labelText)
+        {
+            return CreateImageTextButton(name, parent, PromptButtonBaseResource, GoldIconResource, label, fallbackColor, out labelText);
+        }
+
+        private static void AddPromptAdBadge(Button button)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            var adSprite = LoadResourceSprite(AdIconResource);
+            if (adSprite == null)
+            {
+                return;
+            }
+
+            var badgeObject = new GameObject($"{button.name} Ad Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            badgeObject.transform.SetParent(button.transform, false);
+            var badgeRect = badgeObject.GetComponent<RectTransform>();
+            SetAnchors(badgeRect, new Vector2(0.68f, 0.64f), new Vector2(0.98f, 0.96f), Vector2.zero, Vector2.zero);
+
+            var badgeImage = badgeObject.GetComponent<Image>();
+            badgeImage.sprite = adSprite;
+            badgeImage.color = Color.white;
+            badgeImage.preserveAspect = true;
+            badgeImage.raycastTarget = false;
+        }
+
         private Button CreatePromptCloseButton(string name, RectTransform modal)
         {
             var closeButton = CreateRoundIconButton(name, modal, "×", 86f, 42, true);
@@ -170,6 +215,7 @@ namespace BusPuzzle
                 UiAdActionColor,
                 out failStationUnlockButtonText);
             SetAnchors(failStationUnlockButton.GetComponent<RectTransform>(), new Vector2(0.03f, 0.12f), new Vector2(0.25f, 0.52f), Vector2.zero, Vector2.zero);
+            AddPromptAdBadge(failStationUnlockButton);
             failStationUnlockButton.onClick.AddListener(() =>
             {
                 BeginFailRecoveryPrompt();
@@ -184,6 +230,7 @@ namespace BusPuzzle
                 UiGoldActionColor,
                 out failVipButtonText);
             SetAnchors(failVipButton.GetComponent<RectTransform>(), new Vector2(0.27f, 0.12f), new Vector2(0.49f, 0.52f), Vector2.zero, Vector2.zero);
+            AddPromptAdBadge(failVipButton);
             failVipButton.onClick.AddListener(() =>
             {
                 BeginFailRecoveryPrompt();
@@ -198,6 +245,7 @@ namespace BusPuzzle
                 UiBoosterDepartColor,
                 out failDepartButtonText);
             SetAnchors(failDepartButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0.12f), new Vector2(0.73f, 0.52f), Vector2.zero, Vector2.zero);
+            AddPromptAdBadge(failDepartButton);
             failDepartButton.onClick.AddListener(() =>
             {
                 BeginFailRecoveryPrompt();
@@ -345,7 +393,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Station Unlock Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(stationUnlockPrompt));
 
-            stationUnlockConfirmButton = CreatePromptTextButton("Station Unlock Confirm Button", modal, "Watch", UiAdActionColor, out _);
+            stationUnlockConfirmButton = CreatePromptAdButton("Station Unlock Confirm Button", modal, "Watch", UiAdActionColor, out _);
             SetAnchors(stationUnlockConfirmButton.GetComponent<RectTransform>(), new Vector2(0.18f, 0f), new Vector2(0.82f, 0.40f), new Vector2(0f, 16f), new Vector2(0f, -12f));
             stationUnlockConfirmButton.onClick.AddListener(() =>
             {
@@ -373,7 +421,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("VIP Teleport Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(vipTeleportPrompt));
 
-            vipTeleportGoldConfirmButton = CreatePromptTextButton("VIP Teleport Gold Button", modal, "120 Gold", UiGoldActionColor, out vipTeleportGoldButtonText);
+            vipTeleportGoldConfirmButton = CreatePromptGoldButton("VIP Teleport Gold Button", modal, "120 Gold", UiGoldActionColor, out vipTeleportGoldButtonText);
             SetAnchors(vipTeleportGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             vipTeleportGoldConfirmButton.onClick.AddListener(() =>
             {
@@ -382,7 +430,7 @@ namespace BusPuzzle
                 VipTeleportGoldConfirmed?.Invoke();
             });
 
-            vipTeleportConfirmButton = CreatePromptTextButton("VIP Teleport Confirm Button", modal, "Watch", UiAdActionColor, out vipTeleportWatchButtonText);
+            vipTeleportConfirmButton = CreatePromptAdButton("VIP Teleport Confirm Button", modal, "Watch", UiAdActionColor, out vipTeleportWatchButtonText);
             SetAnchors(vipTeleportConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             vipTeleportConfirmButton.onClick.AddListener(() =>
             {
@@ -410,7 +458,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Mix Shuffle Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(mixShufflePrompt));
 
-            mixShuffleGoldConfirmButton = CreatePromptTextButton("Mix Shuffle Gold Button", modal, "90 Gold", UiGoldActionColor, out mixShuffleGoldButtonText);
+            mixShuffleGoldConfirmButton = CreatePromptGoldButton("Mix Shuffle Gold Button", modal, "90 Gold", UiGoldActionColor, out mixShuffleGoldButtonText);
             SetAnchors(mixShuffleGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             mixShuffleGoldConfirmButton.onClick.AddListener(() =>
             {
@@ -419,7 +467,7 @@ namespace BusPuzzle
                 MixShuffleGoldConfirmed?.Invoke();
             });
 
-            mixShuffleConfirmButton = CreatePromptTextButton("Mix Shuffle Confirm Button", modal, "Watch", UiPrimaryActionColor, out mixShuffleWatchButtonText);
+            mixShuffleConfirmButton = CreatePromptAdButton("Mix Shuffle Confirm Button", modal, "Watch", UiPrimaryActionColor, out mixShuffleWatchButtonText);
             SetAnchors(mixShuffleConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             mixShuffleConfirmButton.onClick.AddListener(() =>
             {
@@ -447,7 +495,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Depart Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(departPrompt));
 
-            departGoldConfirmButton = CreatePromptTextButton("Depart Gold Button", modal, "90 Gold", UiGoldActionColor, out departGoldButtonText);
+            departGoldConfirmButton = CreatePromptGoldButton("Depart Gold Button", modal, "90 Gold", UiGoldActionColor, out departGoldButtonText);
             SetAnchors(departGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             departGoldConfirmButton.onClick.AddListener(() =>
             {
@@ -456,7 +504,7 @@ namespace BusPuzzle
                 DepartGoldConfirmed?.Invoke();
             });
 
-            departConfirmButton = CreatePromptTextButton("Depart Confirm Button", modal, "Watch", UiAdActionColor, out departWatchButtonText);
+            departConfirmButton = CreatePromptAdButton("Depart Confirm Button", modal, "Watch", UiAdActionColor, out departWatchButtonText);
             SetAnchors(departConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             departConfirmButton.onClick.AddListener(() =>
             {

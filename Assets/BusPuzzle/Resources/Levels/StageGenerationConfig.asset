@@ -19,11 +19,22 @@ MonoBehaviour:
   runtimeVehicleGenerationAttempts: 8
   solutionCountLimit: 256
   runtimePreloadAheadCount: 3
+  stagePattern:
+  - difficulty: 0
+    modifiers: 0
+  - difficulty: 0
+    modifiers: 0
+  - difficulty: 1
+    modifiers: 2
+  - difficulty: 2
+    modifiers: 1
+  - difficulty: 2
+    modifiers: 5
   difficultyPattern:
   - 0
   - 0
-  - 0
   - 1
+  - 2
   - 2
   normalRule:
     difficulty: 0

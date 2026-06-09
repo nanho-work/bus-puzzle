@@ -19,6 +19,16 @@ namespace BusPuzzle
             Play(GetLibrary()?.BoardingClip, GetLibrary()?.BoardingVolume ?? 0f);
         }
 
+        public static void PlayVehicleLaunch()
+        {
+            Play(GetLibrary()?.VehicleLaunchClip, GetLibrary()?.VehicleLaunchVolume ?? 0f);
+        }
+
+        public static void PlayBusFull()
+        {
+            Play(GetLibrary()?.BusFullClip, GetLibrary()?.BusFullVolume ?? 0f);
+        }
+
         public static void PlayVictory()
         {
             Play(GetLibrary()?.VictoryClip, GetLibrary()?.VictoryVolume ?? 0f);

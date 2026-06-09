@@ -9,6 +9,7 @@ namespace BusPuzzle
         private readonly GameUiController uiController;
         private readonly List<BusView> buses;
         private readonly Action updateCounters;
+        private readonly Action revealConcealedVehicles;
         private readonly Action startBoardingResolver;
         private readonly Action checkBlocked;
         private readonly Func<string> getCurrentLevelName;
@@ -18,6 +19,7 @@ namespace BusPuzzle
             GameUiController uiController,
             List<BusView> buses,
             Action updateCounters,
+            Action revealConcealedVehicles,
             Action startBoardingResolver,
             Action checkBlocked,
             Func<string> getCurrentLevelName)
@@ -26,6 +28,7 @@ namespace BusPuzzle
             this.uiController = uiController;
             this.buses = buses;
             this.updateCounters = updateCounters;
+            this.revealConcealedVehicles = revealConcealedVehicles;
             this.startBoardingResolver = startBoardingResolver;
             this.checkBlocked = checkBlocked;
             this.getCurrentLevelName = getCurrentLevelName;
@@ -33,6 +36,13 @@ namespace BusPuzzle
 
         public bool TryLaunch(BusView bus)
         {
+            if (bus != null && bus.IsConcealed)
+            {
+                uiController.ShowInvalid("Mystery bus");
+                checkBlocked();
+                return false;
+            }
+
             if (!CanLaunchBus(bus))
             {
                 return false;
@@ -57,6 +67,8 @@ namespace BusPuzzle
 
             updateCounters();
             uiController.ShowInvalid($"{PuzzlePalette.DisplayName(bus.Color)} bus dispatched");
+            EffectAudioPlayer.PlayVehicleLaunch();
+            HapticFeedback.PlayVehicleLaunch();
 
             var route = boardView.BuildRouteToStation(bus, stationPosition);
             var counterPosition = boardView.GetStationCounterPosition(stationSlotIndex);
@@ -73,6 +85,8 @@ namespace BusPuzzle
                 {
                     updateCounters();
                 }
+
+                revealConcealedVehicles?.Invoke();
             }
 
             bus.MoveToStation(
@@ -81,6 +95,7 @@ namespace BusPuzzle
                 counterPosition,
                 () =>
                 {
+                    revealConcealedVehicles?.Invoke();
                     updateCounters();
                     uiController.ShowPlaying(getCurrentLevelName());
                     startBoardingResolver();
@@ -93,6 +108,13 @@ namespace BusPuzzle
 
         public bool TryVipTeleport(BusView bus)
         {
+            if (bus != null && bus.IsConcealed)
+            {
+                uiController.ShowInvalid("Mystery bus");
+                checkBlocked();
+                return false;
+            }
+
             if (!CanLaunchBus(bus))
             {
                 return false;
@@ -116,6 +138,7 @@ namespace BusPuzzle
                 counterPosition,
                 () =>
                 {
+                    revealConcealedVehicles?.Invoke();
                     updateCounters();
                     uiController.ShowPlaying(getCurrentLevelName());
                     startBoardingResolver();
@@ -126,12 +149,13 @@ namespace BusPuzzle
                 updateCounters();
             }
 
+            revealConcealedVehicles?.Invoke();
             return true;
         }
 
         private static bool CanLaunchBus(BusView bus)
         {
-            return bus != null && bus.IsOnBoard && !bus.IsMoving && !bus.IsDeparted;
+            return bus != null && bus.IsOnBoard && !bus.IsConcealed && !bus.IsMoving && !bus.IsDeparted;
         }
     }
 }

@@ -14,11 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   collisionClip: {fileID: 8300000, guid: 6a118ce6c539e4b51a1b4ce85f1ca10f, type: 3}
   boardingClip: {fileID: 8300000, guid: 22bc3f78885b6453c9b9d2acd05a4299, type: 3}
+  vehicleLaunchClip: {fileID: 8300000, guid: 829632020984146bfb3b243a35ac4e36, type: 3}
+  busFullClip: {fileID: 8300000, guid: 44ba5f5d6d2644dc69f99c906f2c228f, type: 3}
   victoryClip: {fileID: 8300000, guid: a7bbd8d678f974ebd890998e49233c05, type: 3}
   failClip: {fileID: 8300000, guid: dee32da0ddaeb42f1b17ff7758f3e964, type: 3}
   backgroundMusicClip: {fileID: 8300000, guid: 7d63f3960585e4faf8d03fb4a0048eb5, type: 3}
   collisionVolume: 0.8
   boardingVolume: 0.55
+  vehicleLaunchVolume: 0.7
+  busFullVolume: 0.78
   victoryVolume: 0.85
   failVolume: 0.85
   backgroundMusicVolume: 0.42

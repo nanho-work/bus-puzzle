@@ -7,6 +7,14 @@ namespace BusPuzzle
     {
         private const int DefaultMaxGenerationAttempts = 80;
         private const int MaxPlacementAttemptsPerVehicle = 420;
+        private const int MysteryMinVehicles = 5;
+        private const int MysteryMaxVehicles = 12;
+        private const float MysteryEarlyRatio = 0.18f;
+        private const float MysteryLateRatio = 0.30f;
+        private const int LightMysteryMinVehicles = 2;
+        private const int LightMysteryMaxVehicles = 7;
+        private const float LightMysteryEarlyRatio = 0.08f;
+        private const float LightMysteryLateRatio = 0.16f;
 
         private static readonly PuzzleColor[] ColorPool =
         {
@@ -33,6 +41,10 @@ namespace BusPuzzle
 
             var profile = LevelDifficultyProfile.DefaultFor(difficulty);
             var buses = BuildVehicles(profile, seed);
+            var modifiers = difficulty == LevelDifficulty.Hard
+                ? StageModifierFlags.MysteryVehicles
+                : StageModifierFlags.None;
+            buses = ApplyMysteryVehicleModifiers(buses, modifiers, profile, seed + 1699);
             var flowPlan = BuildPassengerFlowPlan(profile, buses, seed);
             level.ConfigureWithPassengerFlowPlan(
                 levelName,
@@ -69,6 +81,7 @@ namespace BusPuzzle
                 vehicleGenerationAttempts,
                 useSolutionAnalyzer,
                 request.VehicleLayoutVariantIndex);
+            buses = ApplyMysteryVehicleModifiers(buses, request.Modifiers, request.Profile, seed + 1699);
             var flowPlan = BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
 
             level.ConfigureWithPassengerFlowPlan(
@@ -157,6 +170,83 @@ namespace BusPuzzle
             }
 
             return StageSolutionAnalyzer.Analyze(vehicles, garages, 2).IsSolvable;
+        }
+
+        private static List<BusDefinition> ApplyMysteryVehicleModifiers(
+            IReadOnlyList<BusDefinition> buses,
+            StageModifierFlags modifiers,
+            LevelDifficultyProfile profile,
+            int seed)
+        {
+            var result = buses != null ? new List<BusDefinition>(buses) : new List<BusDefinition>();
+            var hasMystery = (modifiers & StageModifierFlags.MysteryVehicles) != 0;
+            var hasLightMystery = (modifiers & StageModifierFlags.LightMysteryVehicles) != 0;
+            if ((!hasMystery && !hasLightMystery) || result.Count == 0)
+            {
+                return result;
+            }
+
+            var minVehicles = hasMystery ? MysteryMinVehicles : LightMysteryMinVehicles;
+            var maxVehicles = hasMystery ? MysteryMaxVehicles : LightMysteryMaxVehicles;
+            var earlyRatio = hasMystery ? MysteryEarlyRatio : LightMysteryEarlyRatio;
+            var lateRatio = hasMystery ? MysteryLateRatio : LightMysteryLateRatio;
+
+            var active = new bool[result.Count];
+            for (var index = 0; index < active.Length; index++)
+            {
+                active[index] = true;
+                result[index] = result[index].WithStartsConcealed(false);
+            }
+
+            var candidates = new List<int>();
+            for (var index = 0; index < result.Count; index++)
+            {
+                if (!LevelVehicleExitPlanner.IsPathClear(index, result, active, out var blockingIndex) &&
+                    blockingIndex >= 0)
+                {
+                    candidates.Add(index);
+                }
+            }
+
+            if (candidates.Count == 0)
+            {
+                return result;
+            }
+
+            var tension = profile != null
+                ? Mathf.Clamp01(profile.ParkingTension * 0.70f + profile.StationPressure * 0.30f)
+                : 0.50f;
+            var ratio = Mathf.Lerp(earlyRatio, lateRatio, tension);
+            var target = Mathf.RoundToInt(result.Count * ratio);
+            target = Mathf.Clamp(
+                target,
+                Mathf.Min(minVehicles, candidates.Count),
+                Mathf.Min(maxVehicles, candidates.Count));
+
+            ShuffleIndices(candidates, new System.Random(seed ^ 0x5f3759df));
+            var selected = new HashSet<int>();
+            for (var index = 0; index < target; index++)
+            {
+                selected.Add(candidates[index]);
+            }
+
+            for (var index = 0; index < result.Count; index++)
+            {
+                result[index] = result[index].WithStartsConcealed(selected.Contains(index));
+            }
+
+            return result;
+        }
+
+        private static void ShuffleIndices(List<int> indices, System.Random random)
+        {
+            for (var index = indices.Count - 1; index > 0; index--)
+            {
+                var swapIndex = random.Next(0, index + 1);
+                var temp = indices[index];
+                indices[index] = indices[swapIndex];
+                indices[swapIndex] = temp;
+            }
         }
 
         public static PassengerFlowPlan BuildPassengerFlowPlan(

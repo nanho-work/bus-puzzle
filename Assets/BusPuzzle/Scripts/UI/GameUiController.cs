@@ -6,7 +6,7 @@ namespace BusPuzzle
 {
     public sealed partial class GameUiController : MonoBehaviour
     {
-        private const string FeedbackEmailAddress = "support@buspuzzle.app";
+        private const string FeedbackEmailAddress = "koofylab@gmail.com";
         private const string PrivacyPolicyUrl = "https://buspuzzle.app/privacy";
         private const string VipBoosterIconResource = "UI/Boosters/booster_vip 1";
         private const string MixBoosterIconResource = "UI/Boosters/booster_mix 1";
@@ -18,6 +18,7 @@ namespace BusPuzzle
         private const string PromptButtonBaseResource = "UI/Boosters/base";
         private const string AdIconResource = "UI/Boosters/ad";
         private const string GoldIconResource = "UI/Boosters/gold 1";
+        private const string LanguageIconResource = "UI/Boosters/Language";
         private const float HeaderIconSize = 117f;
         private const int HeaderStageFontSize = 60;
         private const int HeaderGoldFontSize = 34;
@@ -57,10 +58,23 @@ namespace BusPuzzle
         private Button nextButton;
         private Text nextButtonText;
         private RectTransform settingsPanel;
+        private Text settingsTitleText;
+        private Text effectSoundLabelText;
+        private Text mainSoundLabelText;
+        private Text vibrationLabelText;
+        private Text languageLabelText;
+        private Button languageButton;
+        private RectTransform languagePrompt;
+        private Text languagePromptTitleText;
+        private readonly System.Collections.Generic.List<Button> languageOptionButtons = new System.Collections.Generic.List<Button>();
+        private readonly System.Collections.Generic.List<Text> languageOptionButtonTexts = new System.Collections.Generic.List<Text>();
+        private readonly System.Collections.Generic.List<string> languageOptionCodes = new System.Collections.Generic.List<string>();
         private RectTransform clearPrompt;
+        private Text clearPromptTitleText;
         private Text clearPromptText;
         private Text clearRewardText;
         private RectTransform failPrompt;
+        private Text failPromptTitleText;
         private Text failPromptText;
         private Text failHintText;
         private Button failStationUnlockButton;
@@ -69,27 +83,35 @@ namespace BusPuzzle
         private Text failVipButtonText;
         private Button failDepartButton;
         private Text failDepartButtonText;
+        private Text failRetryButtonText;
         private RectTransform exitPrompt;
+        private Text exitPromptTitleText;
         private Text exitPromptText;
+        private Text exitButtonText;
         private Toggle effectSoundToggle;
         private Toggle mainSoundToggle;
         private Toggle vibrationToggle;
         private RectTransform stationUnlockPrompt;
+        private Text stationUnlockPromptTitleText;
         private Text stationUnlockPromptText;
         private Button stationUnlockConfirmButton;
+        private Text stationUnlockConfirmButtonText;
         private RectTransform vipTeleportPrompt;
+        private Text vipTeleportPromptTitleText;
         private Text vipTeleportPromptText;
         private Button vipTeleportGoldConfirmButton;
         private Text vipTeleportGoldButtonText;
         private Button vipTeleportConfirmButton;
         private Text vipTeleportWatchButtonText;
         private RectTransform mixShufflePrompt;
+        private Text mixShufflePromptTitleText;
         private Text mixShufflePromptText;
         private Button mixShuffleGoldConfirmButton;
         private Text mixShuffleGoldButtonText;
         private Button mixShuffleConfirmButton;
         private Text mixShuffleWatchButtonText;
         private RectTransform departPrompt;
+        private Text departPromptTitleText;
         private Text departPromptText;
         private Button departGoldConfirmButton;
         private Text departGoldButtonText;
@@ -160,7 +182,7 @@ namespace BusPuzzle
         {
             if (remainingText != null)
             {
-                remainingText.text = $"Units {remainingCount}";
+                remainingText.text = Localization.Text("units_count", remainingCount);
             }
         }
 
@@ -168,7 +190,7 @@ namespace BusPuzzle
         {
             if (stationText != null)
             {
-                stationText.text = $"Stops {occupiedSlots}/{totalSlots}";
+                stationText.text = Localization.Text("stops_count", occupiedSlots, totalSlots);
             }
         }
 
@@ -210,9 +232,9 @@ namespace BusPuzzle
                 if (vipBadgeText != null)
                 {
                     vipBadgeText.text = isSelectionMode
-                        ? "Cancel"
+                        ? Localization.Text("cancel")
                         : hasTicket
-                            ? "Pick"
+                            ? Localization.Text("pick")
                             : adInProgress
                                 ? "..."
                                 : $"{Mathf.Clamp(usedCount, 0, maxUses)}/{Mathf.Max(0, maxUses)}";
@@ -410,7 +432,7 @@ namespace BusPuzzle
 
         public void ShowClear(int levelNumber, bool hasNextLevel, int goldReward)
         {
-            statusText.text = hasNextLevel ? "Clear" : "All Clear";
+            statusText.text = hasNextLevel ? Localization.Text("status_clear") : Localization.Text("status_all_clear");
             SetRestartButtonInteractable(false);
             shouldReturnToFailPromptOnRecoveryCancel = false;
             SetStationUnlock(0, false, false, false);
@@ -429,7 +451,7 @@ namespace BusPuzzle
 
         public void ShowFailed(bool canUnlockStationSlot, bool canVipTeleport, bool canMixShuffle, bool canDepart)
         {
-            statusText.text = "Failed";
+            statusText.text = Localization.Text("status_failed");
             SetRestartButtonInteractable(true);
             shouldReturnToFailPromptOnRecoveryCancel = false;
             HideSettingsPanel();

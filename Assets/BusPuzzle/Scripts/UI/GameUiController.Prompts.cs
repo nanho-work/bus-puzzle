@@ -19,10 +19,22 @@ namespace BusPuzzle
             Vector2 anchorMin,
             Vector2 anchorMax)
         {
+            return CreatePromptModal(overlay, name, title, anchorMin, anchorMax, out _);
+        }
+
+        private RectTransform CreatePromptModal(
+            RectTransform overlay,
+            string name,
+            string title,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            out Text titleText)
+        {
             var modal = CreateGameDialog(name, overlay);
             SetAnchors(modal, anchorMin, anchorMax, Vector2.zero, Vector2.zero);
 
             var titlePlate = CreateDialogTitlePlate($"{name} Title Plate", modal, title);
+            titleText = titlePlate.GetComponentInChildren<Text>();
             SetAnchors(titlePlate, new Vector2(0.17f, 0.88f), new Vector2(0.83f, 1.14f), Vector2.zero, Vector2.zero);
             return modal;
         }
@@ -112,9 +124,10 @@ namespace BusPuzzle
             var modal = CreatePromptModal(
                 clearPrompt,
                 "Clear Prompt",
-                "CLEAR",
+                Localization.Text("clear_title"),
                 new Vector2(0.10f, 0.32f),
-                new Vector2(0.90f, 0.66f));
+                new Vector2(0.90f, 0.66f),
+                out clearPromptTitleText);
 
             clearPromptText = CreateText("Clear Prompt Text", modal, TextAnchor.MiddleCenter, 42, FontStyle.Bold);
             SetAnchors(clearPromptText.rectTransform, new Vector2(0f, 0.58f), new Vector2(1f, 0.80f), new Vector2(24f, 4f), new Vector2(-24f, -4f));
@@ -139,7 +152,7 @@ namespace BusPuzzle
             clearRewardText.color = new Color(1.00f, 0.78f, 0.16f);
             SetAnchors(clearRewardText.rectTransform, new Vector2(0.31f, 0f), Vector2.one, new Vector2(0f, 2f), new Vector2(-16f, -2f));
 
-            nextButton = CreateImageActionButton("Clear Next Button", modal, NextButtonIconResource, "Next", UiPrimaryActionColor);
+            nextButton = CreateImageActionButton("Clear Next Button", modal, NextButtonIconResource, Localization.Text("next"), UiPrimaryActionColor);
             nextButtonText = GetButtonLabel(nextButton);
             SetAnchors(nextButton.GetComponent<RectTransform>(), new Vector2(0.18f, 0.01f), new Vector2(0.82f, 0.31f), new Vector2(0f, 16f), new Vector2(0f, -10f));
             nextButton.onClick.AddListener(() =>
@@ -161,12 +174,14 @@ namespace BusPuzzle
             clearPrompt.gameObject.SetActive(true);
             if (clearPromptText != null)
             {
-                clearPromptText.text = $"Stage {levelNumber:00} Clear";
+                clearPromptText.text = Localization.Text("clear_stage", levelNumber);
             }
 
             if (clearRewardText != null)
             {
-                clearRewardText.text = goldReward > 0 ? $"+{goldReward} Gold" : "Reward Claimed";
+                clearRewardText.text = goldReward > 0
+                    ? Localization.Text("reward_gold", goldReward)
+                    : Localization.Text("reward_claimed");
             }
 
             if (nextButton != null)
@@ -176,7 +191,7 @@ namespace BusPuzzle
 
             if (nextButtonText != null)
             {
-                nextButtonText.text = hasNextLevel ? "Next" : "Done";
+                nextButtonText.text = hasNextLevel ? Localization.Text("next") : Localization.Text("done");
             }
         }
 
@@ -194,16 +209,17 @@ namespace BusPuzzle
             var modal = CreatePromptModal(
                 failPrompt,
                 "Fail Prompt",
-                "FAILED",
+                Localization.Text("failed_title"),
                 new Vector2(0.06f, 0.24f),
-                new Vector2(0.94f, 0.69f));
+                new Vector2(0.94f, 0.69f),
+                out failPromptTitleText);
 
             failPromptText = CreateText("Fail Prompt Text", modal, TextAnchor.MiddleCenter, 40, FontStyle.Bold);
-            failPromptText.text = "Stage Failed";
+            failPromptText.text = Localization.Text("stage_failed");
             SetAnchors(failPromptText.rectTransform, new Vector2(0f, 0.66f), new Vector2(1f, 0.82f), new Vector2(24f, 4f), new Vector2(-24f, -4f));
 
             failHintText = CreateText("Fail Hint Text", modal, TextAnchor.MiddleCenter, 26, FontStyle.Normal);
-            failHintText.text = "Recover or Retry";
+            failHintText.text = Localization.Text("recover_or_retry");
             failHintText.color = new Color(0.78f, 0.90f, 0.96f, 0.92f);
             SetAnchors(failHintText.rectTransform, new Vector2(0f, 0.52f), new Vector2(1f, 0.66f), new Vector2(24f, 0f), new Vector2(-24f, 0f));
 
@@ -211,7 +227,7 @@ namespace BusPuzzle
                 "Fail Station Unlock Button",
                 modal,
                 StationSlotBoosterIconResource,
-                "+Slot",
+                Localization.Text("plus_slot"),
                 UiAdActionColor,
                 out failStationUnlockButtonText);
             SetAnchors(failStationUnlockButton.GetComponent<RectTransform>(), new Vector2(0.03f, 0.12f), new Vector2(0.25f, 0.52f), Vector2.zero, Vector2.zero);
@@ -226,7 +242,7 @@ namespace BusPuzzle
                 "Fail VIP Button",
                 modal,
                 VipBoosterIconResource,
-                "VIP",
+                Localization.Text("vip_title"),
                 UiGoldActionColor,
                 out failVipButtonText);
             SetAnchors(failVipButton.GetComponent<RectTransform>(), new Vector2(0.27f, 0.12f), new Vector2(0.49f, 0.52f), Vector2.zero, Vector2.zero);
@@ -241,7 +257,7 @@ namespace BusPuzzle
                 "Fail Depart Button",
                 modal,
                 DepartBoosterIconResource,
-                "Depart",
+                Localization.Text("depart"),
                 UiBoosterDepartColor,
                 out failDepartButtonText);
             SetAnchors(failDepartButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0.12f), new Vector2(0.73f, 0.52f), Vector2.zero, Vector2.zero);
@@ -256,9 +272,9 @@ namespace BusPuzzle
                 "Fail Retry Button",
                 modal,
                 RetryButtonIconResource,
-                "Retry",
+                Localization.Text("retry"),
                 UiDangerActionColor,
-                out _);
+                out failRetryButtonText);
             SetAnchors(retryButton.GetComponent<RectTransform>(), new Vector2(0.75f, 0.12f), new Vector2(0.97f, 0.52f), Vector2.zero, Vector2.zero);
             retryButton.onClick.AddListener(() =>
             {
@@ -294,13 +310,13 @@ namespace BusPuzzle
             if (failHintText != null)
             {
                 failHintText.text = canUnlockStationSlot || canVipTeleport || canDepart
-                    ? "Recover or Retry"
-                    : "Retry Stage";
+                    ? Localization.Text("recover_or_retry")
+                    : Localization.Text("retry_stage");
             }
 
-            SetFailRecoveryButtonState(failStationUnlockButton, failStationUnlockButtonText, "+ Slot", canUnlockStationSlot);
-            SetFailRecoveryButtonState(failVipButton, failVipButtonText, "VIP", canVipTeleport);
-            SetFailRecoveryButtonState(failDepartButton, failDepartButtonText, "Depart", canDepart);
+            SetFailRecoveryButtonState(failStationUnlockButton, failStationUnlockButtonText, Localization.Text("plus_slot"), canUnlockStationSlot);
+            SetFailRecoveryButtonState(failVipButton, failVipButtonText, Localization.Text("vip_title"), canVipTeleport);
+            SetFailRecoveryButtonState(failDepartButton, failDepartButtonText, Localization.Text("depart"), canDepart);
         }
 
         private static void SetFailRecoveryButtonState(Button button, Text label, string activeLabel, bool isAvailable)
@@ -312,7 +328,7 @@ namespace BusPuzzle
 
             if (label != null)
             {
-                label.text = isAvailable ? activeLabel : "Locked";
+                label.text = isAvailable ? activeLabel : Localization.Text("locked");
             }
         }
 
@@ -347,18 +363,19 @@ namespace BusPuzzle
             var modal = CreatePromptModal(
                 exitPrompt,
                 "Exit Prompt",
-                "EXIT",
+                Localization.Text("exit_title"),
                 new Vector2(0.12f, 0.36f),
-                new Vector2(0.88f, 0.62f));
+                new Vector2(0.88f, 0.62f),
+                out exitPromptTitleText);
 
             exitPromptText = CreateText("Exit Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
-            exitPromptText.text = "Exit Game?";
+            exitPromptText.text = Localization.Text("exit_game");
             SetAnchors(exitPromptText.rectTransform, new Vector2(0f, 0.45f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
 
             var closeButton = CreatePromptCloseButton("Exit Close Button", modal);
             closeButton.onClick.AddListener(HideExitPrompt);
 
-            var exitButton = CreatePromptTextButton("Exit Confirm Button", modal, "Exit", UiDangerActionColor, out _);
+            var exitButton = CreatePromptTextButton("Exit Confirm Button", modal, Localization.Text("exit"), UiDangerActionColor, out exitButtonText);
             SetAnchors(exitButton.GetComponent<RectTransform>(), new Vector2(0.18f, 0f), new Vector2(0.82f, 0.40f), new Vector2(0f, 16f), new Vector2(0f, -12f));
             exitButton.onClick.AddListener(() =>
             {
@@ -383,9 +400,10 @@ namespace BusPuzzle
             var modal = CreatePromptModal(
                 stationUnlockPrompt,
                 "Station Unlock Prompt",
-                "SLOT",
+                Localization.Text("slot_title"),
                 new Vector2(0.10f, 0.35f),
-                new Vector2(0.90f, 0.62f));
+                new Vector2(0.90f, 0.62f),
+                out stationUnlockPromptTitleText);
 
             stationUnlockPromptText = CreateText("Station Unlock Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(stationUnlockPromptText.rectTransform, new Vector2(0f, 0.46f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -393,7 +411,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Station Unlock Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(stationUnlockPrompt));
 
-            stationUnlockConfirmButton = CreatePromptAdButton("Station Unlock Confirm Button", modal, "Watch", UiAdActionColor, out _);
+            stationUnlockConfirmButton = CreatePromptAdButton("Station Unlock Confirm Button", modal, Localization.Text("watch"), UiAdActionColor, out stationUnlockConfirmButtonText);
             SetAnchors(stationUnlockConfirmButton.GetComponent<RectTransform>(), new Vector2(0.18f, 0f), new Vector2(0.82f, 0.40f), new Vector2(0f, 16f), new Vector2(0f, -12f));
             stationUnlockConfirmButton.onClick.AddListener(() =>
             {
@@ -411,9 +429,10 @@ namespace BusPuzzle
             var modal = CreatePromptModal(
                 vipTeleportPrompt,
                 "VIP Teleport Prompt",
-                "VIP",
+                Localization.Text("vip_title"),
                 new Vector2(0.08f, 0.34f),
-                new Vector2(0.92f, 0.63f));
+                new Vector2(0.92f, 0.63f),
+                out vipTeleportPromptTitleText);
 
             vipTeleportPromptText = CreateText("VIP Teleport Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(vipTeleportPromptText.rectTransform, new Vector2(0f, 0.48f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -421,7 +440,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("VIP Teleport Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(vipTeleportPrompt));
 
-            vipTeleportGoldConfirmButton = CreatePromptGoldButton("VIP Teleport Gold Button", modal, "120 Gold", UiGoldActionColor, out vipTeleportGoldButtonText);
+            vipTeleportGoldConfirmButton = CreatePromptGoldButton("VIP Teleport Gold Button", modal, Localization.Text("cost_gold", 120), UiGoldActionColor, out vipTeleportGoldButtonText);
             SetAnchors(vipTeleportGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             vipTeleportGoldConfirmButton.onClick.AddListener(() =>
             {
@@ -430,7 +449,7 @@ namespace BusPuzzle
                 VipTeleportGoldConfirmed?.Invoke();
             });
 
-            vipTeleportConfirmButton = CreatePromptAdButton("VIP Teleport Confirm Button", modal, "Watch", UiAdActionColor, out vipTeleportWatchButtonText);
+            vipTeleportConfirmButton = CreatePromptAdButton("VIP Teleport Confirm Button", modal, Localization.Text("watch"), UiAdActionColor, out vipTeleportWatchButtonText);
             SetAnchors(vipTeleportConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             vipTeleportConfirmButton.onClick.AddListener(() =>
             {
@@ -448,9 +467,10 @@ namespace BusPuzzle
             var modal = CreatePromptModal(
                 mixShufflePrompt,
                 "Mix Shuffle Prompt",
-                "MIX",
+                Localization.Text("mix_title"),
                 new Vector2(0.08f, 0.34f),
-                new Vector2(0.92f, 0.63f));
+                new Vector2(0.92f, 0.63f),
+                out mixShufflePromptTitleText);
 
             mixShufflePromptText = CreateText("Mix Shuffle Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(mixShufflePromptText.rectTransform, new Vector2(0f, 0.48f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -458,7 +478,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Mix Shuffle Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(mixShufflePrompt));
 
-            mixShuffleGoldConfirmButton = CreatePromptGoldButton("Mix Shuffle Gold Button", modal, "90 Gold", UiGoldActionColor, out mixShuffleGoldButtonText);
+            mixShuffleGoldConfirmButton = CreatePromptGoldButton("Mix Shuffle Gold Button", modal, Localization.Text("cost_gold", 90), UiGoldActionColor, out mixShuffleGoldButtonText);
             SetAnchors(mixShuffleGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             mixShuffleGoldConfirmButton.onClick.AddListener(() =>
             {
@@ -467,7 +487,7 @@ namespace BusPuzzle
                 MixShuffleGoldConfirmed?.Invoke();
             });
 
-            mixShuffleConfirmButton = CreatePromptAdButton("Mix Shuffle Confirm Button", modal, "Watch", UiPrimaryActionColor, out mixShuffleWatchButtonText);
+            mixShuffleConfirmButton = CreatePromptAdButton("Mix Shuffle Confirm Button", modal, Localization.Text("watch"), UiPrimaryActionColor, out mixShuffleWatchButtonText);
             SetAnchors(mixShuffleConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             mixShuffleConfirmButton.onClick.AddListener(() =>
             {
@@ -485,9 +505,10 @@ namespace BusPuzzle
             var modal = CreatePromptModal(
                 departPrompt,
                 "Depart Prompt",
-                "DEPART",
+                Localization.Text("depart"),
                 new Vector2(0.08f, 0.34f),
-                new Vector2(0.92f, 0.63f));
+                new Vector2(0.92f, 0.63f),
+                out departPromptTitleText);
 
             departPromptText = CreateText("Depart Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(departPromptText.rectTransform, new Vector2(0f, 0.48f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -495,7 +516,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Depart Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(departPrompt));
 
-            departGoldConfirmButton = CreatePromptGoldButton("Depart Gold Button", modal, "90 Gold", UiGoldActionColor, out departGoldButtonText);
+            departGoldConfirmButton = CreatePromptGoldButton("Depart Gold Button", modal, Localization.Text("cost_gold", 90), UiGoldActionColor, out departGoldButtonText);
             SetAnchors(departGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             departGoldConfirmButton.onClick.AddListener(() =>
             {
@@ -504,7 +525,7 @@ namespace BusPuzzle
                 DepartGoldConfirmed?.Invoke();
             });
 
-            departConfirmButton = CreatePromptAdButton("Depart Confirm Button", modal, "Watch", UiAdActionColor, out departWatchButtonText);
+            departConfirmButton = CreatePromptAdButton("Depart Confirm Button", modal, Localization.Text("watch"), UiAdActionColor, out departWatchButtonText);
             SetAnchors(departConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             departConfirmButton.onClick.AddListener(() =>
             {
@@ -521,13 +542,18 @@ namespace BusPuzzle
             if (stationUnlockPromptText != null)
             {
                 stationUnlockPromptText.text = adInProgress || !adReady
-                    ? "Loading Ad"
-                    : $"Watch Ad?\n+1 Stop ({lockedSlotsRemaining})";
+                    ? Localization.Text("loading_ad")
+                    : Localization.Text("watch_ad_stop", lockedSlotsRemaining);
             }
 
             if (stationUnlockConfirmButton != null)
             {
                 stationUnlockConfirmButton.interactable = adReady && !adInProgress;
+            }
+
+            if (stationUnlockConfirmButtonText != null)
+            {
+                stationUnlockConfirmButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
             }
         }
 
@@ -544,20 +570,20 @@ namespace BusPuzzle
             {
                 var remainingUses = Mathf.Max(0, maxUses - usedCount);
                 vipTeleportPromptText.text = canSpendGold
-                    ? $"VIP Bus ({remainingUses})\nUse Gold or Watch Ad"
-                    : $"VIP Bus ({remainingUses})\nGold {Mathf.Max(0, goldBalance)}/{Mathf.Max(0, goldCost)}";
+                    ? Localization.Text("vip_bus_gold_or_ad", remainingUses)
+                    : Localization.Text("vip_bus_gold_balance", remainingUses, Mathf.Max(0, goldBalance), Mathf.Max(0, goldCost));
             }
 
             if (vipTeleportGoldButtonText != null)
             {
                 vipTeleportGoldButtonText.text = canSpendGold
-                    ? $"{Mathf.Max(0, goldCost)} Gold"
-                    : "Need Gold";
+                    ? Localization.Text("cost_gold", Mathf.Max(0, goldCost))
+                    : Localization.Text("need_gold");
             }
 
             if (vipTeleportWatchButtonText != null)
             {
-                vipTeleportWatchButtonText.text = adInProgress || !adReady ? "Loading" : "Watch";
+                vipTeleportWatchButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
             }
 
             if (vipTeleportGoldConfirmButton != null)
@@ -581,20 +607,20 @@ namespace BusPuzzle
             if (mixShufflePromptText != null)
             {
                 mixShufflePromptText.text = canSpendGold
-                    ? "Mix Buses\nUse Gold or Watch Ad"
-                    : $"Mix Buses\nGold {Mathf.Max(0, goldBalance)}/{Mathf.Max(0, goldCost)}";
+                    ? Localization.Text("mix_buses_gold_or_ad")
+                    : Localization.Text("mix_buses_gold_balance", Mathf.Max(0, goldBalance), Mathf.Max(0, goldCost));
             }
 
             if (mixShuffleGoldButtonText != null)
             {
                 mixShuffleGoldButtonText.text = canSpendGold
-                    ? $"{Mathf.Max(0, goldCost)} Gold"
-                    : "Need Gold";
+                    ? Localization.Text("cost_gold", Mathf.Max(0, goldCost))
+                    : Localization.Text("need_gold");
             }
 
             if (mixShuffleWatchButtonText != null)
             {
-                mixShuffleWatchButtonText.text = adInProgress || !adReady ? "Loading" : "Watch";
+                mixShuffleWatchButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
             }
 
             if (mixShuffleGoldConfirmButton != null)
@@ -618,20 +644,20 @@ namespace BusPuzzle
             if (departPromptText != null)
             {
                 departPromptText.text = canSpendGold
-                    ? "Depart Buses\nUse Gold or Watch Ad"
-                    : $"Depart Buses\nGold {Mathf.Max(0, goldBalance)}/{Mathf.Max(0, goldCost)}";
+                    ? Localization.Text("depart_buses_gold_or_ad")
+                    : Localization.Text("depart_buses_gold_balance", Mathf.Max(0, goldBalance), Mathf.Max(0, goldCost));
             }
 
             if (departGoldButtonText != null)
             {
                 departGoldButtonText.text = canSpendGold
-                    ? $"{Mathf.Max(0, goldCost)} Gold"
-                    : "Need Gold";
+                    ? Localization.Text("cost_gold", Mathf.Max(0, goldCost))
+                    : Localization.Text("need_gold");
             }
 
             if (departWatchButtonText != null)
             {
-                departWatchButtonText.text = adInProgress || !adReady ? "Loading" : "Watch";
+                departWatchButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
             }
 
             if (departGoldConfirmButton != null)

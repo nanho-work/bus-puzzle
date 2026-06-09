@@ -8,13 +8,15 @@ namespace BusPuzzle
     {
         private const float DepartureStationClearProgress = 0.20f;
         private const float DrivingTrailInterval = 0.040f;
-        private const float StationIdlePulseSpeed = 5.2f;
-        private const float StationIdlePulseSettleSpeed = 12f;
-        private const float StationIdlePulseHorizontalScale = 0.026f;
-        private const float StationIdlePulseVerticalScale = 0.012f;
-        private const float BoardingShakeSpeed = 34f;
-        private const float BoardingShakeHorizontalScale = 0.010f;
-        private const float BoardingShakeVerticalScale = 0.006f;
+        private const float StationIdlePulseSpeed = 6.1f;
+        private const float StationIdlePulseSettleSpeed = 13f;
+        private const float StationIdlePulseHorizontalScale = 0.040f;
+        private const float StationIdlePulseVerticalScale = 0.018f;
+        private const float StationIdlePulseLift = 0.006f;
+        private const float BoardingShakeSpeed = 38f;
+        private const float BoardingShakeHorizontalScale = 0.018f;
+        private const float BoardingShakeVerticalScale = 0.010f;
+        private const float BoardingShakeYawDegrees = 1.2f;
 
         private Coroutine motionRoutine;
         private Coroutine hitShakeRoutine;
@@ -24,6 +26,7 @@ namespace BusPuzzle
         private GameObject mysteryBadge;
         private VehicleBoardingCounter boardingCounter;
         private BoxCollider touchCollider;
+        private Transform visualBodyRoot;
         private Vector3 hitShakeStartPosition;
         private Quaternion hitShakeStartRotation;
         private float cellSize = 1.2f;
@@ -32,6 +35,9 @@ namespace BusPuzzle
         private int boardingUnitsInProgress;
         private bool usingModelVisual;
         private Vector3 baseLocalScale = Vector3.one;
+        private Vector3 baseVisualBodyLocalPosition = Vector3.zero;
+        private Vector3 baseVisualBodyLocalScale = Vector3.one;
+        private Quaternion baseVisualBodyLocalRotation = Quaternion.identity;
         private float idlePulsePhase;
 
         public PuzzleColor Color { get; private set; }
@@ -103,6 +109,10 @@ namespace BusPuzzle
             SourceGarage = null;
             baseLocalScale = Vector3.one;
             transform.localScale = baseLocalScale;
+            visualBodyRoot = null;
+            baseVisualBodyLocalPosition = Vector3.zero;
+            baseVisualBodyLocalScale = Vector3.one;
+            baseVisualBodyLocalRotation = Quaternion.identity;
             idlePulsePhase = UnityEngine.Random.value * Mathf.PI * 2f;
 
             transform.rotation = definition.Rotation;
@@ -422,32 +432,91 @@ namespace BusPuzzle
             {
                 var waveA = Mathf.Sin(Time.time * BoardingShakeSpeed + idlePulsePhase);
                 var waveB = Mathf.Sin(Time.time * (BoardingShakeSpeed * 1.37f) + idlePulsePhase * 0.6f);
-                transform.localScale = new Vector3(
-                    baseLocalScale.x * (1f + waveA * BoardingShakeHorizontalScale),
-                    baseLocalScale.y * (1f + Mathf.Abs(waveB) * BoardingShakeVerticalScale),
-                    baseLocalScale.z * (1f - waveA * BoardingShakeHorizontalScale * 0.55f));
+                ApplyVisualBodyPose(
+                    new Vector3(
+                        1f + waveA * BoardingShakeHorizontalScale,
+                        1f + Mathf.Abs(waveB) * BoardingShakeVerticalScale,
+                        1f - waveA * BoardingShakeHorizontalScale * 0.55f),
+                    Vector3.up * (Mathf.Abs(waveB) * cellSize * StationIdlePulseLift),
+                    Quaternion.Euler(0f, waveA * BoardingShakeYawDegrees, 0f));
                 return;
             }
 
             if (ShouldPlayStationIdlePulse())
             {
                 var pulse = (Mathf.Sin(Time.time * StationIdlePulseSpeed + idlePulsePhase) + 1f) * 0.5f;
-                transform.localScale = new Vector3(
-                    baseLocalScale.x * (1f + pulse * StationIdlePulseHorizontalScale),
-                    baseLocalScale.y * (1f + pulse * StationIdlePulseVerticalScale),
-                    baseLocalScale.z * (1f + pulse * StationIdlePulseHorizontalScale));
+                ApplyVisualBodyPose(
+                    new Vector3(
+                        1f + pulse * StationIdlePulseHorizontalScale,
+                        1f + pulse * StationIdlePulseVerticalScale,
+                        1f + pulse * StationIdlePulseHorizontalScale),
+                    Vector3.up * (pulse * cellSize * StationIdlePulseLift),
+                    Quaternion.identity);
                 return;
             }
 
-            if ((transform.localScale - baseLocalScale).sqrMagnitude <= 0.00001f)
+            if (IsVisualBodyAtRest())
             {
-                transform.localScale = baseLocalScale;
+                ResetStationIdlePulse();
                 return;
             }
 
-            transform.localScale = Vector3.Lerp(
-                transform.localScale,
-                baseLocalScale,
+            SettleVisualBodyPose();
+        }
+
+        private void ApplyVisualBodyPose(Vector3 scaleMultiplier, Vector3 localOffset, Quaternion localRotationOffset)
+        {
+            if (visualBodyRoot == null)
+            {
+                transform.localScale = new Vector3(
+                    baseLocalScale.x * scaleMultiplier.x,
+                    baseLocalScale.y * scaleMultiplier.y,
+                    baseLocalScale.z * scaleMultiplier.z);
+                return;
+            }
+
+            visualBodyRoot.localScale = new Vector3(
+                baseVisualBodyLocalScale.x * scaleMultiplier.x,
+                baseVisualBodyLocalScale.y * scaleMultiplier.y,
+                baseVisualBodyLocalScale.z * scaleMultiplier.z);
+            visualBodyRoot.localPosition = baseVisualBodyLocalPosition + localOffset;
+            visualBodyRoot.localRotation = baseVisualBodyLocalRotation * localRotationOffset;
+        }
+
+        private bool IsVisualBodyAtRest()
+        {
+            if (visualBodyRoot == null)
+            {
+                return (transform.localScale - baseLocalScale).sqrMagnitude <= 0.00001f;
+            }
+
+            return (visualBodyRoot.localScale - baseVisualBodyLocalScale).sqrMagnitude <= 0.00001f &&
+                   (visualBodyRoot.localPosition - baseVisualBodyLocalPosition).sqrMagnitude <= 0.000001f &&
+                   Quaternion.Angle(visualBodyRoot.localRotation, baseVisualBodyLocalRotation) <= 0.05f;
+        }
+
+        private void SettleVisualBodyPose()
+        {
+            if (visualBodyRoot == null)
+            {
+                transform.localScale = Vector3.Lerp(
+                    transform.localScale,
+                    baseLocalScale,
+                    Time.deltaTime * StationIdlePulseSettleSpeed);
+                return;
+            }
+
+            visualBodyRoot.localScale = Vector3.Lerp(
+                visualBodyRoot.localScale,
+                baseVisualBodyLocalScale,
+                Time.deltaTime * StationIdlePulseSettleSpeed);
+            visualBodyRoot.localPosition = Vector3.Lerp(
+                visualBodyRoot.localPosition,
+                baseVisualBodyLocalPosition,
+                Time.deltaTime * StationIdlePulseSettleSpeed);
+            visualBodyRoot.localRotation = Quaternion.Slerp(
+                visualBodyRoot.localRotation,
+                baseVisualBodyLocalRotation,
                 Time.deltaTime * StationIdlePulseSettleSpeed);
         }
 
@@ -474,6 +543,14 @@ namespace BusPuzzle
         private void ResetStationIdlePulse()
         {
             transform.localScale = baseLocalScale;
+            if (visualBodyRoot == null)
+            {
+                return;
+            }
+
+            visualBodyRoot.localPosition = baseVisualBodyLocalPosition;
+            visualBodyRoot.localScale = baseVisualBodyLocalScale;
+            visualBodyRoot.localRotation = baseVisualBodyLocalRotation;
         }
 
         private void EnsureVipHighlight()
@@ -545,12 +622,27 @@ namespace BusPuzzle
 
         private bool CreateModelBody()
         {
-            return VehicleModelBuilder.Create(Size, Color, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize) != null;
+            return AssignVisualBodyRoot(VehicleModelBuilder.Create(Size, Color, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize));
         }
 
         private bool CreateConcealedModelBody()
         {
-            return VehicleModelBuilder.CreateSilhouette(Size, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize) != null;
+            return AssignVisualBodyRoot(VehicleModelBuilder.CreateSilhouette(Size, transform, VisualWidth, VisualHeight, VisualLength, VisualCenterZ, cellSize));
+        }
+
+        private bool AssignVisualBodyRoot(GameObject modelRoot)
+        {
+            if (modelRoot == null)
+            {
+                visualBodyRoot = null;
+                return false;
+            }
+
+            visualBodyRoot = modelRoot.transform;
+            baseVisualBodyLocalPosition = visualBodyRoot.localPosition;
+            baseVisualBodyLocalScale = visualBodyRoot.localScale;
+            baseVisualBodyLocalRotation = visualBodyRoot.localRotation;
+            return true;
         }
 
         private void BuildVisuals()
@@ -594,6 +686,10 @@ namespace BusPuzzle
             vipHighlight = null;
             mysteryBadge = null;
             boardingCounter = null;
+            visualBodyRoot = null;
+            baseVisualBodyLocalPosition = Vector3.zero;
+            baseVisualBodyLocalScale = Vector3.one;
+            baseVisualBodyLocalRotation = Quaternion.identity;
 
             for (var index = transform.childCount - 1; index >= 0; index--)
             {

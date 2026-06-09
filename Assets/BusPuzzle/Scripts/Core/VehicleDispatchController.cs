@@ -38,7 +38,7 @@ namespace BusPuzzle
         {
             if (bus != null && bus.IsConcealed)
             {
-                uiController.ShowInvalid("Mystery bus");
+                uiController.ShowInvalid(Localization.Text("status_mystery_bus"));
                 checkBlocked();
                 return false;
             }
@@ -50,7 +50,7 @@ namespace BusPuzzle
 
             if (!boardView.TryReserveStationSlot(out var stationSlotIndex, out var stationPosition))
             {
-                uiController.ShowInvalid("Station full");
+                uiController.ShowInvalid(Localization.Text("status_station_full"));
                 checkBlocked();
                 return false;
             }
@@ -60,13 +60,13 @@ namespace BusPuzzle
                 boardView.ReleaseStationSlot(stationSlotIndex);
                 updateCounters();
 
-                uiController.ShowInvalid("Blocked");
+                uiController.ShowInvalid(Localization.Text("status_blocked"));
                 bus.PlayBlockedCollision(collisionPosition, boardView.GetWorldDirection(bus), blockingBus, checkBlocked);
                 return false;
             }
 
             updateCounters();
-            uiController.ShowInvalid($"{PuzzlePalette.DisplayName(bus.Color)} bus dispatched");
+            uiController.ShowInvalid(Localization.Text("status_bus_dispatched", Localization.ColorName(bus.Color)));
             EffectAudioPlayer.PlayVehicleLaunch();
             HapticFeedback.PlayVehicleLaunch();
 
@@ -110,7 +110,7 @@ namespace BusPuzzle
         {
             if (bus != null && bus.IsConcealed)
             {
-                uiController.ShowInvalid("Mystery bus");
+                uiController.ShowInvalid(Localization.Text("status_mystery_bus"));
                 checkBlocked();
                 return false;
             }
@@ -122,13 +122,13 @@ namespace BusPuzzle
 
             if (!boardView.TryReserveVipStationSlot(out var stationSlotIndex, out var stationPosition))
             {
-                uiController.ShowInvalid("VIP busy");
+                uiController.ShowInvalid(Localization.Text("status_vip_busy"));
                 checkBlocked();
                 return false;
             }
 
             updateCounters();
-            uiController.ShowInvalid($"{PuzzlePalette.DisplayName(bus.Color)} VIP");
+            uiController.ShowInvalid(Localization.Text("status_bus_vip", Localization.ColorName(bus.Color)));
 
             var counterPosition = boardView.GetStationCounterPosition(stationSlotIndex);
             bus.TeleportToStation(

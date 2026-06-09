@@ -33,6 +33,11 @@ namespace BusPuzzle
             float visualCenterZ,
             float cellSize)
         {
+            if (TryCreatePrefabModel(size, color, parent, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize, out var prefabRoot))
+            {
+                return prefabRoot;
+            }
+
             var root = new GameObject($"{BusSizeUtility.DisplayName(size)} Model");
             root.transform.SetParent(parent, false);
 
@@ -54,6 +59,182 @@ namespace BusPuzzle
             }
 
             return root;
+        }
+
+        private static bool TryCreatePrefabModel(
+            BusSize size,
+            PuzzleColor color,
+            Transform parent,
+            float visualWidth,
+            float visualHeight,
+            float visualLength,
+            float visualCenterZ,
+            float cellSize,
+            out GameObject root)
+        {
+            root = null;
+            var library = VehiclePrefabLibrary.Load();
+            if (library == null || !library.TryGetPrefab(size, out var prefab))
+            {
+                return false;
+            }
+
+            root = new GameObject($"{BusSizeUtility.DisplayName(size)} Low Poly Model");
+            root.transform.SetParent(parent, false);
+
+            var instance = Object.Instantiate(prefab, root.transform, false);
+            instance.name = $"{prefab.name} Instance";
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+
+            ApplyPrefabMaterials(instance, new VehicleMaterials(color));
+            RemovePrefabColliders(instance);
+            NormalizePrefabBounds(root.transform, instance.transform, size, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
+            return true;
+        }
+
+        private static void ApplyPrefabMaterials(GameObject instance, VehicleMaterials materials)
+        {
+            var renderers = instance.GetComponentsInChildren<Renderer>(true);
+            for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            {
+                var renderer = renderers[rendererIndex];
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+
+                var sharedMaterials = renderer.sharedMaterials;
+                var changed = false;
+                for (var materialIndex = 0; materialIndex < sharedMaterials.Length; materialIndex++)
+                {
+                    if (!IsVehiclePaintMaterial(sharedMaterials[materialIndex]))
+                    {
+                        continue;
+                    }
+
+                    sharedMaterials[materialIndex] = materials.Body;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    renderer.sharedMaterials = sharedMaterials;
+                }
+            }
+        }
+
+        private static bool IsVehiclePaintMaterial(Material material)
+        {
+            return material != null && material.name.Contains("Paint");
+        }
+
+        private static void RemovePrefabColliders(GameObject instance)
+        {
+            var colliders = instance.GetComponentsInChildren<Collider>(true);
+            for (var index = 0; index < colliders.Length; index++)
+            {
+                RemoveCollider(colliders[index].gameObject);
+            }
+        }
+
+        private static void NormalizePrefabBounds(
+            Transform root,
+            Transform instance,
+            BusSize size,
+            float visualWidth,
+            float visualHeight,
+            float visualLength,
+            float visualCenterZ,
+            float cellSize)
+        {
+            if (!TryCalculateLocalRendererBounds(root, out var bounds))
+            {
+                return;
+            }
+
+            var widthScale = visualWidth / Mathf.Max(0.001f, bounds.size.x);
+            var lengthScale = visualLength / Mathf.Max(0.001f, bounds.size.z);
+            var heightScale = visualHeight / Mathf.Max(0.001f, bounds.size.y);
+            var scale = Mathf.Min(widthScale, lengthScale, heightScale) * 0.96f;
+            instance.localScale *= scale;
+            ApplyPrefabVisualSizeTuning(instance, size);
+
+            if (!TryCalculateLocalRendererBounds(root, out bounds))
+            {
+                return;
+            }
+
+            var groundLift = cellSize * 0.010f;
+            instance.localPosition += new Vector3(
+                -bounds.center.x,
+                -bounds.min.y + groundLift,
+                visualCenterZ - bounds.center.z);
+        }
+
+        private static void ApplyPrefabVisualSizeTuning(Transform instance, BusSize size)
+        {
+            var widthScale = 1.10f;
+            var lengthScale = size == BusSize.Large ? 0.93f : 1.00f;
+            instance.localScale = new Vector3(
+                instance.localScale.x * widthScale,
+                instance.localScale.y,
+                instance.localScale.z * lengthScale);
+        }
+
+        private static bool TryCalculateLocalRendererBounds(Transform root, out Bounds bounds)
+        {
+            bounds = default;
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            var hasBounds = false;
+            for (var index = 0; index < renderers.Length; index++)
+            {
+                var renderer = renderers[index];
+                var meshFilter = renderer.GetComponent<MeshFilter>();
+                if (meshFilter != null && meshFilter.sharedMesh != null)
+                {
+                    EncapsulateMeshBounds(root, meshFilter, ref bounds, ref hasBounds);
+                    continue;
+                }
+
+                var worldBounds = renderer.bounds;
+                EncapsulateLocalPoint(root, worldBounds.min, ref bounds, ref hasBounds);
+                EncapsulateLocalPoint(root, worldBounds.max, ref bounds, ref hasBounds);
+                EncapsulateLocalPoint(root, new Vector3(worldBounds.min.x, worldBounds.min.y, worldBounds.max.z), ref bounds, ref hasBounds);
+                EncapsulateLocalPoint(root, new Vector3(worldBounds.min.x, worldBounds.max.y, worldBounds.min.z), ref bounds, ref hasBounds);
+                EncapsulateLocalPoint(root, new Vector3(worldBounds.max.x, worldBounds.min.y, worldBounds.min.z), ref bounds, ref hasBounds);
+                EncapsulateLocalPoint(root, new Vector3(worldBounds.min.x, worldBounds.max.y, worldBounds.max.z), ref bounds, ref hasBounds);
+                EncapsulateLocalPoint(root, new Vector3(worldBounds.max.x, worldBounds.min.y, worldBounds.max.z), ref bounds, ref hasBounds);
+                EncapsulateLocalPoint(root, new Vector3(worldBounds.max.x, worldBounds.max.y, worldBounds.min.z), ref bounds, ref hasBounds);
+            }
+
+            return hasBounds;
+        }
+
+        private static void EncapsulateMeshBounds(Transform root, MeshFilter meshFilter, ref Bounds bounds, ref bool hasBounds)
+        {
+            var localBounds = meshFilter.sharedMesh.bounds;
+            var min = localBounds.min;
+            var max = localBounds.max;
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(min), ref bounds, ref hasBounds);
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(max), ref bounds, ref hasBounds);
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(new Vector3(min.x, min.y, max.z)), ref bounds, ref hasBounds);
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(new Vector3(min.x, max.y, min.z)), ref bounds, ref hasBounds);
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(new Vector3(max.x, min.y, min.z)), ref bounds, ref hasBounds);
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(new Vector3(min.x, max.y, max.z)), ref bounds, ref hasBounds);
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(new Vector3(max.x, min.y, max.z)), ref bounds, ref hasBounds);
+            EncapsulateLocalPoint(root, meshFilter.transform.TransformPoint(new Vector3(max.x, max.y, min.z)), ref bounds, ref hasBounds);
+        }
+
+        private static void EncapsulateLocalPoint(Transform root, Vector3 worldPoint, ref Bounds bounds, ref bool hasBounds)
+        {
+            var localPoint = root.InverseTransformPoint(worldPoint);
+            if (!hasBounds)
+            {
+                bounds = new Bounds(localPoint, Vector3.zero);
+                hasBounds = true;
+                return;
+            }
+
+            bounds.Encapsulate(localPoint);
         }
 
         public static GameObject CreateSilhouette(

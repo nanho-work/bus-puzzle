@@ -498,7 +498,7 @@ namespace BusPuzzle
 
             if (!HasVipTeleportTarget())
             {
-                uiController.ShowInvalid("No VIP target");
+                uiController.ShowInvalid(Localization.Text("status_no_vip_target"));
                 UpdateVipTeleportUi();
                 return;
             }
@@ -538,7 +538,7 @@ namespace BusPuzzle
 
             if (!UserEconomy.TrySpendGold(VipTeleportGoldCost))
             {
-                uiController.ShowInvalid("Need Gold");
+                uiController.ShowInvalid(Localization.Text("need_gold"));
                 ShowVipTeleportPrompt();
                 UpdateGoldUi();
                 UpdateVipTeleportUi();
@@ -612,14 +612,16 @@ namespace BusPuzzle
         {
             if (vipTeleportTickets <= 0 || !HasVipTeleportTarget())
             {
-                uiController.ShowInvalid(boardView != null && !boardView.CanReserveVipStationSlot ? "VIP busy" : "No VIP target");
+                uiController.ShowInvalid(boardView != null && !boardView.CanReserveVipStationSlot
+                    ? Localization.Text("status_vip_busy")
+                    : Localization.Text("status_no_vip_target"));
                 UpdateVipTeleportUi();
                 return;
             }
 
             isVipSelectionMode = true;
             ApplyVipHighlights();
-            uiController.ShowInvalid("Choose VIP bus");
+            uiController.ShowInvalid(Localization.Text("status_choose_vip_bus"));
             UpdateRewardedAdUi();
         }
 
@@ -659,7 +661,7 @@ namespace BusPuzzle
 
             if (!CanVipTeleportTarget(bus))
             {
-                uiController.ShowInvalid("Pick waiting bus");
+                uiController.ShowInvalid(Localization.Text("status_pick_waiting_bus"));
                 ApplyVipHighlights();
                 return;
             }
@@ -712,7 +714,7 @@ namespace BusPuzzle
 
             if (!HasMixShuffleTarget())
             {
-                uiController.ShowInvalid("No mix target");
+                uiController.ShowInvalid(Localization.Text("status_no_mix_target"));
                 UpdateMixShuffleUi();
                 return;
             }
@@ -750,7 +752,7 @@ namespace BusPuzzle
 
             if (!UserEconomy.TrySpendGold(MixShuffleGoldCost))
             {
-                uiController.ShowInvalid("Need Gold");
+                uiController.ShowInvalid(Localization.Text("need_gold"));
                 ShowMixShufflePrompt();
                 UpdateGoldUi();
                 UpdateMixShuffleUi();
@@ -761,13 +763,13 @@ namespace BusPuzzle
             ResumeFailedLevelForRecovery();
             if (TryShuffleVisibleBusColors())
             {
-                uiController.ShowInvalid("Mixed");
+                uiController.ShowInvalid(Localization.Text("status_mixed"));
                 CheckBlocked();
             }
             else
             {
                 UserEconomy.AddGold(MixShuffleGoldCost);
-                uiController.ShowInvalid("No mix target");
+                uiController.ShowInvalid(Localization.Text("status_no_mix_target"));
                 CheckBlocked();
             }
 
@@ -818,12 +820,12 @@ namespace BusPuzzle
             {
                 if (TryShuffleVisibleBusColors())
                 {
-                    uiController.ShowInvalid("Mixed");
+                    uiController.ShowInvalid(Localization.Text("status_mixed"));
                     CheckBlocked();
                 }
                 else
                 {
-                    uiController.ShowInvalid("No mix target");
+                    uiController.ShowInvalid(Localization.Text("status_no_mix_target"));
                     CheckBlocked();
                 }
             }
@@ -861,7 +863,7 @@ namespace BusPuzzle
 
             if (!HasPotentialDepartTarget())
             {
-                uiController.ShowInvalid("No depart target");
+                uiController.ShowInvalid(Localization.Text("status_no_depart_target"));
                 UpdateDepartUi();
                 return;
             }
@@ -899,7 +901,7 @@ namespace BusPuzzle
 
             if (!UserEconomy.TrySpendGold(DepartGoldCost))
             {
-                uiController.ShowInvalid("Need Gold");
+                uiController.ShowInvalid(Localization.Text("need_gold"));
                 ShowDepartPrompt();
                 UpdateGoldUi();
                 UpdateDepartUi();
@@ -908,12 +910,12 @@ namespace BusPuzzle
 
             if (TryStartDepartBoost())
             {
-                uiController.ShowInvalid("Departing");
+                uiController.ShowInvalid(Localization.Text("status_departing"));
             }
             else
             {
                 UserEconomy.AddGold(DepartGoldCost);
-                uiController.ShowInvalid("No depart target");
+                uiController.ShowInvalid(Localization.Text("status_no_depart_target"));
                 CheckBlocked();
             }
 
@@ -964,11 +966,11 @@ namespace BusPuzzle
             {
                 if (TryStartDepartBoost())
                 {
-                    uiController.ShowInvalid("Departing");
+                    uiController.ShowInvalid(Localization.Text("status_departing"));
                 }
                 else
                 {
-                    uiController.ShowInvalid("No depart target");
+                    uiController.ShowInvalid(Localization.Text("status_no_depart_target"));
                     CheckBlocked();
                 }
             }

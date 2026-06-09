@@ -7,6 +7,7 @@ namespace BusPuzzle
         private const string EffectSoundKey = "bus_puzzle_effect_sound";
         private const string MainSoundKey = "bus_puzzle_main_sound";
         private const string VibrationKey = "bus_puzzle_vibration";
+        private const string LanguageCodeKey = "bus_puzzle_language_code";
 
         public static bool EffectSoundEnabled
         {
@@ -24,6 +25,16 @@ namespace BusPuzzle
         {
             get => GetBool(VibrationKey, true);
             set => SetBool(VibrationKey, value);
+        }
+
+        public static string LanguageCode
+        {
+            get => PlayerPrefs.GetString(LanguageCodeKey, string.Empty);
+            set
+            {
+                PlayerPrefs.SetString(LanguageCodeKey, value ?? string.Empty);
+                PlayerPrefs.Save();
+            }
         }
 
         private static bool GetBool(string key, bool defaultValue)

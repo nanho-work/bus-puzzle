@@ -21,7 +21,8 @@ namespace BusPuzzle
             var modal = CreateGameDialog("Settings Modal", settingsPanel);
             SetAnchors(modal, new Vector2(0.12f, 0.30f), new Vector2(0.88f, 0.70f), Vector2.zero, Vector2.zero);
 
-            var titlePlate = CreateDialogTitlePlate("Settings Title Plate", modal, "OPTION");
+            var titlePlate = CreateDialogTitlePlate("Settings Title Plate", modal, Localization.Text("settings_title"));
+            settingsTitleText = titlePlate.GetComponentInChildren<Text>();
             SetAnchors(titlePlate, new Vector2(0.17f, 0.88f), new Vector2(0.83f, 1.14f), Vector2.zero, Vector2.zero);
 
             var closeButton = CreateRoundIconButton("Settings Close Button", modal, "×", 86f, 42, true);
@@ -34,9 +35,10 @@ namespace BusPuzzle
                 EffectSoundOnIconResource,
                 EffectSoundOffIconResource,
                 "SFX",
-                "Effect",
-                UserPreferences.EffectSoundEnabled);
-            SetAnchors(effectSoundToggle.GetComponent<RectTransform>(), new Vector2(0.08f, 0.39f), new Vector2(0.32f, 0.72f), Vector2.zero, Vector2.zero);
+                Localization.Text("effect_sound"),
+                UserPreferences.EffectSoundEnabled,
+                out effectSoundLabelText);
+            SetAnchors(effectSoundToggle.GetComponent<RectTransform>(), new Vector2(0.04f, 0.39f), new Vector2(0.25f, 0.72f), Vector2.zero, Vector2.zero);
             effectSoundToggle.onValueChanged.AddListener(value => UserPreferences.EffectSoundEnabled = value);
 
             mainSoundToggle = CreateSettingIconToggle(
@@ -45,9 +47,10 @@ namespace BusPuzzle
                 MainSoundOnIconResource,
                 MainSoundOffIconResource,
                 "♪",
-                "Music",
-                UserPreferences.MainSoundEnabled);
-            SetAnchors(mainSoundToggle.GetComponent<RectTransform>(), new Vector2(0.38f, 0.39f), new Vector2(0.62f, 0.72f), Vector2.zero, Vector2.zero);
+                Localization.Text("music"),
+                UserPreferences.MainSoundEnabled,
+                out mainSoundLabelText);
+            SetAnchors(mainSoundToggle.GetComponent<RectTransform>(), new Vector2(0.28f, 0.39f), new Vector2(0.49f, 0.72f), Vector2.zero, Vector2.zero);
             mainSoundToggle.onValueChanged.AddListener(value =>
             {
                 UserPreferences.MainSoundEnabled = value;
@@ -60,10 +63,21 @@ namespace BusPuzzle
                 VibrationOnIconResource,
                 VibrationOffIconResource,
                 "≋",
-                "Vibration",
-                UserPreferences.VibrationEnabled);
-            SetAnchors(vibrationToggle.GetComponent<RectTransform>(), new Vector2(0.68f, 0.39f), new Vector2(0.92f, 0.72f), Vector2.zero, Vector2.zero);
+                Localization.Text("vibration"),
+                UserPreferences.VibrationEnabled,
+                out vibrationLabelText);
+            SetAnchors(vibrationToggle.GetComponent<RectTransform>(), new Vector2(0.52f, 0.39f), new Vector2(0.73f, 0.72f), Vector2.zero, Vector2.zero);
             vibrationToggle.onValueChanged.AddListener(value => UserPreferences.VibrationEnabled = value);
+
+            languageButton = CreateSettingIconButton(
+                "Language Button",
+                modal,
+                LanguageIconResource,
+                "A",
+                Localization.Text("language"),
+                out languageLabelText);
+            SetAnchors(languageButton.GetComponent<RectTransform>(), new Vector2(0.76f, 0.39f), new Vector2(0.97f, 0.72f), Vector2.zero, Vector2.zero);
+            languageButton.onClick.AddListener(ShowLanguagePrompt);
 
             var feedbackButton = CreateRoundIconButton("Feedback Button", modal, "i", 78f, 36, true);
             SetAnchors(feedbackButton.GetComponent<RectTransform>(), new Vector2(0.28f, 0.12f), new Vector2(0.45f, 0.32f), Vector2.zero, Vector2.zero);
@@ -73,6 +87,7 @@ namespace BusPuzzle
             SetAnchors(privacyButton.GetComponent<RectTransform>(), new Vector2(0.55f, 0.12f), new Vector2(0.72f, 0.32f), Vector2.zero, Vector2.zero);
             privacyButton.onClick.AddListener(OpenPrivacyPolicy);
 
+            BuildLanguagePrompt();
             HideSettingsPanel();
         }
 
@@ -88,6 +103,7 @@ namespace BusPuzzle
             if (shouldShow)
             {
                 RefreshSettingsToggles();
+                RefreshLocalizedTexts();
             }
         }
 
@@ -97,6 +113,11 @@ namespace BusPuzzle
             {
                 settingsPanel.gameObject.SetActive(false);
             }
+
+            if (languagePrompt != null)
+            {
+                languagePrompt.gameObject.SetActive(false);
+            }
         }
 
         private void RefreshSettingsToggles()
@@ -104,6 +125,222 @@ namespace BusPuzzle
             SetToggleValueWithoutNotify(effectSoundToggle, UserPreferences.EffectSoundEnabled);
             SetToggleValueWithoutNotify(mainSoundToggle, UserPreferences.MainSoundEnabled);
             SetToggleValueWithoutNotify(vibrationToggle, UserPreferences.VibrationEnabled);
+        }
+
+        private void BuildLanguagePrompt()
+        {
+            languagePrompt = CreatePromptOverlay("Language Overlay");
+            var modal = CreateGameDialog("Language Modal", languagePrompt);
+            SetAnchors(modal, new Vector2(0.06f, 0.14f), new Vector2(0.94f, 0.82f), Vector2.zero, Vector2.zero);
+
+            var titlePlate = CreateDialogTitlePlate("Language Title Plate", modal, Localization.Text("language_title"));
+            languagePromptTitleText = titlePlate.GetComponentInChildren<Text>();
+            SetAnchors(titlePlate, new Vector2(0.17f, 0.88f), new Vector2(0.83f, 1.14f), Vector2.zero, Vector2.zero);
+
+            var closeButton = CreatePromptCloseButton("Language Close Button", modal);
+            closeButton.onClick.AddListener(() => HideLanguagePrompt(true));
+
+            languageOptionButtons.Clear();
+            languageOptionButtonTexts.Clear();
+            languageOptionCodes.Clear();
+
+            var options = Localization.LanguageOptions;
+            const int columnCount = 2;
+            var rowCount = Mathf.CeilToInt(options.Count / (float)columnCount);
+            const float top = 0.78f;
+            const float bottom = 0.09f;
+            const float rowGap = 0.010f;
+            var rowHeight = (top - bottom) / rowCount;
+
+            for (var index = 0; index < options.Count; index++)
+            {
+                var option = options[index];
+                var row = index / columnCount;
+                var column = index % columnCount;
+                var xMin = column == 0 ? 0.08f : 0.53f;
+                var xMax = column == 0 ? 0.47f : 0.92f;
+                var yMax = top - row * rowHeight;
+                var yMin = yMax - rowHeight + rowGap;
+
+                var optionButton = CreatePromptTextButton(
+                    $"Language Option {index:00}",
+                    modal,
+                    Localization.GetLanguageOptionLabel(option),
+                    UiSecondaryActionColor,
+                    out var optionButtonText);
+                SetAnchors(
+                    optionButton.GetComponent<RectTransform>(),
+                    new Vector2(xMin, yMin),
+                    new Vector2(xMax, yMax),
+                    new Vector2(0f, 2f),
+                    new Vector2(0f, -2f));
+
+                var optionCode = option.Code;
+                optionButton.onClick.AddListener(() => SelectLanguage(optionCode));
+                languageOptionButtons.Add(optionButton);
+                languageOptionButtonTexts.Add(optionButtonText);
+                languageOptionCodes.Add(option.Code);
+            }
+
+            HideLanguagePrompt(false);
+        }
+
+        private void ShowLanguagePrompt()
+        {
+            if (languagePrompt == null)
+            {
+                return;
+            }
+
+            if (settingsPanel != null)
+            {
+                settingsPanel.gameObject.SetActive(false);
+            }
+
+            languagePrompt.gameObject.SetActive(true);
+            RefreshLocalizedTexts();
+            RefreshLanguageOptionButtons();
+        }
+
+        private void HideLanguagePrompt(bool returnToSettings)
+        {
+            if (languagePrompt != null)
+            {
+                languagePrompt.gameObject.SetActive(false);
+            }
+
+            if (returnToSettings && settingsPanel != null)
+            {
+                settingsPanel.gameObject.SetActive(true);
+                RefreshSettingsToggles();
+                RefreshLocalizedTexts();
+            }
+        }
+
+        private void SelectLanguage(string languageCode)
+        {
+            Localization.SelectedLanguageCode = languageCode;
+            RefreshLocalizedTexts();
+            RefreshLanguageOptionButtons();
+            HideLanguagePrompt(true);
+        }
+
+        private void RefreshLanguageOptionButtons()
+        {
+            var options = Localization.LanguageOptions;
+            var selectedLanguageCode = Localization.SelectedLanguageCode;
+            for (var index = 0; index < languageOptionButtons.Count && index < options.Count; index++)
+            {
+                var option = options[index];
+                var isSelected = languageOptionCodes[index] == selectedLanguageCode;
+                if (languageOptionButtonTexts[index] != null)
+                {
+                    var optionLabel = Localization.GetLanguageOptionLabel(option);
+                    languageOptionButtonTexts[index].text = isSelected ? $"> {optionLabel}" : optionLabel;
+                    languageOptionButtonTexts[index].fontSize = 24;
+                    languageOptionButtonTexts[index].resizeTextMinSize = 16;
+                }
+
+                if (languageOptionButtons[index] != null)
+                {
+                    languageOptionButtons[index].interactable = !isSelected;
+                }
+            }
+        }
+
+        private void RefreshLocalizedTexts()
+        {
+            if (settingsTitleText != null)
+            {
+                settingsTitleText.text = Localization.Text("settings_title");
+            }
+
+            if (effectSoundLabelText != null)
+            {
+                effectSoundLabelText.text = Localization.Text("effect_sound");
+            }
+
+            if (mainSoundLabelText != null)
+            {
+                mainSoundLabelText.text = Localization.Text("music");
+            }
+
+            if (vibrationLabelText != null)
+            {
+                vibrationLabelText.text = Localization.Text("vibration");
+            }
+
+            if (languageLabelText != null)
+            {
+                languageLabelText.text = Localization.Text("language");
+            }
+
+            if (languagePromptTitleText != null)
+            {
+                languagePromptTitleText.text = Localization.Text("language_title");
+            }
+
+            if (clearPromptTitleText != null)
+            {
+                clearPromptTitleText.text = Localization.Text("clear_title");
+            }
+
+            if (failPromptTitleText != null)
+            {
+                failPromptTitleText.text = Localization.Text("failed_title");
+            }
+
+            if (failPromptText != null)
+            {
+                failPromptText.text = Localization.Text("stage_failed");
+            }
+
+            if (failRetryButtonText != null)
+            {
+                failRetryButtonText.text = Localization.Text("retry");
+            }
+
+            if (exitPromptTitleText != null)
+            {
+                exitPromptTitleText.text = Localization.Text("exit_title");
+            }
+
+            if (exitPromptText != null)
+            {
+                exitPromptText.text = Localization.Text("exit_game");
+            }
+
+            if (exitButtonText != null)
+            {
+                exitButtonText.text = Localization.Text("exit");
+            }
+
+            if (stationUnlockPromptTitleText != null)
+            {
+                stationUnlockPromptTitleText.text = Localization.Text("slot_title");
+            }
+
+            if (stationUnlockConfirmButtonText != null)
+            {
+                stationUnlockConfirmButtonText.text = Localization.Text("watch");
+            }
+
+            if (vipTeleportPromptTitleText != null)
+            {
+                vipTeleportPromptTitleText.text = Localization.Text("vip_title");
+            }
+
+            if (mixShufflePromptTitleText != null)
+            {
+                mixShufflePromptTitleText.text = Localization.Text("mix_title");
+            }
+
+            if (departPromptTitleText != null)
+            {
+                departPromptTitleText.text = Localization.Text("depart");
+            }
+
+            RefreshLanguageOptionButtons();
         }
 
         private static void SetToggleValueWithoutNotify(Toggle toggle, bool value)
@@ -128,7 +365,8 @@ namespace BusPuzzle
             string offIconResourcePath,
             string fallbackGlyph,
             string label,
-            bool initialValue)
+            bool initialValue,
+            out Text labelText)
         {
             var toggleObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Toggle));
             toggleObject.transform.SetParent(parent, false);
@@ -159,7 +397,7 @@ namespace BusPuzzle
                 SetAnchors(fallbackText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             }
 
-            var labelText = CreateText($"{name} Label", toggleObject.transform, TextAnchor.MiddleCenter, 24, FontStyle.Normal);
+            labelText = CreateText($"{name} Label", toggleObject.transform, TextAnchor.MiddleCenter, 24, FontStyle.Normal);
             labelText.text = label;
             SetAnchors(labelText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.25f), new Vector2(0f, 0f), new Vector2(0f, -2f));
 
@@ -180,6 +418,57 @@ namespace BusPuzzle
             colors.disabledColor = new Color(1f, 1f, 1f, 0.48f);
             toggle.colors = colors;
             return toggle;
+        }
+
+        private static Button CreateSettingIconButton(
+            string name,
+            Transform parent,
+            string iconResourcePath,
+            string fallbackGlyph,
+            string label,
+            out Text labelText)
+        {
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+
+            var cardImage = buttonObject.GetComponent<Image>();
+            cardImage.color = new Color(1f, 1f, 1f, 0f);
+
+            var iconSprite = LoadResourceSprite(iconResourcePath);
+            var iconRoot = CreateCenteredSquare($"{name} Icon Root", buttonObject.transform, 116f);
+            iconRoot.anchoredPosition = new Vector2(0f, 22f);
+
+            var iconObject = new GameObject($"{name} Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(iconRoot, false);
+            var iconRect = iconObject.GetComponent<RectTransform>();
+            SetAnchors(iconRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var iconImage = iconObject.GetComponent<Image>();
+            iconImage.sprite = iconSprite;
+            iconImage.color = iconSprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+            iconImage.preserveAspect = true;
+            iconImage.raycastTarget = false;
+
+            if (iconSprite == null)
+            {
+                var fallbackText = CreateText($"{name} Fallback", iconRoot, TextAnchor.MiddleCenter, 36, FontStyle.Bold);
+                fallbackText.text = fallbackGlyph;
+                SetAnchors(fallbackText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            }
+
+            labelText = CreateText($"{name} Label", buttonObject.transform, TextAnchor.MiddleCenter, 24, FontStyle.Normal);
+            labelText.text = label;
+            labelText.color = new Color(0.96f, 0.98f, 1f);
+            SetAnchors(labelText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.25f), new Vector2(0f, 0f), new Vector2(0f, -2f));
+
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = iconSprite != null ? iconImage : cardImage;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.96f, 0.98f, 1f);
+            colors.pressedColor = new Color(0.90f, 0.93f, 0.96f);
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.48f);
+            button.colors = colors;
+            return button;
         }
 
         private static Sprite GetSettingToggleSprite(bool isOn, Sprite onSprite, Sprite offSprite)
@@ -241,8 +530,8 @@ namespace BusPuzzle
 
         private static void OpenFeedbackMail()
         {
-            var subject = Uri.EscapeDataString("Bus Puzzle Feedback");
-            var body = Uri.EscapeDataString("Please write your feedback here.");
+            var subject = Uri.EscapeDataString(Localization.Text("feedback_subject"));
+            var body = Uri.EscapeDataString(Localization.Text("feedback_body"));
             Application.OpenURL($"mailto:{FeedbackEmailAddress}?subject={subject}&body={body}");
         }
 

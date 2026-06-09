@@ -21,9 +21,12 @@ namespace BusPuzzle
         public const float StationCounterY = 0.12f;
         public const float RotaryCenterZ = 2.42f;
 
-        public const float VehicleVisualScale = 1.00f;
-        public const float VehicleVisualWidthCells = 0.72f * VehicleVisualScale;
-        public const float VehicleVisualHeightCells = 0.90f * VehicleVisualScale;
+        public const float VehicleBaseVisualWidthCells = 0.72f;
+        public const float VehicleBaseVisualHeightCells = 0.90f;
+        public const float VehicleVisualWidthScale = 1.08f;
+        public const float VehicleVisualHeightScale = 1.08f;
+        public const float VehicleVisualWidthCells = VehicleBaseVisualWidthCells * VehicleVisualWidthScale;
+        public const float VehicleVisualHeightCells = VehicleBaseVisualHeightCells * VehicleVisualHeightScale;
         public const float VehicleFootprintWidthFactor = 0.96f;
         public const float VehicleFootprintLengthFactor = 0.96f;
         public const float VehicleNearPaddingCells = 0.10f;
@@ -91,7 +94,7 @@ namespace BusPuzzle
                 visualCenter,
                 rotation * Vector3.right,
                 rotation * Vector3.forward,
-                VehicleVisualWidthCells * cellSize * VehicleFootprintWidthFactor * 0.5f,
+                VehicleBaseVisualWidthCells * cellSize * VehicleFootprintWidthFactor * 0.5f,
                 visualLength * VehicleFootprintLengthFactor * 0.5f);
         }
 

@@ -23,24 +23,78 @@ namespace BusPuzzle
             var guideMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Guide Dot", new Color(0.84f, 0.93f, 0.97f, 0.24f));
             var scuffMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Tire Scuff", new Color(0.26f, 0.35f, 0.40f, 0.14f));
             var safetyMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Safety Stripe", new Color(0.96f, 0.72f, 0.15f, 0.50f));
+            var prefabLaneMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Prefab Lane Mark", new Color(0.92f, 0.97f, 1.00f, 0.18f));
+            var prefabSafetyMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Prefab Safety Stripe", new Color(0.96f, 0.72f, 0.15f, 0.30f));
+            var prefabBrightenMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Prefab Brightness Wash", new Color(0.80f, 0.91f, 0.96f, 0.26f));
             var gridWidth = columns * cellSize;
             var gridDepth = rows * cellSize;
             var centerZ = gridBottomZ + (rows - 1) * cellSize * 0.5f;
             var center = new Vector3(0f, SurfaceY, centerZ);
+            var usingPrefabSurface = TryCreatePrefabSurface(parent, center, gridWidth, gridDepth, cellSize);
 
-            BoardGeometry.CreateFlatRoundedRect(
-                "Bus Yard Surface",
+            if (!usingPrefabSurface)
+            {
+                BoardGeometry.CreateFlatRoundedRect(
+                    "Bus Yard Surface",
+                    parent,
+                    center,
+                    new Vector2(gridWidth + cellSize * 0.14f, gridDepth + cellSize * 0.14f),
+                    cellSize * 0.10f,
+                    surfaceMaterial);
+
+                CreateConcretePanels(parent, columns, rows, cellSize, gridBottomZ, panelMaterialA, panelMaterialB);
+                CreateFadedLaneDividers(parent, columns, rows, cellSize, gridBottomZ, laneMaterial);
+                CreateGuideDots(parent, columns, rows, cellSize, gridBottomZ, guideMaterial);
+                CreateTireScuffs(parent, cellSize, gridBottomZ, scuffMaterial);
+                CreateSafetyStripes(parent, columns, rows, cellSize, gridBottomZ, safetyMaterial);
+                return;
+            }
+
+            CreatePrefabBrightnessWash(parent, center, gridWidth, gridDepth, cellSize, prefabBrightenMaterial);
+            CreateFadedLaneDividers(parent, columns, rows, cellSize, gridBottomZ, prefabLaneMaterial);
+            CreateSafetyStripes(parent, columns, rows, cellSize, gridBottomZ, prefabSafetyMaterial);
+        }
+
+        private static bool TryCreatePrefabSurface(
+            Transform parent,
+            Vector3 center,
+            float gridWidth,
+            float gridDepth,
+            float cellSize)
+        {
+            var library = ThemePrefabLibrary.Load();
+            if (library == null || !library.TryGetParkingSurface(out var prefab))
+            {
+                return false;
+            }
+
+            var surface = ThemePrefabUtility.InstantiateFloor(
+                prefab,
+                "Pandazole Bus Yard Surface",
                 parent,
-                center,
+                center + Vector3.up * 0.001f,
                 new Vector2(gridWidth + cellSize * 0.14f, gridDepth + cellSize * 0.14f),
-                cellSize * 0.10f,
-                surfaceMaterial);
+                0.035f,
+                Quaternion.identity);
 
-            CreateConcretePanels(parent, columns, rows, cellSize, gridBottomZ, panelMaterialA, panelMaterialB);
-            CreateFadedLaneDividers(parent, columns, rows, cellSize, gridBottomZ, laneMaterial);
-            CreateGuideDots(parent, columns, rows, cellSize, gridBottomZ, guideMaterial);
-            CreateTireScuffs(parent, cellSize, gridBottomZ, scuffMaterial);
-            CreateSafetyStripes(parent, columns, rows, cellSize, gridBottomZ, safetyMaterial);
+            return surface != null;
+        }
+
+        private static void CreatePrefabBrightnessWash(
+            Transform parent,
+            Vector3 center,
+            float gridWidth,
+            float gridDepth,
+            float cellSize,
+            Material material)
+        {
+            BoardGeometry.CreateFlatRoundedRect(
+                "Pandazole Bus Yard Brightness Wash",
+                parent,
+                new Vector3(center.x, PanelY + 0.004f, center.z),
+                new Vector2(gridWidth + cellSize * 0.12f, gridDepth + cellSize * 0.12f),
+                cellSize * 0.08f,
+                material);
         }
 
         private static void CreateConcretePanels(

@@ -29,15 +29,16 @@ namespace BusPuzzle
             var root = new GameObject("City Terminal Theme").transform;
             root.SetParent(parent, false);
             var materials = CreateMaterials();
+            var prefabLibrary = ThemePrefabLibrary.Load();
 
             CreateBusYardEdgeSkin(CreateSection(root, "1 Bus Yard Edge Skin"), materials);
             CreateStationSkin(CreateSection(root, "2 Station Skin"));
             CreateQueueFloorSkin(CreateSection(root, "3 Queue Floor Skin"), layout, settings, materials);
             CreateQueueOuterLineSkin(CreateSection(root, "4 Queue Outer Line Skin"), layout, settings, materials);
             CreateRotaryCenterSkin(CreateSection(root, "5 Rotary Center Skin"), settings, materials);
-            CreateQueueSurroundings(CreateSection(root, "6 Queue Surroundings"), materials);
-            CreateRotarySideMargins(CreateSection(root, "7 Rotary Side Margins"), settings, materials);
-            CreateEdgeShopSkin(CreateSection(root, "8 Edge Shop Skin"), materials);
+            CreateQueueSurroundings(CreateSection(root, "6 Queue Surroundings"), materials, prefabLibrary);
+            CreateRotarySideMargins(CreateSection(root, "7 Rotary Side Margins"), settings, materials, prefabLibrary);
+            CreateEdgeShopSkin(CreateSection(root, "8 Edge Shop Skin"), materials, prefabLibrary);
         }
 
         private static ThemeMaterials CreateMaterials()
@@ -190,18 +191,31 @@ namespace BusPuzzle
 
         private static void CreateQueueSurroundings(
             Transform root,
-            ThemeMaterials materials)
+            ThemeMaterials materials,
+            ThemePrefabLibrary prefabLibrary)
         {
             CreateLamp(root, new Vector3(-2.42f, 0f, 2.66f), 0.36f, materials.Pole, materials.LampGlow, materials.LampBulb);
             CreateLamp(root, new Vector3(2.42f, 0f, 2.66f), 0.36f, materials.Pole, materials.LampGlow, materials.LampBulb);
-            CreateSideKiosk(root, "Left Ticket Kiosk", new Vector3(-2.50f, -0.004f, 1.20f), materials.ShopWallA, materials.ShopAwningB, -1);
-            CreateSideKiosk(root, "Right Snack Kiosk", new Vector3(2.50f, -0.004f, 1.20f), materials.ShopWallC, materials.ShopAwningA, 1);
+
+            if (!CreateLibraryBuilding(prefabLibrary, 0, root, "Left Ticket Kiosk Asset", new Vector3(-2.54f, -0.006f, 1.18f), new Vector2(0.36f, 0.58f), 0.34f, Quaternion.Euler(0f, 96f, 0f)))
+            {
+                CreateSideKiosk(root, "Left Ticket Kiosk", new Vector3(-2.50f, -0.004f, 1.20f), materials.ShopWallA, materials.ShopAwningB, -1);
+            }
+
+            if (!CreateLibraryBuilding(prefabLibrary, 1, root, "Right Snack Kiosk Asset", new Vector3(2.54f, -0.006f, 1.20f), new Vector2(0.36f, 0.58f), 0.34f, Quaternion.Euler(0f, -96f, 0f)))
+            {
+                CreateSideKiosk(root, "Right Snack Kiosk", new Vector3(2.50f, -0.004f, 1.20f), materials.ShopWallC, materials.ShopAwningA, 1);
+            }
+
+            CreateLibrarySign(prefabLibrary, 0, root, "Left Parking Sign Asset", new Vector3(-2.34f, -0.006f, BoardLayoutConfig.GridTopZ - 0.10f), 0.26f, Quaternion.Euler(0f, 120f, 0f));
+            CreateLibrarySign(prefabLibrary, 1, root, "Right Stop Sign Asset", new Vector3(2.34f, -0.006f, BoardLayoutConfig.GridTopZ - 0.16f), 0.24f, Quaternion.Euler(0f, -120f, 0f));
         }
 
         private static void CreateRotarySideMargins(
             Transform root,
             RotaryRoadBuildSettings settings,
-            ThemeMaterials materials)
+            ThemeMaterials materials,
+            ThemePrefabLibrary prefabLibrary)
         {
             var z = settings.RotaryCenterZ + 0.12f;
             BoardGeometry.CreateFlatRect(
@@ -216,16 +230,105 @@ namespace BusPuzzle
                 new Vector3(2.45f, -0.083f, z),
                 new Vector2(0.38f, 1.55f),
                 materials.PaverB);
-            CreateSmallTree(root, new Vector3(-2.43f, 0f, z - 0.48f), materials.Leaf, materials.Trunk, 0.095f);
-            CreateSmallTree(root, new Vector3(2.43f, 0f, z + 0.48f), materials.Leaf, materials.Trunk, 0.095f);
+
+            if (!CreateLibraryTree(prefabLibrary, 0, root, "Left Rotary Tree Asset", new Vector3(-2.43f, -0.006f, z - 0.48f), 0.30f))
+            {
+                CreateSmallTree(root, new Vector3(-2.43f, 0f, z - 0.48f), materials.Leaf, materials.Trunk, 0.095f);
+            }
+
+            if (!CreateLibraryTree(prefabLibrary, 1, root, "Right Rotary Tree Asset", new Vector3(2.43f, -0.006f, z + 0.48f), 0.30f))
+            {
+                CreateSmallTree(root, new Vector3(2.43f, 0f, z + 0.48f), materials.Leaf, materials.Trunk, 0.095f);
+            }
+
+            CreateLibraryBush(prefabLibrary, 0, root, "Left Rotary Bush Asset", new Vector3(-2.44f, -0.007f, z + 0.38f), 0.22f);
+            CreateLibraryBush(prefabLibrary, 0, root, "Right Rotary Bush Asset", new Vector3(2.44f, -0.007f, z - 0.38f), 0.22f);
         }
 
-        private static void CreateEdgeShopSkin(Transform root, ThemeMaterials materials)
+        private static void CreateEdgeShopSkin(Transform root, ThemeMaterials materials, ThemePrefabLibrary prefabLibrary)
         {
+            var createdAssets = 0;
+            createdAssets += CreateLibraryBuilding(prefabLibrary, 2, root, "Left Cafe Shop Asset", new Vector3(-2.74f, -0.006f, 2.48f), new Vector2(0.40f, 0.72f), 0.44f, Quaternion.Euler(0f, 84f, 0f)) ? 1 : 0;
+            createdAssets += CreateLibraryBuilding(prefabLibrary, 1, root, "Left Market Shop Asset", new Vector3(-2.76f, -0.006f, 3.25f), new Vector2(0.40f, 0.64f), 0.40f, Quaternion.Euler(0f, 98f, 0f)) ? 1 : 0;
+            createdAssets += CreateLibraryBuilding(prefabLibrary, 0, root, "Right Ticket Shop Asset", new Vector3(2.74f, -0.006f, 2.38f), new Vector2(0.40f, 0.70f), 0.44f, Quaternion.Euler(0f, -84f, 0f)) ? 1 : 0;
+            createdAssets += CreateLibraryBuilding(prefabLibrary, 2, root, "Right Locker Shop Asset", new Vector3(2.76f, -0.006f, 3.12f), new Vector2(0.40f, 0.64f), 0.40f, Quaternion.Euler(0f, -98f, 0f)) ? 1 : 0;
+
+            if (createdAssets >= 4)
+            {
+                return;
+            }
+
             CreateEdgeShop(root, "Left Cafe Shop", new Vector3(-2.76f, -0.002f, 2.48f), new Vector3(0.22f, 0.20f, 0.64f), materials.ShopWallA, materials.ShopAwningA, materials.ShopWindow, -1);
             CreateEdgeShop(root, "Left Market Shop", new Vector3(-2.76f, -0.002f, 3.25f), new Vector3(0.22f, 0.18f, 0.54f), materials.ShopWallB, materials.ShopAwningB, materials.ShopWindow, -1);
             CreateEdgeShop(root, "Right Ticket Shop", new Vector3(2.76f, -0.002f, 2.38f), new Vector3(0.22f, 0.20f, 0.58f), materials.ShopWallC, materials.ShopAwningC, materials.ShopWindow, 1);
             CreateEdgeShop(root, "Right Locker Shop", new Vector3(2.76f, -0.002f, 3.12f), new Vector3(0.22f, 0.18f, 0.52f), materials.ShopWallA, materials.ShopAwningA, materials.ShopWindow, 1);
+        }
+
+        private static bool CreateLibraryBuilding(
+            ThemePrefabLibrary library,
+            int index,
+            Transform root,
+            string name,
+            Vector3 position,
+            Vector2 footprint,
+            float height,
+            Quaternion rotation)
+        {
+            if (library == null || !library.TryGetBuilding(index, out var prefab))
+            {
+                return false;
+            }
+
+            return ThemePrefabUtility.InstantiateUniform(prefab, name, root, position, footprint, height, rotation) != null;
+        }
+
+        private static bool CreateLibraryTree(
+            ThemePrefabLibrary library,
+            int index,
+            Transform root,
+            string name,
+            Vector3 position,
+            float height)
+        {
+            if (library == null || !library.TryGetTree(index, out var prefab))
+            {
+                return false;
+            }
+
+            return ThemePrefabUtility.InstantiateUniform(prefab, name, root, position, new Vector2(height * 0.75f, height * 0.75f), height, Quaternion.identity) != null;
+        }
+
+        private static bool CreateLibraryBush(
+            ThemePrefabLibrary library,
+            int index,
+            Transform root,
+            string name,
+            Vector3 position,
+            float width)
+        {
+            if (library == null || !library.TryGetBush(index, out var prefab))
+            {
+                return false;
+            }
+
+            return ThemePrefabUtility.InstantiateUniform(prefab, name, root, position, new Vector2(width, width), width * 0.58f, Quaternion.identity) != null;
+        }
+
+        private static bool CreateLibrarySign(
+            ThemePrefabLibrary library,
+            int index,
+            Transform root,
+            string name,
+            Vector3 position,
+            float height,
+            Quaternion rotation)
+        {
+            if (library == null || !library.TryGetSign(index, out var prefab))
+            {
+                return false;
+            }
+
+            return ThemePrefabUtility.InstantiateUniform(prefab, name, root, position, new Vector2(height * 0.60f, height * 0.60f), height, rotation) != null;
         }
 
         private static void CreateFeederPathBand(

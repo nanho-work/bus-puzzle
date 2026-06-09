@@ -64,16 +64,16 @@ namespace BusPuzzle
             var boosterRow = CreateRectTransform("Booster Row", root);
             SetAnchors(boosterRow, new Vector2(0.14f, 0f), new Vector2(0.86f, 0f), new Vector2(0f, 18f), new Vector2(0f, 170f));
 
-            vipButton = CreateBoosterButton("VIP Button", boosterRow, VipBoosterIconResource, "VIP", UiBoosterGoldColor, true, out vipBadgeText);
+            vipButton = CreateBoosterButton("VIP Button", boosterRow, VipBoosterIconResource, Localization.Text("vip_title"), UiBoosterGoldColor, true, out vipBadgeText);
             SetAnchors(vipButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0.333f, 1f), new Vector2(0f, 0f), new Vector2(-12f, 0f));
             vipButton.onClick.AddListener(() => VipTeleportRequested?.Invoke());
 
-            mixButton = CreateBoosterButton("Mix Button", boosterRow, MixBoosterIconResource, "Mix", UiBoosterBlueColor, false, out _);
+            mixButton = CreateBoosterButton("Mix Button", boosterRow, MixBoosterIconResource, Localization.Text("mix_title"), UiBoosterBlueColor, false, out _);
             SetAnchors(mixButton.GetComponent<RectTransform>(), new Vector2(0.333f, 0f), new Vector2(0.667f, 1f), new Vector2(12f, 0f), new Vector2(-12f, 0f));
             mixButton.onClick.AddListener(() => MixShuffleRequested?.Invoke());
             mixButton.interactable = false;
 
-            departButton = CreateBoosterButton("Depart Button", boosterRow, DepartBoosterIconResource, "Depart", UiBoosterDepartColor, false, out _);
+            departButton = CreateBoosterButton("Depart Button", boosterRow, DepartBoosterIconResource, Localization.Text("depart"), UiBoosterDepartColor, false, out _);
             SetAnchors(departButton.GetComponent<RectTransform>(), new Vector2(0.667f, 0f), new Vector2(1f, 1f), new Vector2(12f, 0f), new Vector2(0f, 0f));
             departButton.onClick.AddListener(() => DepartRequested?.Invoke());
             departButton.interactable = false;

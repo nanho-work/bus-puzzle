@@ -108,6 +108,10 @@ namespace BusPuzzle
             RotaryPath path,
             FeederRoadPath leftFeederPath,
             FeederRoadPath rightFeederPath,
+            FeederQueueLaneSampler leftFeederLaneSampler,
+            FeederQueueLaneSampler rightFeederLaneSampler,
+            float leftFeederJoinProgress,
+            float rightFeederJoinProgress,
             float visibleFeederTopY)
         {
             Preset = preset;
@@ -118,6 +122,10 @@ namespace BusPuzzle
             Path = path;
             LeftFeederPath = leftFeederPath;
             RightFeederPath = rightFeederPath;
+            LeftFeederLaneSampler = leftFeederLaneSampler;
+            RightFeederLaneSampler = rightFeederLaneSampler;
+            LeftFeederJoinProgress = leftFeederJoinProgress;
+            RightFeederJoinProgress = rightFeederJoinProgress;
             VisibleFeederTopY = visibleFeederTopY;
         }
 
@@ -136,6 +144,10 @@ namespace BusPuzzle
         public RotaryPath Path { get; }
         public FeederRoadPath LeftFeederPath { get; }
         public FeederRoadPath RightFeederPath { get; }
+        public FeederQueueLaneSampler LeftFeederLaneSampler { get; }
+        public FeederQueueLaneSampler RightFeederLaneSampler { get; }
+        public float LeftFeederJoinProgress { get; }
+        public float RightFeederJoinProgress { get; }
         public float VisibleFeederTopY { get; }
         public float PassengerSpeed => Preset.PassengerSpeed;
         public float RoadWidth => RoadProfile.RoadWidth;
@@ -152,8 +164,12 @@ namespace BusPuzzle
             var targetPathLength = capacity * passengerTangentialSlotSpacing;
             var path = RoadPresetLibrary.CreatePath(preset, targetPathLength);
             var meshSampleCount = Mathf.Clamp(capacity * 6, 128, 256);
-            var leftFeederPath = CreateFeederPath(path, preset, -1, roadProfile, out var leftVisibleTopY);
-            var rightFeederPath = CreateFeederPath(path, preset, 1, roadProfile, out var rightVisibleTopY);
+            var leftJoin = FeederJoinSnapEngine.Resolve(path, preset, -1, roadProfile);
+            var rightJoin = FeederJoinSnapEngine.Resolve(path, preset, 1, roadProfile);
+            var leftFeederPath = CreateFeederPath(preset, roadProfile, leftJoin, out var leftVisibleTopY);
+            var rightFeederPath = CreateFeederPath(preset, roadProfile, rightJoin, out var rightVisibleTopY);
+            var leftFeederLaneSampler = new FeederQueueLaneSampler(-1, leftFeederPath, roadProfile, meshSampleCount);
+            var rightFeederLaneSampler = new FeederQueueLaneSampler(1, rightFeederPath, roadProfile, meshSampleCount);
 
             return new RotaryLayout(
                 preset,
@@ -164,6 +180,10 @@ namespace BusPuzzle
                 path,
                 leftFeederPath,
                 rightFeederPath,
+                leftFeederLaneSampler,
+                rightFeederLaneSampler,
+                leftJoin.Progress,
+                rightJoin.Progress,
                 Mathf.Max(leftVisibleTopY, rightVisibleTopY));
         }
 
@@ -179,26 +199,48 @@ namespace BusPuzzle
 
         public PassengerUnitRoadPose GetFeederPoseByDistance(int side, float distance, float centerZ, float y)
         {
-            var feederPath = GetFeederPath(side);
-            var sample = feederPath.SampleByDistance(distance);
-            var localPoint = sample.Point + sample.Outward * RoadProfile.PivotOffset;
-            return PassengerUnitRoadPose.FromPathSample(ToWorldPoint(localPoint, centerZ, y), sample, PassengerPersonLocalZ);
+            return GetFeederLaneSampler(side).GetPose(distance, this, centerZ, y);
         }
 
         public float GetFeederDistanceForSlot(int side, int slotIndex)
         {
-            var feederPath = GetFeederPath(side);
+            var queueLength = GetFeederQueueLength(side);
             var distanceFromJoin =
                 (FeederMergeClearanceRows + Mathf.Max(0, slotIndex) * FeederQueueSpacingMultiplier) *
                 Preset.FeederRowSpacing;
-            var maxDistanceFromJoin = Mathf.Max(Preset.FeederRowSpacing, feederPath.Length - Preset.FeederRowSpacing * FeederStartPaddingRows);
+            var maxDistanceFromJoin = Mathf.Max(Preset.FeederRowSpacing, queueLength - Preset.FeederRowSpacing * FeederStartPaddingRows);
             distanceFromJoin = Mathf.Min(distanceFromJoin, maxDistanceFromJoin);
-            return Mathf.Clamp(feederPath.Length - distanceFromJoin, 0f, feederPath.Length);
+            return Mathf.Clamp(queueLength - distanceFromJoin, 0f, queueLength);
         }
 
         public FeederRoadPath GetFeederPath(int side)
         {
             return side < 0 ? LeftFeederPath : RightFeederPath;
+        }
+
+        public FeederQueueLaneSampler GetFeederLaneSampler(int side)
+        {
+            return side < 0 ? LeftFeederLaneSampler : RightFeederLaneSampler;
+        }
+
+        public float GetFeederQueueLength(int side)
+        {
+            return GetFeederLaneSampler(side).ReferencePathLength;
+        }
+
+        public RotaryPathSample SampleFeederPath(int side, FeederRoadPath path, float progress)
+        {
+            return FeederQueueLayout.Sample(side, path, progress);
+        }
+
+        public RotaryPathSample SampleFeederPathByDistance(int side, FeederRoadPath path, float distance)
+        {
+            return FeederQueueLayout.SampleByDistance(side, path, distance);
+        }
+
+        public float GetFeederJoinProgress(int side)
+        {
+            return side < 0 ? LeftFeederJoinProgress : RightFeederJoinProgress;
         }
 
         public float GetPersonLaneOffset(int personIndex)
@@ -207,20 +249,15 @@ namespace BusPuzzle
         }
 
         private static FeederRoadPath CreateFeederPath(
-            RotaryPath rotaryPath,
             RoadPresetDefinition preset,
-            int side,
             PassengerRoadProfile roadProfile,
+            FeederJoinResolution join,
             out float visibleTopY)
         {
-            var progress = side < 0 ? preset.LeftFeederProgress : preset.RightFeederProgress;
-            var joinSample = rotaryPath.Sample(progress);
-            var roadWidth = roadProfile.RoadWidth;
-            var outerRoadOffset = roadProfile.OuterRoadOffset;
-            var joinPoint = joinSample.Point + joinSample.Outward * Mathf.Max(0.05f, outerRoadOffset - 0.015f);
-            var laneLength = Mathf.Max(1.05f, preset.FeederRowsPerStack * preset.FeederRowSpacing + roadProfile.LaneWidth);
-            var sideSign = side < 0 ? -1f : 1f;
-            var laneX = sideSign * (rotaryPath.RadiusX + roadWidth * 1.05f + 0.16f);
+            var joinSample = join.JoinSample;
+            var joinPoint = join.JoinPoint;
+            var laneLength = join.LaneLength;
+            var laneX = join.LaneX;
             var start = new Vector2(laneX, joinPoint.y + laneLength * 0.82f);
             var verticalEnd = new Vector2(laneX, joinPoint.y + laneLength * 0.24f);
             visibleTopY = start.y;
@@ -232,7 +269,7 @@ namespace BusPuzzle
 
             hiddenTailDirection.Normalize();
             var hiddenStart = start + hiddenTailDirection * preset.FeederRowSpacing * FeederHiddenTailRows;
-            var joinOverlap = joinPoint - joinSample.Outward * Mathf.Min(0.085f, roadWidth * 0.18f);
+            var joinOverlap = joinPoint - joinSample.Outward * Mathf.Min(0.085f, roadProfile.RoadWidth * 0.18f);
             var approach = new Vector2(
                 Mathf.Lerp(laneX, joinPoint.x, 0.68f),
                 joinPoint.y + laneLength * 0.06f);

@@ -358,7 +358,8 @@ namespace BusPuzzle
                 y,
                 outerRoadOffset + innerExtraOffset,
                 outerRoadOffset + outerExtraOffset,
-                material);
+                material,
+                progress => layout.SampleFeederPath(side, path, progress));
         }
 
         private static void CreateQueuePosts(
@@ -378,7 +379,7 @@ namespace BusPuzzle
             for (var index = 0; index < 5; index++)
             {
                 var progress = Mathf.Lerp(0.16f, 0.84f, index / 4f);
-                var sample = path.Sample(progress);
+                var sample = layout.SampleFeederPath(side, path, progress);
                 var position = layout.ToWorldPoint(sample.Point + sample.Outward * outerRoadOffset, settings.RotaryCenterZ, 0f);
                 if (position.z < BoardLayoutConfig.StationZ + 0.40f)
                 {

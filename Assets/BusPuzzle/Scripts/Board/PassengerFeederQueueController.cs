@@ -332,7 +332,7 @@ namespace BusPuzzle
 
         private float GetFeederJoinProgress(int side)
         {
-            return side < 0 ? rotaryLayout.Preset.LeftFeederProgress : rotaryLayout.Preset.RightFeederProgress;
+            return rotaryLayout.GetFeederJoinProgress(side);
         }
 
         private PassengerUnitRoadPose GetFeederPose(int side, int slotIndex)
@@ -343,9 +343,8 @@ namespace BusPuzzle
         private PassengerUnitRoadPose GetFeederMergePose(int side, int feederSlotIndex, int rotarySlotIndex, float normalizedTime)
         {
             normalizedTime = Mathf.Clamp01(normalizedTime);
-            var feederPath = rotaryLayout.GetFeederPath(side);
             var startDistance = rotaryLayout.GetFeederDistanceForSlot(side, feederSlotIndex);
-            var feederDistance = Mathf.Lerp(startDistance, feederPath.Length, normalizedTime);
+            var feederDistance = Mathf.Lerp(startDistance, rotaryLayout.GetFeederQueueLength(side), normalizedTime);
             var feederPose = rotaryLayout.GetFeederPoseByDistance(side, feederDistance, settings.RotaryCenterZ, settings.PassengerUnitY);
             var targetPose = GetRotaryPoseByDistance(passengerFlow.GetSlotDistance(rotarySlotIndex));
             var mergeBlend = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(FeederMergeBlendStart, FeederMergeBlendEnd, normalizedTime));

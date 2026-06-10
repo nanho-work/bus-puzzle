@@ -136,12 +136,62 @@ namespace BusPuzzle
             const float railWidth = 0.066f;
             var innerOffset = layout.RoadInnerOffset;
             var outerOffset = layout.RoadOuterOffset;
-            BoardGeometry.CreateOpenPathBand($"{name} Road", parent, layout, roadFeederPath, settings.RotaryCenterZ, -0.060f, innerOffset, outerOffset, laneMaterial);
+            BoardGeometry.CreateOpenPathBand(
+                $"{name} Road",
+                parent,
+                layout,
+                roadFeederPath,
+                settings.RotaryCenterZ,
+                -0.060f,
+                innerOffset,
+                outerOffset,
+                laneMaterial,
+                progress => layout.SampleFeederPath(side, roadFeederPath, progress));
             CreateFeederJunctionPatch($"{name} Junction Patch", parent, layout, logicFeederPath, settings, laneMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Outer Rail Shadow", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.042f, outerOffset - 0.004f, outerOffset + railWidth + 0.018f, railShadowMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Outer Rail", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.024f, outerOffset, outerOffset + railWidth, railMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Inner Rail Shadow", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.042f, innerOffset - railWidth - 0.018f, innerOffset + 0.004f, railShadowMaterial);
-            BoardGeometry.CreateOpenPathBand($"{name} Inner Rail", parent, layout, railFeederPath, settings.RotaryCenterZ, -0.024f, innerOffset - railWidth, innerOffset, railMaterial);
+            BoardGeometry.CreateOpenPathBand(
+                $"{name} Outer Rail Shadow",
+                parent,
+                layout,
+                railFeederPath,
+                settings.RotaryCenterZ,
+                -0.042f,
+                outerOffset - 0.004f,
+                outerOffset + railWidth + 0.018f,
+                railShadowMaterial,
+                progress => layout.SampleFeederPath(side, railFeederPath, progress));
+            BoardGeometry.CreateOpenPathBand(
+                $"{name} Outer Rail",
+                parent,
+                layout,
+                railFeederPath,
+                settings.RotaryCenterZ,
+                -0.024f,
+                outerOffset,
+                outerOffset + railWidth,
+                railMaterial,
+                progress => layout.SampleFeederPath(side, railFeederPath, progress));
+            BoardGeometry.CreateOpenPathBand(
+                $"{name} Inner Rail Shadow",
+                parent,
+                layout,
+                railFeederPath,
+                settings.RotaryCenterZ,
+                -0.042f,
+                innerOffset - railWidth - 0.018f,
+                innerOffset + 0.004f,
+                railShadowMaterial,
+                progress => layout.SampleFeederPath(side, railFeederPath, progress));
+            BoardGeometry.CreateOpenPathBand(
+                $"{name} Inner Rail",
+                parent,
+                layout,
+                railFeederPath,
+                settings.RotaryCenterZ,
+                -0.024f,
+                innerOffset - railWidth,
+                innerOffset,
+                railMaterial,
+                progress => layout.SampleFeederPath(side, railFeederPath, progress));
         }
 
         private static void CreateFeederJunctionPatch(

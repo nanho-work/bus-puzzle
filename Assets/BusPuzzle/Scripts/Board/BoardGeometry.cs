@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace BusPuzzle
@@ -176,6 +177,31 @@ namespace BusPuzzle
             float outerOffset,
             Material material)
         {
+            return CreateOpenPathBand(
+                name,
+                parent,
+                layout,
+                path,
+                centerZ,
+                y,
+                innerOffset,
+                outerOffset,
+                material,
+                path.Sample);
+        }
+
+        public static GameObject CreateOpenPathBand(
+            string name,
+            Transform parent,
+            RotaryLayout layout,
+            FeederRoadPath path,
+            float centerZ,
+            float y,
+            float innerOffset,
+            float outerOffset,
+            Material material,
+            Func<float, RotaryPathSample> sampleAtProgress)
+        {
             var sampleCount = Mathf.Max(8, Mathf.CeilToInt(path.Length / 0.045f));
             var vertices = new Vector3[sampleCount * 2];
             var triangles = new int[(sampleCount - 1) * 12];
@@ -183,7 +209,7 @@ namespace BusPuzzle
             for (var index = 0; index < sampleCount; index++)
             {
                 var t = index / (sampleCount - 1f);
-                var sample = path.Sample(t);
+                var sample = sampleAtProgress(t);
                 vertices[index * 2] = layout.ToWorldPoint(sample.Point + sample.Outward * innerOffset, centerZ, y);
                 vertices[index * 2 + 1] = layout.ToWorldPoint(sample.Point + sample.Outward * outerOffset, centerZ, y);
             }

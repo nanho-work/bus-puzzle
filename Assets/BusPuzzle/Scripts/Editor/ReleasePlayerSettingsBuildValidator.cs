@@ -47,6 +47,11 @@ namespace BusPuzzle
             RequireContains(settings, $"iPhone: {BundleIdentifier}", "iOS bundle identifier must be com.koofylab.buspop.");
             RequireContains(settings, "bundleVersion: 1.0.0", "Release version should start at 1.0.0.");
             RequireContains(settings, AppIconGuid, "App icon is not assigned in Player Settings.");
+            RequireContains(settings, "defaultScreenOrientation: 2", "Default orientation must be Portrait. Do not ship reverse portrait builds.");
+            RequireContains(settings, "allowedAutorotateToPortrait: 1", "Portrait orientation must be allowed.");
+            RequireContains(settings, "allowedAutorotateToPortraitUpsideDown: 0", "Portrait upside down must be disabled.");
+            RequireContains(settings, "allowedAutorotateToLandscapeRight: 0", "Landscape right must be disabled.");
+            RequireContains(settings, "allowedAutorotateToLandscapeLeft: 0", "Landscape left must be disabled.");
 
             if (!File.Exists(AppIconPath))
             {
@@ -63,6 +68,12 @@ namespace BusPuzzle
                 if (ReadYamlNestedField(settings, "scriptingBackend", "Android") != "1")
                 {
                     throw new BuildFailedException("Android release must use IL2CPP.");
+                }
+
+                var versionCodeText = ReadYamlField(settings, "AndroidBundleVersionCode");
+                if (!int.TryParse(versionCodeText, out var versionCode) || versionCode < 2)
+                {
+                    throw new BuildFailedException("Android versionCode must be 2 or higher because versionCode 1 was already uploaded to Google Play.");
                 }
 
                 var resolverSettings = ReadRequiredFile(AndroidResolverPath);

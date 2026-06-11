@@ -62,28 +62,44 @@ namespace BusPuzzle
         private bool isVipSelectionMode;
         private bool isFailureWaitingForRotaryFill;
         private bool isRecoveryChoiceHoldingFailure;
+        private bool remoteConfigBlocksGameplay;
         private int vipUsesGrantedThisStage;
         private int vipTeleportTickets;
         private Coroutine departBoostRoutine;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ApplyStartupOrientation()
+        {
+            Screen.autorotateToPortrait = true;
+            Screen.autorotateToPortraitUpsideDown = false;
+            Screen.autorotateToLandscapeLeft = false;
+            Screen.autorotateToLandscapeRight = false;
+            Screen.orientation = ScreenOrientation.Portrait;
+        }
+
         private void Awake()
         {
+            ApplyStartupOrientation();
             Application.targetFrameRate = 60;
-            Screen.orientation = ScreenOrientation.Portrait;
 
             EnsureSceneDependencies();
+            RemoteConfigService.ValuesUpdated += ApplyRemoteConfigState;
+            uiController.RemoteConfigActionRequested += HandleRemoteConfigActionRequested;
+            RemoteConfigService.Initialize();
             ConfigureControllers();
             BackgroundMusicPlayer.ApplyPreferences();
             var initialLevelIndex = startingLevelIndex > 0
                 ? startingLevelIndex
                 : UserProgress.GetLastStageIndex(levelSequence.Count);
             LoadLevel(initialLevelIndex);
+            ApplyRemoteConfigState();
         }
 
         private void OnDestroy()
         {
             boardingFlowController?.Stop();
             StopStagePreload();
+            RemoteConfigService.ValuesUpdated -= ApplyRemoteConfigState;
 
             if (uiController == null)
             {
@@ -105,6 +121,7 @@ namespace BusPuzzle
             uiController.DepartGoldConfirmed -= RequestDepartGold;
             uiController.DepartConfirmed -= RequestDepartAd;
             uiController.RecoveryPromptCancelled -= HandleRecoveryPromptCancelled;
+            uiController.RemoteConfigActionRequested -= HandleRemoteConfigActionRequested;
 
             if (rewardedAdService != null)
             {
@@ -117,6 +134,11 @@ namespace BusPuzzle
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 ShowExitPrompt();
+                return;
+            }
+
+            if (remoteConfigBlocksGameplay)
+            {
                 return;
             }
 
@@ -369,6 +391,47 @@ namespace BusPuzzle
             if (uiController != null)
             {
                 uiController.ShowExitPrompt();
+            }
+        }
+
+        private void ApplyRemoteConfigState()
+        {
+            if (uiController == null)
+            {
+                return;
+            }
+
+            remoteConfigBlocksGameplay = RemoteConfigService.IsCurrentBuildUnsupported || RemoteConfigService.MaintenanceEnabled;
+            if (RemoteConfigService.IsCurrentBuildUnsupported)
+            {
+                uiController.ShowRemoteConfigPrompt(
+                    Localization.Text("update_required"),
+                    RemoteConfigService.GetUpdateMessage(),
+                    Localization.Text("update"),
+                    !string.IsNullOrWhiteSpace(RemoteConfigService.GetUpdateUrl()));
+            }
+            else if (RemoteConfigService.MaintenanceEnabled)
+            {
+                uiController.ShowRemoteConfigPrompt(
+                    Localization.Text("maintenance_title"),
+                    RemoteConfigService.GetMaintenanceMessage(),
+                    string.Empty,
+                    false);
+            }
+            else
+            {
+                uiController.HideRemoteConfigPrompt();
+            }
+
+            UpdateRewardedAdUi();
+        }
+
+        private void HandleRemoteConfigActionRequested()
+        {
+            var updateUrl = RemoteConfigService.GetUpdateUrl();
+            if (!string.IsNullOrWhiteSpace(updateUrl))
+            {
+                Application.OpenURL(updateUrl);
             }
         }
 

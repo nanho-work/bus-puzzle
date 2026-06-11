@@ -12,7 +12,6 @@ namespace BusPuzzle
         private const string StorePassEnv = "BUSPOP_ANDROID_STORE_PASS";
         private const string KeyPassEnv = "BUSPOP_ANDROID_KEY_PASS";
         private const string OutputDirectory = "Build/Android";
-        private const string OutputPath = OutputDirectory + "/BusPop-1.0.0-1.aab";
         private const string KeystorePath = "Build/Signing/buspop-upload-key.jks";
         private const string KeyAlias = "buspop-upload";
 
@@ -35,10 +34,11 @@ namespace BusPuzzle
             PlayerSettings.Android.keyaliasName = KeyAlias;
             PlayerSettings.Android.keyaliasPass = keyPass;
 
+            var outputPath = GetOutputPath();
             var options = new BuildPlayerOptions
             {
                 scenes = GetEnabledScenes(),
-                locationPathName = OutputPath,
+                locationPathName = outputPath,
                 target = BuildTarget.Android,
                 options = BuildOptions.None
             };
@@ -51,7 +51,14 @@ namespace BusPuzzle
                     $"Android release AAB build failed: {summary.result}, errors {summary.totalErrors}");
             }
 
-            UnityEngine.Debug.Log($"Android release AAB built: {OutputPath} ({summary.totalSize} bytes)");
+            UnityEngine.Debug.Log($"Android release AAB built: {outputPath} ({summary.totalSize} bytes)");
+        }
+
+        private static string GetOutputPath()
+        {
+            return Path.Combine(
+                OutputDirectory,
+                $"BusPop-{PlayerSettings.bundleVersion}-{PlayerSettings.Android.bundleVersionCode}.aab");
         }
 
         private static string[] GetEnabledScenes()

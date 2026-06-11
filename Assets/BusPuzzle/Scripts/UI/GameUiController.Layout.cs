@@ -87,6 +87,8 @@ namespace BusPuzzle
             BuildMixShufflePrompt();
             BuildDepartPrompt();
             BuildDifficultyBanner();
+            BuildRemoteConfigPrompt();
+            BuildStartupSplashOverlay();
         }
 
         private RectTransform EnsureSafeAreaRoot()

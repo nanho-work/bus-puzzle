@@ -5,9 +5,9 @@ namespace BusPuzzle
         public static IRewardedAdService Create(AdMobSettings settings)
         {
 #if BUS_PUZZLE_ADMOB
-            return new AdMobRewardedAdService(settings);
+            return new RemoteConfigRewardedAdService(new AdMobRewardedAdService(settings));
 #else
-            return new MockRewardedAdService(settings);
+            return new RemoteConfigRewardedAdService(new MockRewardedAdService(settings));
 #endif
         }
     }

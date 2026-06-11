@@ -19,6 +19,7 @@ namespace BusPuzzle
         private const string AdIconResource = "UI/Boosters/ad";
         private const string GoldIconResource = "UI/Boosters/gold 1";
         private const string LanguageIconResource = "UI/Boosters/Language";
+        private const string StartupSplashResource = "UI/Boosters/main";
         private const float HeaderIconSize = 117f;
         private const int HeaderStageFontSize = 60;
         private const int HeaderGoldFontSize = 34;
@@ -119,10 +120,17 @@ namespace BusPuzzle
         private Text departGoldButtonText;
         private Button departConfirmButton;
         private Text departWatchButtonText;
+        private RectTransform remoteConfigPrompt;
+        private Text remoteConfigPromptTitleText;
+        private Text remoteConfigPromptText;
+        private Button remoteConfigActionButton;
+        private Text remoteConfigActionButtonText;
         private static Sprite roundedPanelSprite;
         private static Sprite circleSprite;
         private static Sprite gearIconSprite;
         private bool shouldReturnToFailPromptOnRecoveryCancel;
+        private RectTransform startupSplashRoot;
+        private CanvasGroup startupSplashCanvasGroup;
 
         public event Action RestartRequested;
         public event Action NextLevelRequested;
@@ -139,6 +147,7 @@ namespace BusPuzzle
         public event Action DepartGoldConfirmed;
         public event Action DepartConfirmed;
         public event Action RecoveryPromptCancelled;
+        public event Action RemoteConfigActionRequested;
 
         public static GameUiController CreateDefault()
         {

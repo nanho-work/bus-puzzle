@@ -7,6 +7,8 @@
 /Logs/
 /UserSettings/
 /MemoryCaptures/
+/DerivedData/
+/DerivedDataCache/
 
 # Unity generated files
 *.csproj
@@ -19,9 +21,12 @@
 *.booproj
 *.svd
 *.pdb
+*.pdb.meta
 *.mdb
+*.mdb.meta
 *.opendb
 *.VC.db
+*.pidb.meta
 
 # Unity crash reports
 /sysinfo.txt
@@ -35,3 +40,20 @@
 *.apk
 *.aab
 *.keystore
+*.keystore.meta
+*.jks
+*.jks.meta
+
+# iOS / Xcode build outputs
+*.ipa
+*.xcarchive
+*.xcarchive/
+*.app
+*.dSYM
+*.dSYM/
+
+# Firebase / External Dependency Manager generated or desktop-only payloads
+/Assets/GeneratedLocalRepo/
+/Assets/GeneratedLocalRepo.meta
+/Assets/Firebase/Plugins/x86_64/
+/Assets/Firebase/Plugins/x86_64.meta

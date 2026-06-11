@@ -8,8 +8,8 @@ namespace BusPuzzle
         private const float CameraDistance = 8.15f;
         private const float MinOrthographicSize = 4.46f;
         private const float MaxOrthographicSize = 5.90f;
-        private const float TopUiInset = 0.052f;
-        private const float BottomUiInset = 0.125f;
+        private const float TopUiInset = 0.068f;
+        private const float BottomUiInset = 0.160f;
         private const float HorizontalUiInset = 0.022f;
         private const float NarrowAspectThreshold = 0.50f;
         private const float NarrowAspectMinimum = 0.42f;

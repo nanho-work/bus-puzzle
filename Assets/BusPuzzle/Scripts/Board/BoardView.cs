@@ -7,7 +7,7 @@ namespace BusPuzzle
     {
         public const int VipStationSlotIndex = -1;
 
-        private const float BoardingGateProgressWindow = 0.070f;
+        private const float BoardingGateProgressWindow = 0.022f;
         private const float BoardingReservationProgressWindow = 0.180f;
         private const float PassengerVisualScale = 4.08f;
         private const float PassengerFootprintScale = 2.65f;
@@ -23,8 +23,8 @@ namespace BusPuzzle
         private const float FeederMergeDuration = 0.34f;
         private const float FeederQueueStepDuration = 0.20f;
         private const float FeederVacancyWindowDistance = PassengerTangentialSlotSpacing * 0.62f;
-        private const float StationUpperRoadForwardCells = 2.50f;
-        private const float RotaryStationLaneClearanceCells = 0.78f;
+        private const float StationUpperRoadForwardCells = 2.05f;
+        private const float RotaryStationLaneClearanceCells = 0.55f;
         private const float RotaryVisualGuardrailPaddingCells = 0.45f;
 
         private readonly StationSlotController stationSlots = new StationSlotController(
@@ -151,6 +151,11 @@ namespace BusPuzzle
         public bool IsPassengerReadyToBoard(PassengerView passenger)
         {
             return GetPassengerTraffic().IsPassengerReadyToBoard(passenger);
+        }
+
+        internal PassengerUnitRoadPose GetBoardingGatePose()
+        {
+            return GetPassengerTraffic().GetBoardingGatePose();
         }
 
         public bool HasRotaryPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)

@@ -354,6 +354,11 @@ namespace BusPuzzle
 
         public void BoardReservedPassenger(PassengerView passenger, Action onComplete)
         {
+            BoardReservedPassenger(passenger, null, onComplete);
+        }
+
+        internal void BoardReservedPassenger(PassengerView passenger, PassengerUnitRoadPose? boardingGatePose, Action onComplete)
+        {
             if (passenger == null || !IsParkedAtStation || IsDeparted || reservedUnits <= 0 || passenger.Color != Color)
             {
                 CancelBoardingReservation();
@@ -365,7 +370,7 @@ namespace BusPuzzle
             reservedUnits = Mathf.Max(0, reservedUnits - 1);
             boardingUnitsInProgress++;
             ResetStationIdlePulse();
-            VehicleBoardingSequence.BoardPassenger(passenger, transform, Color, cellSize, BodyVisualFrontZ, BodyVisualCharacterLength, () =>
+            VehicleBoardingSequence.BoardPassenger(passenger, transform, Color, cellSize, BodyVisualFrontZ, BodyVisualCharacterLength, boardingGatePose, () =>
             {
                 var wasFull = IsFull;
                 boardingUnitsInProgress = Mathf.Max(0, boardingUnitsInProgress - 1);

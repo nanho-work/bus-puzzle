@@ -106,6 +106,12 @@ namespace BusPuzzle
             return boardingSelector.IsPassengerReadyToBoard(passenger);
         }
 
+        public PassengerUnitRoadPose GetBoardingGatePose()
+        {
+            var gateDistance = passengerFlow.GetProgressDistance(rotaryLayout.Preset.BoardingGateProgress);
+            return GetRotaryPoseByDistance(gateDistance);
+        }
+
         public static bool HasRotaryPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
         {
             return PassengerBoardingSelector.HasRotaryPassengerColor(passengers, color);

@@ -340,6 +340,10 @@ namespace BusPuzzle
 
             uiController.SetLevel(currentLevelIndex + 1, levelSequence.Count);
             uiController.ShowPlaying(currentLevel.LevelName);
+            if (currentLevel.DifficultyProfile.Difficulty == LevelDifficulty.SuperHard)
+            {
+                uiController.ShowSuperHardBanner();
+            }
 
             CheckBlocked();
             ScheduleStagePreload();

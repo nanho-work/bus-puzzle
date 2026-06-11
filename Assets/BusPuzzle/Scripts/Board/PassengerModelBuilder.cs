@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -5,8 +6,9 @@ namespace BusPuzzle
 {
     internal static class PassengerModelBuilder
     {
-        private const float PassengerVisualScale = 4.08f;
+        private const float PassengerVisualScale = 2.8f;
         private const float PassengerSetSpacingScale = 3.05f;
+        private const float NekoArmRestAngleDegrees = 58f;
         private const string PassengerModelResourcePath = "PassengerModels/PassengerUnit";
         private const float NpcTargetHeight = 0.405f;
         private const float NpcTargetWidth = 0.115f;
@@ -15,6 +17,8 @@ namespace BusPuzzle
         private static GameObject passengerModelPrefab;
         private static bool passengerModelPrefabLoaded;
         private static bool passengerModelPrefabInvalid;
+        private static readonly Dictionary<string, Material> NekoFurMaterials = new Dictionary<string, Material>();
+        private static readonly Dictionary<string, Texture2D> NekoFurTextures = new Dictionary<string, Texture2D>();
 
         public static PassengerModel Create(PuzzleColor color, Transform parent)
         {
@@ -131,7 +135,14 @@ namespace BusPuzzle
             var personRoots = new Transform[offsets.Length];
             var leftLegs = new Transform[offsets.Length];
             var rightLegs = new Transform[offsets.Length];
+            var leftLowerLegs = new Transform[offsets.Length];
+            var rightLowerLegs = new Transform[offsets.Length];
+            var leftFeet = new Transform[offsets.Length];
+            var rightFeet = new Transform[offsets.Length];
+            var leftArms = new Transform[offsets.Length];
+            var rightArms = new Transform[offsets.Length];
             var hatMaterial = PuzzlePalette.CreateMaterial(color, "Passenger Hat");
+            var useNekoWalkRig = false;
 
             for (var index = 0; index < offsets.Length; index++)
             {
@@ -152,10 +163,22 @@ namespace BusPuzzle
                 instance.transform.localScale = Vector3.one;
 
                 DisableRuntimeComponents(instance);
-                ConfigureNpcRenderers(instance, hatMaterial);
+                ConfigureNpcRenderers(instance, color, hatMaterial);
                 NormalizeNpcBounds(personRoot, instance.transform);
-                leftLegs[index] = FindNpcLeg(instance.transform, true);
-                rightLegs[index] = FindNpcLeg(instance.transform, false);
+                leftLegs[index] = FindNpcUpperLeg(instance.transform, true);
+                rightLegs[index] = FindNpcUpperLeg(instance.transform, false);
+                leftLowerLegs[index] = FindNpcLowerLeg(instance.transform, true);
+                rightLowerLegs[index] = FindNpcLowerLeg(instance.transform, false);
+                leftFeet[index] = FindNpcFoot(instance.transform, true);
+                rightFeet[index] = FindNpcFoot(instance.transform, false);
+                leftArms[index] = FindNpcUpperArm(instance.transform, true);
+                rightArms[index] = FindNpcUpperArm(instance.transform, false);
+                if (HasNekoArmRig(instance.transform))
+                {
+                    ApplyNekoArmRestPose(leftArms[index], rightArms[index]);
+                }
+
+                useNekoWalkRig = useNekoWalkRig || HasNekoLegRig(instance.transform);
                 personRoots[index] = personRoot;
             }
 
@@ -164,16 +187,95 @@ namespace BusPuzzle
                 offsets,
                 leftLegs,
                 rightLegs,
-                true);
+                !useNekoWalkRig,
+                leftLowerLegs,
+                rightLowerLegs,
+                leftFeet,
+                rightFeet,
+                leftArms,
+                rightArms);
             return true;
         }
 
-        private static Transform FindNpcLeg(Transform root, bool left)
+        private static Transform FindNpcUpperLeg(Transform root, bool left)
         {
-            var sideToken = left ? ".L" : ".R";
-            return FindNamedChild(root, $"thigh{sideToken}") ??
-                FindNamedChild(root, $"shin{sideToken}") ??
-                FindNamedChild(root, $"foot{sideToken}");
+            if (left)
+            {
+                return FindNamedChild(root, "thigh.L") ??
+                    FindNamedChild(root, "RigLLeg1") ??
+                    FindNamedChild(root, "shin.L") ??
+                    FindNamedChild(root, "foot.L");
+            }
+
+            return FindNamedChild(root, "thigh.R") ??
+                FindNamedChild(root, "RigRLeg1") ??
+                FindNamedChild(root, "shin.R") ??
+                FindNamedChild(root, "foot.R");
+        }
+
+        private static Transform FindNpcLowerLeg(Transform root, bool left)
+        {
+            if (left)
+            {
+                return FindNamedChild(root, "shin.L") ??
+                    FindNamedChild(root, "RigLLeg2");
+            }
+
+            return FindNamedChild(root, "shin.R") ??
+                FindNamedChild(root, "RigRLeg2");
+        }
+
+        private static Transform FindNpcFoot(Transform root, bool left)
+        {
+            if (left)
+            {
+                return FindNamedChild(root, "foot.L") ??
+                    FindNamedChild(root, "RigLLegAnkle") ??
+                    FindNamedChild(root, "RigLLegFoot1");
+            }
+
+            return FindNamedChild(root, "foot.R") ??
+                FindNamedChild(root, "RigRLegAnkle") ??
+                FindNamedChild(root, "RigRLegFoot1");
+        }
+
+        private static Transform FindNpcUpperArm(Transform root, bool left)
+        {
+            if (left)
+            {
+                return FindNamedChild(root, "upper_arm.L") ??
+                    FindNamedChild(root, "arm.L") ??
+                    FindNamedChild(root, "RigLArm1");
+            }
+
+            return FindNamedChild(root, "upper_arm.R") ??
+                FindNamedChild(root, "arm.R") ??
+                FindNamedChild(root, "RigRArm1");
+        }
+
+        private static bool HasNekoLegRig(Transform root)
+        {
+            return FindNamedChild(root, "RigLLeg1") != null &&
+                FindNamedChild(root, "RigRLeg1") != null;
+        }
+
+        private static bool HasNekoArmRig(Transform root)
+        {
+            return FindNamedChild(root, "RigLArm1") != null &&
+                FindNamedChild(root, "RigRArm1") != null;
+        }
+
+        private static void ApplyNekoArmRestPose(Transform leftArm, Transform rightArm)
+        {
+            if (leftArm != null)
+            {
+                leftArm.localRotation *= Quaternion.Euler(0f, NekoArmRestAngleDegrees, 0f);
+            }
+
+            if (rightArm != null)
+            {
+                rightArm.localRotation *= Quaternion.Euler(0f, -NekoArmRestAngleDegrees, 0f);
+            }
         }
 
         private static Transform FindNamedChild(Transform root, string childName)
@@ -197,11 +299,16 @@ namespace BusPuzzle
 
         private static void DisableRuntimeComponents(GameObject instance)
         {
-            var animator = instance.GetComponentInChildren<Animator>(true);
-            if (animator != null)
+            var animators = instance.GetComponentsInChildren<Animator>(true);
+            for (var index = 0; index < animators.Length; index++)
             {
-                animator.enabled = false;
-                animator.applyRootMotion = false;
+                if (animators[index] == null)
+                {
+                    continue;
+                }
+
+                animators[index].enabled = false;
+                animators[index].applyRootMotion = false;
             }
 
             var colliders = instance.GetComponentsInChildren<Collider>(true);
@@ -218,7 +325,7 @@ namespace BusPuzzle
             }
         }
 
-        private static void ConfigureNpcRenderers(GameObject instance, Material hatMaterial)
+        private static void ConfigureNpcRenderers(GameObject instance, PuzzleColor color, Material hatMaterial)
         {
             var renderers = instance.GetComponentsInChildren<Renderer>(true);
             for (var index = 0; index < renderers.Length; index++)
@@ -227,10 +334,230 @@ namespace BusPuzzle
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
 
+                if (TryApplyNekoFurRenderer(renderer, color))
+                {
+                    continue;
+                }
+
                 if (hatMaterial != null && IsHatRenderer(renderer))
                 {
                     renderer.sharedMaterial = hatMaterial;
                 }
+            }
+        }
+
+        private static bool TryApplyNekoFurRenderer(Renderer renderer, PuzzleColor color)
+        {
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            var materials = renderer.sharedMaterials;
+            var changed = false;
+            for (var index = 0; index < materials.Length; index++)
+            {
+                if (!IsNekoFurMaterial(materials[index]))
+                {
+                    continue;
+                }
+
+                materials[index] = GetNekoFurMaterial(materials[index], color);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                renderer.sharedMaterials = materials;
+            }
+
+            return changed;
+        }
+
+        private static bool IsNekoFurMaterial(Material material)
+        {
+            if (material == null)
+            {
+                return false;
+            }
+
+            return material.name.IndexOf("Neko Cat", System.StringComparison.OrdinalIgnoreCase) >= 0 &&
+                material.name.IndexOf("Face", System.StringComparison.OrdinalIgnoreCase) < 0;
+        }
+
+        private static Material GetNekoFurMaterial(Material source, PuzzleColor color)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var key = $"{source.GetInstanceID()}:{(int)color}";
+            if (NekoFurMaterials.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var material = new Material(source)
+            {
+                name = $"{PuzzlePalette.DisplayName(color)} Neko Fur"
+            };
+
+            var sourceTexture = GetMainTexture(source);
+            if (sourceTexture != null && sourceTexture.isReadable)
+            {
+                var texture = GetNekoFurTexture(sourceTexture, color);
+                if (texture != null)
+                {
+                    SetMainTexture(material, texture);
+                    SetMaterialColor(material, Color.white);
+                }
+                else
+                {
+                    SetMaterialColor(material, PuzzlePalette.ToColor(color));
+                }
+            }
+            else
+            {
+                SetMaterialColor(material, PuzzlePalette.ToColor(color));
+            }
+
+            NekoFurMaterials.Add(key, material);
+            return material;
+        }
+
+        private static Texture2D GetMainTexture(Material material)
+        {
+            if (material == null)
+            {
+                return null;
+            }
+
+            if (material.HasProperty("_BaseMap") && material.GetTexture("_BaseMap") is Texture2D baseMap)
+            {
+                return baseMap;
+            }
+
+            if (material.HasProperty("_MainTex") && material.GetTexture("_MainTex") is Texture2D mainTex)
+            {
+                return mainTex;
+            }
+
+            return null;
+        }
+
+        private static void SetMainTexture(Material material, Texture texture)
+        {
+            if (material == null || texture == null)
+            {
+                return;
+            }
+
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", texture);
+            }
+
+            if (material.HasProperty("_MainTex"))
+            {
+                material.SetTexture("_MainTex", texture);
+            }
+        }
+
+        private static Texture2D GetNekoFurTexture(Texture2D source, PuzzleColor color)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var key = $"{source.GetInstanceID()}:{(int)color}";
+            if (NekoFurTextures.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            Texture2D texture;
+            try
+            {
+                var pixels = source.GetPixels32();
+                for (var index = 0; index < pixels.Length; index++)
+                {
+                    var original = (Color)pixels[index];
+                    if (ShouldRecolorNekoFur(original))
+                    {
+                        pixels[index] = RecolorNekoFurPixel(original, color);
+                    }
+                }
+
+                texture = new Texture2D(source.width, source.height, TextureFormat.RGBA32, true)
+                {
+                    name = $"{PuzzlePalette.DisplayName(color)} Neko Fur Texture",
+                    filterMode = source.filterMode,
+                    wrapMode = source.wrapMode,
+                    anisoLevel = source.anisoLevel
+                };
+                texture.SetPixels32(pixels);
+                texture.Apply(true, false);
+            }
+            catch (UnityException)
+            {
+                return null;
+            }
+
+            NekoFurTextures.Add(key, texture);
+            return texture;
+        }
+
+        private static bool ShouldRecolorNekoFur(Color color)
+        {
+            if (color.a <= 0.05f)
+            {
+                return false;
+            }
+
+            Color.RGBToHSV(color, out _, out var saturation, out var value);
+            var maxChannel = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
+            var minChannel = Mathf.Min(color.r, Mathf.Min(color.g, color.b));
+            var channelSpread = maxChannel - minChannel;
+
+            return saturation <= 0.28f &&
+                channelSpread <= 0.22f &&
+                value >= 0.16f &&
+                value <= 0.80f;
+        }
+
+        private static Color32 RecolorNekoFurPixel(Color original, PuzzleColor color)
+        {
+            Color.RGBToHSV(original, out _, out _, out var value);
+            var target = PuzzlePalette.ToColor(color);
+            var shade = Mathf.InverseLerp(0.16f, 0.80f, value);
+            var shadeFactor = Mathf.Lerp(0.52f, 1.16f, shade);
+            var recolored = new Color(
+                Mathf.Clamp01(target.r * shadeFactor),
+                Mathf.Clamp01(target.g * shadeFactor),
+                Mathf.Clamp01(target.b * shadeFactor),
+                original.a);
+
+            return recolored;
+        }
+
+        private static void SetMaterialColor(Material material, Color color)
+        {
+            if (material == null)
+            {
+                return;
+            }
+
+            material.color = color;
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", color);
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", color);
             }
         }
 

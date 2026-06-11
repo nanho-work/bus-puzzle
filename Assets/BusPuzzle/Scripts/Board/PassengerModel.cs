@@ -8,8 +8,20 @@ namespace BusPuzzle
         private readonly Vector3[] defaultPersonLocalPositions;
         private readonly Transform[] leftLegs;
         private readonly Transform[] rightLegs;
+        private readonly Transform[] leftLowerLegs;
+        private readonly Transform[] rightLowerLegs;
+        private readonly Transform[] leftFeet;
+        private readonly Transform[] rightFeet;
+        private readonly Transform[] leftArms;
+        private readonly Transform[] rightArms;
         private readonly Quaternion[] defaultLeftLegLocalRotations;
         private readonly Quaternion[] defaultRightLegLocalRotations;
+        private readonly Quaternion[] defaultLeftLowerLegLocalRotations;
+        private readonly Quaternion[] defaultRightLowerLegLocalRotations;
+        private readonly Quaternion[] defaultLeftFootLocalRotations;
+        private readonly Quaternion[] defaultRightFootLocalRotations;
+        private readonly Quaternion[] defaultLeftArmLocalRotations;
+        private readonly Quaternion[] defaultRightArmLocalRotations;
         private readonly bool swingLegsAroundLocalX;
 
         public PassengerModel(
@@ -17,15 +29,33 @@ namespace BusPuzzle
             Vector3[] defaultPersonLocalPositions,
             Transform[] leftLegs,
             Transform[] rightLegs,
-            bool swingLegsAroundLocalX = false)
+            bool swingLegsAroundLocalX = false,
+            Transform[] leftLowerLegs = null,
+            Transform[] rightLowerLegs = null,
+            Transform[] leftFeet = null,
+            Transform[] rightFeet = null,
+            Transform[] leftArms = null,
+            Transform[] rightArms = null)
         {
             this.personRoots = personRoots;
             this.defaultPersonLocalPositions = defaultPersonLocalPositions;
             this.leftLegs = leftLegs;
             this.rightLegs = rightLegs;
+            this.leftLowerLegs = leftLowerLegs;
+            this.rightLowerLegs = rightLowerLegs;
+            this.leftFeet = leftFeet;
+            this.rightFeet = rightFeet;
+            this.leftArms = leftArms;
+            this.rightArms = rightArms;
             this.swingLegsAroundLocalX = swingLegsAroundLocalX;
             defaultLeftLegLocalRotations = CaptureLocalRotations(leftLegs);
             defaultRightLegLocalRotations = CaptureLocalRotations(rightLegs);
+            defaultLeftLowerLegLocalRotations = CaptureLocalRotations(leftLowerLegs);
+            defaultRightLowerLegLocalRotations = CaptureLocalRotations(rightLowerLegs);
+            defaultLeftFootLocalRotations = CaptureLocalRotations(leftFeet);
+            defaultRightFootLocalRotations = CaptureLocalRotations(rightFeet);
+            defaultLeftArmLocalRotations = CaptureLocalRotations(leftArms);
+            defaultRightArmLocalRotations = CaptureLocalRotations(rightArms);
         }
 
         public int PersonCount => personRoots != null ? personRoots.Length : 0;
@@ -45,23 +75,23 @@ namespace BusPuzzle
 
         public void ApplyWalkCycle(float swing)
         {
-            if (leftLegs == null || rightLegs == null)
+            var count = GetLargestTransformArrayLength(leftLegs, rightLegs, leftLowerLegs, rightLowerLegs, leftFeet, rightFeet, leftArms, rightArms);
+            if (count <= 0)
             {
                 return;
             }
 
-            for (var index = 0; index < leftLegs.Length; index++)
+            for (var index = 0; index < count; index++)
             {
                 var offsetSwing = index % 2 == 0 ? swing : -swing;
-                if (leftLegs[index] != null)
-                {
-                    leftLegs[index].localRotation = GetDefaultLegRotation(defaultLeftLegLocalRotations, index) * GetLegSwingRotation(offsetSwing);
-                }
-
-                if (rightLegs[index] != null)
-                {
-                    rightLegs[index].localRotation = GetDefaultLegRotation(defaultRightLegLocalRotations, index) * GetLegSwingRotation(-offsetSwing);
-                }
+                ApplyLegSwing(leftLegs, defaultLeftLegLocalRotations, index, offsetSwing);
+                ApplyLegSwing(rightLegs, defaultRightLegLocalRotations, index, -offsetSwing);
+                ApplyLegSwing(leftLowerLegs, defaultLeftLowerLegLocalRotations, index, -offsetSwing * 0.52f);
+                ApplyLegSwing(rightLowerLegs, defaultRightLowerLegLocalRotations, index, offsetSwing * 0.52f);
+                ApplyLegSwing(leftFeet, defaultLeftFootLocalRotations, index, offsetSwing * 0.36f);
+                ApplyLegSwing(rightFeet, defaultRightFootLocalRotations, index, -offsetSwing * 0.36f);
+                ApplyArmSwing(leftArms, defaultLeftArmLocalRotations, index, -offsetSwing * 0.26f);
+                ApplyArmSwing(rightArms, defaultRightArmLocalRotations, index, offsetSwing * 0.26f);
             }
         }
 
@@ -69,6 +99,12 @@ namespace BusPuzzle
         {
             ResetLegRotations(leftLegs, defaultLeftLegLocalRotations);
             ResetLegRotations(rightLegs, defaultRightLegLocalRotations);
+            ResetLegRotations(leftLowerLegs, defaultLeftLowerLegLocalRotations);
+            ResetLegRotations(rightLowerLegs, defaultRightLowerLegLocalRotations);
+            ResetLegRotations(leftFeet, defaultLeftFootLocalRotations);
+            ResetLegRotations(rightFeet, defaultRightFootLocalRotations);
+            ResetLegRotations(leftArms, defaultLeftArmLocalRotations);
+            ResetLegRotations(rightArms, defaultRightArmLocalRotations);
         }
 
         public void ApplyPosePersonLocalPositions(PassengerUnitRoadPose pose)
@@ -159,6 +195,45 @@ namespace BusPuzzle
             return swingLegsAroundLocalX
                 ? Quaternion.Euler(swing, 0f, 0f)
                 : Quaternion.Euler(0f, 0f, swing);
+        }
+
+        private void ApplyLegSwing(Transform[] transforms, Quaternion[] rotations, int index, float swing)
+        {
+            if (transforms == null || index < 0 || index >= transforms.Length || transforms[index] == null)
+            {
+                return;
+            }
+
+            transforms[index].localRotation = GetDefaultLegRotation(rotations, index) * GetLegSwingRotation(swing);
+        }
+
+        private void ApplyArmSwing(Transform[] transforms, Quaternion[] rotations, int index, float swing)
+        {
+            if (transforms == null || index < 0 || index >= transforms.Length || transforms[index] == null)
+            {
+                return;
+            }
+
+            transforms[index].localRotation = GetDefaultLegRotation(rotations, index) * Quaternion.Euler(0f, swing, 0f);
+        }
+
+        private static int GetLargestTransformArrayLength(params Transform[][] arrays)
+        {
+            var length = 0;
+            if (arrays == null)
+            {
+                return length;
+            }
+
+            for (var index = 0; index < arrays.Length; index++)
+            {
+                if (arrays[index] != null && arrays[index].Length > length)
+                {
+                    length = arrays[index].Length;
+                }
+            }
+
+            return length;
         }
 
         private static Quaternion[] CaptureLocalRotations(Transform[] transforms)

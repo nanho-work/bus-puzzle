@@ -6,7 +6,7 @@ namespace BusPuzzle
 {
     public sealed class PassengerModelRig : MonoBehaviour
     {
-        private const float PassengerVisualScale = 4.08f;
+        private const float PassengerVisualScale = 2.8f;
 
         [SerializeField] private Transform[] personRoots = Array.Empty<Transform>();
         [SerializeField] private Transform[] leftLegs = Array.Empty<Transform>();

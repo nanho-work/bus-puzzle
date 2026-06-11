@@ -9,9 +9,6 @@ namespace BusPuzzle
         private const float BoardingPersonLift = 0.030f;
         private const float BoardingDoorProgress = 0.42f;
         private const float BoardingEffectProgress = 0.82f;
-        private const float BoardingLineupStartProgress = 0.14f;
-        private const float BoardingLineupEndProgress = 0.88f;
-        private const float BoardingLineSpacingMin = 0.105f;
 
         public static IEnumerator WalkToBoard(
             Transform target,
@@ -22,39 +19,70 @@ namespace BusPuzzle
             float walkDuration,
             float personEnterDuration,
             float personEnterInterval,
+            PassengerUnitRoadPose? boardingGatePose,
             Action<Vector3> onPersonEntered,
             Action onComplete)
         {
-            model.ApplyDefaultPersonLocalPositions();
-
             var startPosition = target.position;
             var startRotation = target.rotation;
-            var approachRotation = GetFlatLookRotation(approachPosition - startPosition, startRotation);
+            var rawGatePosition = boardingGatePose.HasValue ? boardingGatePose.Value.Position : startPosition;
+            var rawExitPosition = GetBoardingExitPosition(rawGatePosition, approachPosition);
+            var adjustedGatePose = boardingGatePose.HasValue
+                ? boardingGatePose.Value.WithForwardDirection(rawExitPosition - rawGatePosition)
+                : (PassengerUnitRoadPose?)null;
+            var gatePosition = adjustedGatePose.HasValue ? adjustedGatePose.Value.Position : startPosition;
+            var gateRotation = adjustedGatePose.HasValue ? adjustedGatePose.Value.Rotation : startRotation;
+            var exitPosition = GetBoardingExitPosition(gatePosition, approachPosition);
+            var exitRotation = GetFlatLookRotation(exitPosition - gatePosition, gateRotation);
+            var approachRotation = GetFlatLookRotation(approachPosition - exitPosition, exitRotation);
             var enterRotation = GetFlatLookRotation(doorPosition - approachPosition, approachRotation);
             var boardingOrder = BuildBoardingOrder(model);
-            var linePositions = BuildBoardingLineLocalPositions(model, boardingOrder);
             var elapsed = 0f;
             walkDuration = Mathf.Max(0.01f, walkDuration);
+            var gateDistance = FlatDistance(startPosition, gatePosition);
+            var exitDistance = FlatDistance(gatePosition, exitPosition);
+            var approachDistance = FlatDistance(exitPosition, approachPosition);
+            var totalDistance = Mathf.Max(0.0001f, gateDistance + exitDistance + approachDistance);
+            var gateProgress = gateDistance > 0.010f ? Mathf.Clamp(gateDistance / totalDistance, 0.08f, 0.22f) : 0f;
+            var exitProgress = Mathf.Clamp(gateProgress + exitDistance / totalDistance, gateProgress + 0.48f, 0.86f);
+
+            if (adjustedGatePose.HasValue)
+            {
+                model.ApplyPosePersonLocalPositions(adjustedGatePose.Value);
+            }
 
             while (elapsed < walkDuration)
             {
                 elapsed += Time.deltaTime;
                 var normalizedTime = Mathf.Clamp01(elapsed / walkDuration);
                 var easedTime = Mathf.SmoothStep(0f, 1f, normalizedTime);
-                var lineupTime = Mathf.SmoothStep(
-                    0f,
-                    1f,
-                    Mathf.InverseLerp(BoardingLineupStartProgress, BoardingLineupEndProgress, normalizedTime));
 
-                target.SetPositionAndRotation(
-                    Vector3.Lerp(startPosition, approachPosition, easedTime),
-                    Quaternion.Slerp(startRotation, enterRotation, easedTime));
-                ApplyBoardingLineLocalPositions(model, linePositions, lineupTime);
+                if (gateProgress > 0f && easedTime <= gateProgress)
+                {
+                    var gateTime = Mathf.Clamp01(easedTime / Mathf.Max(0.0001f, gateProgress));
+                    target.SetPositionAndRotation(
+                        Vector3.Lerp(startPosition, gatePosition, gateTime),
+                        Quaternion.Slerp(startRotation, gateRotation, gateTime));
+                }
+                else if (easedTime <= exitProgress)
+                {
+                    var exitTime = Mathf.Clamp01((easedTime - gateProgress) / Mathf.Max(0.0001f, exitProgress - gateProgress));
+                    target.SetPositionAndRotation(
+                        Vector3.Lerp(gatePosition, exitPosition, exitTime),
+                        Quaternion.Slerp(gateRotation, exitRotation, exitTime));
+                }
+                else
+                {
+                    var approachTime = Mathf.Clamp01((easedTime - exitProgress) / Mathf.Max(0.0001f, 1f - exitProgress));
+                    target.SetPositionAndRotation(
+                        Vector3.Lerp(exitPosition, approachPosition, approachTime),
+                        Quaternion.Slerp(exitRotation, enterRotation, approachTime));
+                }
+
                 yield return null;
             }
 
             target.SetPositionAndRotation(approachPosition, enterRotation);
-            ApplyBoardingLineLocalPositions(model, linePositions, 1f);
 
             yield return MovePeopleIntoBus(
                 target,
@@ -175,68 +203,16 @@ namespace BusPuzzle
             return order;
         }
 
-        private static Vector3[] BuildBoardingLineLocalPositions(PassengerModel model, int[] boardingOrder)
+        private static Vector3 GetBoardingExitPosition(Vector3 startPosition, Vector3 approachPosition)
         {
-            var count = model.PersonCount;
-            var linePositions = new Vector3[count];
-            var spacing = EstimateDefaultPersonSpacing(model);
-            var centerIndex = (count - 1) * 0.5f;
-
-            for (var orderIndex = 0; orderIndex < count; orderIndex++)
-            {
-                var personIndex = boardingOrder != null && orderIndex < boardingOrder.Length
-                    ? boardingOrder[orderIndex]
-                    : orderIndex;
-                if (personIndex < 0 || personIndex >= count)
-                {
-                    continue;
-                }
-
-                var defaultPosition = model.GetDefaultPersonLocalPosition(personIndex);
-                linePositions[personIndex] = new Vector3(
-                    0f,
-                    defaultPosition.y,
-                    (centerIndex - orderIndex) * spacing);
-            }
-
-            return linePositions;
+            return new Vector3(startPosition.x, approachPosition.y, approachPosition.z);
         }
 
-        private static float EstimateDefaultPersonSpacing(PassengerModel model)
+        private static float FlatDistance(Vector3 first, Vector3 second)
         {
-            if (model.PersonCount < 2)
-            {
-                return BoardingLineSpacingMin;
-            }
-
-            var minX = float.MaxValue;
-            var maxX = float.MinValue;
-            for (var index = 0; index < model.PersonCount; index++)
-            {
-                var localPosition = model.GetDefaultPersonLocalPosition(index);
-                minX = Mathf.Min(minX, localPosition.x);
-                maxX = Mathf.Max(maxX, localPosition.x);
-            }
-
-            return Mathf.Max(BoardingLineSpacingMin, (maxX - minX) / Mathf.Max(1, model.PersonCount - 1));
-        }
-
-        private static void ApplyBoardingLineLocalPositions(PassengerModel model, Vector3[] linePositions, float t)
-        {
-            for (var index = 0; index < model.PersonCount; index++)
-            {
-                var personRoot = model.GetPersonRoot(index);
-                if (personRoot == null)
-                {
-                    continue;
-                }
-
-                var defaultPosition = model.GetDefaultPersonLocalPosition(index);
-                var linePosition = linePositions != null && index < linePositions.Length
-                    ? linePositions[index]
-                    : defaultPosition;
-                personRoot.localPosition = Vector3.Lerp(defaultPosition, linePosition, t);
-            }
+            first.y = 0f;
+            second.y = 0f;
+            return Vector3.Distance(first, second);
         }
 
         private static Vector3 GetBoardingPersonLocalPosition(Vector3 startPosition, Vector3 doorPosition, Vector3 entryPosition, float personTime)

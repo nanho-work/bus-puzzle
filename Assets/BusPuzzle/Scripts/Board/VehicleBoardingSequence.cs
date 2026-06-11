@@ -17,6 +17,7 @@ namespace BusPuzzle
             float cellSize,
             float visualFrontZ,
             float visualCharacterLength,
+            PassengerUnitRoadPose? boardingGatePose,
             Action onComplete)
         {
             if (passenger == null || vehicle == null)
@@ -37,6 +38,7 @@ namespace BusPuzzle
                 BoardingWalkDuration,
                 BoardingPersonEnterDuration,
                 BoardingPersonEnterInterval,
+                boardingGatePose,
                 personPosition => EffectFactory.PlayBoardingAbsorb(personPosition, color, cellSize * 0.62f),
                 () =>
                 {

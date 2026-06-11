@@ -134,7 +134,7 @@ namespace BusPuzzle
                     circulatingPassengerUnits.Remove(passenger);
                     updateCounters();
 
-                    bus.BoardReservedPassenger(passenger, updateCounters);
+                    bus.BoardReservedPassenger(passenger, boardView.GetBoardingGatePose(), updateCounters);
 
                     yield return new WaitForSeconds(BoardingUnitLaunchInterval);
                     continue;

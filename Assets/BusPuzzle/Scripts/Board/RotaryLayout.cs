@@ -74,6 +74,23 @@ namespace BusPuzzle
                 inverseRotation * (person4Position - position));
         }
 
+        public PassengerUnitRoadPose WithForwardDirection(Vector3 forwardDirection)
+        {
+            if (!HasCustomPersonLocalPositions)
+            {
+                return new PassengerUnitRoadPose(
+                    Position,
+                    Quaternion.LookRotation(NormalizeFlat(forwardDirection, Vector3.forward), Vector3.up));
+            }
+
+            return FromPersonWorldPositions(
+                Position + Rotation * Person1LocalPosition,
+                Position + Rotation * Person2LocalPosition,
+                Position + Rotation * Person3LocalPosition,
+                Position + Rotation * Person4LocalPosition,
+                forwardDirection);
+        }
+
         private static Vector3 ToWorldDirection(Vector2 direction, Vector3 fallback)
         {
             return NormalizeFlat(new Vector3(direction.x, 0f, direction.y), fallback);

@@ -413,6 +413,7 @@ namespace BusPuzzle
             statusText.text = string.Empty;
             SetRestartButtonInteractable(true);
             shouldReturnToFailPromptOnRecoveryCancel = false;
+            HideDifficultyBanner();
             HideSettingsPanel();
             HideClearPrompt();
             HideFailPrompt();

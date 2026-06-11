@@ -238,13 +238,14 @@ namespace BusPuzzle
             StartMoveRoutine(PassengerPoseAnimator.MoveAlongDynamicPose(transform, model, getPose, duration, CreateMoveComplete(onComplete)));
         }
 
-        public void WalkToBoard(
+        internal void WalkToBoard(
             Vector3 approachPosition,
             Vector3 doorPosition,
             Vector3 entryPosition,
             float walkDuration,
             float personEnterDuration,
             float personEnterInterval,
+            PassengerUnitRoadPose? boardingGatePose = null,
             Action<Vector3> onPersonEntered = null,
             Action onComplete = null)
         {
@@ -265,6 +266,7 @@ namespace BusPuzzle
                 walkDuration,
                 personEnterDuration,
                 personEnterInterval,
+                boardingGatePose,
                 onPersonEntered,
                 CreateMoveComplete(onComplete)));
         }

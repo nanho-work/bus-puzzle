@@ -22,6 +22,7 @@ public static class IosLaunchScreenPostprocessor
         CopyLaunchImage(pathToBuiltProject, "LaunchScreen-iPhoneLandscape.png");
         CopyLaunchImage(pathToBuiltProject, "LaunchScreen-iPad.png");
         PatchInfoPlist(pathToBuiltProject);
+        PatchXcodeProject(pathToBuiltProject);
         WriteAppIcons(pathToBuiltProject);
     }
 
@@ -51,6 +52,9 @@ public static class IosLaunchScreenPostprocessor
         plist.ReadFromFile(plistPath);
 
         PlistElementDict root = plist.root;
+        PlistElementArray deviceFamilies = root.CreateArray("UIDeviceFamily");
+        deviceFamilies.AddInteger(1);
+
         root.SetString("UILaunchStoryboardName", "LaunchScreen-iPhone");
         root.SetString("UILaunchStoryboardName~iphone", "LaunchScreen-iPhone");
         root.SetString("UILaunchStoryboardName~ipod", "LaunchScreen-iPhone");
@@ -61,6 +65,25 @@ public static class IosLaunchScreenPostprocessor
 
         plist.WriteToFile(plistPath);
         Debug.Log("iOS launch screen images and portrait orientation were patched for Bus Pop.");
+    }
+
+    private static void PatchXcodeProject(string buildPath)
+    {
+        string projectPath = PBXProject.GetPBXProjectPath(buildPath);
+        if (!File.Exists(projectPath))
+        {
+            Debug.LogWarning($"iOS Xcode project was not found: {projectPath}");
+            return;
+        }
+
+        var project = new PBXProject();
+        project.ReadFromFile(projectPath);
+
+        string mainTargetGuid = project.GetUnityMainTargetGuid();
+        project.SetBuildProperty(mainTargetGuid, "TARGETED_DEVICE_FAMILY", "1");
+
+        project.WriteToFile(projectPath);
+        Debug.Log("iOS target device family was patched to iPhone only for Bus Pop.");
     }
 
     private static void WriteAppIcons(string buildPath)

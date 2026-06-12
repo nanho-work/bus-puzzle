@@ -706,41 +706,41 @@ namespace BusPuzzle
 
             var body = VisualPrimitiveFactory.Create(PrimitiveType.Capsule, "Body");
             body.transform.SetParent(personRoot, false);
-            body.transform.localPosition = new Vector3(0f, 0.172f * PassengerUnitLayout.VisualScale, 0f);
-            body.transform.localScale = new Vector3(0.092f, 0.088f, 0.092f) * PassengerUnitLayout.VisualScale;
+            body.transform.localPosition = new Vector3(0f, 0.176f * PassengerUnitLayout.VisualScale, 0f);
+            body.transform.localScale = new Vector3(0.0592f, 0.074f, 0.0592f) * PassengerUnitLayout.VisualScale;
             body.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
 
             var head = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, "Head");
             head.transform.SetParent(personRoot, false);
-            head.transform.localPosition = new Vector3(0f, 0.318f * PassengerUnitLayout.VisualScale, 0.012f * PassengerUnitLayout.VisualScale);
-            head.transform.localScale = new Vector3(0.096f, 0.096f, 0.096f) * PassengerUnitLayout.VisualScale;
+            head.transform.localPosition = new Vector3(0f, 0.296f * PassengerUnitLayout.VisualScale, 0.010f * PassengerUnitLayout.VisualScale);
+            head.transform.localScale = new Vector3(0.0624f, 0.0624f, 0.0624f) * PassengerUnitLayout.VisualScale;
             head.GetComponent<Renderer>().sharedMaterial = headMaterial;
 
             leftLegs[index] = CreateLeg(
                 personRoot,
                 "Left Leg",
-                new Vector3(-0.026f, 0.074f, 0.016f) * PassengerUnitLayout.VisualScale,
+                new Vector3(-0.022f, 0.086f, 0.014f) * PassengerUnitLayout.VisualScale,
                 legMaterial,
                 out var leftFoot);
             leftFeet[index] = leftFoot;
             rightLegs[index] = CreateLeg(
                 personRoot,
                 "Right Leg",
-                new Vector3(0.026f, 0.074f, 0.016f) * PassengerUnitLayout.VisualScale,
+                new Vector3(0.022f, 0.086f, 0.014f) * PassengerUnitLayout.VisualScale,
                 legMaterial,
                 out var rightFoot);
             rightFeet[index] = rightFoot;
             leftArms[index] = CreateArm(
                 personRoot,
                 "Left Arm",
-                new Vector3(-0.063f, 0.205f, 0.010f) * PassengerUnitLayout.VisualScale,
+                new Vector3(-0.054f, 0.206f, 0.010f) * PassengerUnitLayout.VisualScale,
                 -1f,
                 bodyMaterial,
                 headMaterial);
             rightArms[index] = CreateArm(
                 personRoot,
                 "Right Arm",
-                new Vector3(0.063f, 0.205f, 0.010f) * PassengerUnitLayout.VisualScale,
+                new Vector3(0.054f, 0.206f, 0.010f) * PassengerUnitLayout.VisualScale,
                 1f,
                 bodyMaterial,
                 headMaterial);
@@ -755,18 +755,18 @@ namespace BusPuzzle
 
             var leg = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Leg Mesh");
             leg.transform.SetParent(legRoot, false);
-            leg.transform.localPosition = new Vector3(0f, -0.044f * PassengerUnitLayout.VisualScale, 0f);
-            leg.transform.localScale = new Vector3(0.024f, 0.088f, 0.026f) * PassengerUnitLayout.VisualScale;
+            leg.transform.localPosition = new Vector3(0f, -0.054f * PassengerUnitLayout.VisualScale, 0f);
+            leg.transform.localScale = new Vector3(0.020f, 0.108f, 0.022f) * PassengerUnitLayout.VisualScale;
             leg.GetComponent<Renderer>().sharedMaterial = material;
 
             footRoot = new GameObject($"{name} Foot").transform;
             footRoot.SetParent(legRoot, false);
-            footRoot.localPosition = new Vector3(0f, -0.091f, 0.024f) * PassengerUnitLayout.VisualScale;
+            footRoot.localPosition = new Vector3(0f, -0.111f, 0.024f) * PassengerUnitLayout.VisualScale;
 
             var foot = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Foot Mesh");
             foot.transform.SetParent(footRoot, false);
             foot.transform.localPosition = Vector3.zero;
-            foot.transform.localScale = new Vector3(0.030f, 0.014f, 0.052f) * PassengerUnitLayout.VisualScale;
+            foot.transform.localScale = new Vector3(0.028f, 0.012f, 0.052f) * PassengerUnitLayout.VisualScale;
             foot.GetComponent<Renderer>().sharedMaterial = material;
             return legRoot;
         }
@@ -785,14 +785,14 @@ namespace BusPuzzle
 
             var arm = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Arm Mesh");
             arm.transform.SetParent(armRoot, false);
-            arm.transform.localPosition = new Vector3(side * 0.006f, -0.044f, 0.018f) * PassengerUnitLayout.VisualScale;
-            arm.transform.localScale = new Vector3(0.018f, 0.072f, 0.020f) * PassengerUnitLayout.VisualScale;
+            arm.transform.localPosition = new Vector3(side * 0.008f, -0.056f, 0.018f) * PassengerUnitLayout.VisualScale;
+            arm.transform.localScale = new Vector3(0.016f, 0.104f, 0.018f) * PassengerUnitLayout.VisualScale;
             arm.GetComponent<Renderer>().sharedMaterial = armMaterial;
 
             var hand = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, "Hand");
             hand.transform.SetParent(armRoot, false);
-            hand.transform.localPosition = new Vector3(side * 0.008f, -0.086f, 0.026f) * PassengerUnitLayout.VisualScale;
-            hand.transform.localScale = Vector3.one * (0.026f * PassengerUnitLayout.VisualScale);
+            hand.transform.localPosition = new Vector3(side * 0.010f, -0.116f, 0.026f) * PassengerUnitLayout.VisualScale;
+            hand.transform.localScale = Vector3.one * (0.020f * PassengerUnitLayout.VisualScale);
             hand.GetComponent<Renderer>().sharedMaterial = handMaterial;
             return armRoot;
         }

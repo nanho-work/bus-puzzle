@@ -7,16 +7,19 @@ namespace BusPuzzle
         private const float CameraPitchDegrees = 62f;
         private const float CameraDistance = 8.15f;
         private const float MinOrthographicSize = 4.20f;
-        private const float MaxOrthographicSize = 5.55f;
+        private const float MaxOrthographicSize = 5.95f;
         private const float TopUiInset = 0.060f;
         private const float BottomUiInset = 0.130f;
         private const float HorizontalUiInset = 0.018f;
-        private const float ComfortZoomScale = 0.94f;
-        private const float NarrowAspectThreshold = 0.50f;
-        private const float NarrowAspectMinimum = 0.42f;
-        private const float NarrowAspectWidthFitScale = 0.80f;
+        private const float SafeFitPaddingScale = 1.04f;
 
         public static void Apply(Camera camera, Bounds contentBounds)
+        {
+            var screenSize = new Vector2Int(Screen.width, Screen.height);
+            Apply(camera, contentBounds, Screen.safeArea, screenSize);
+        }
+
+        public static void Apply(Camera camera, Bounds contentBounds, Rect safeArea, Vector2Int screenSize)
         {
             if (camera == null)
             {
@@ -29,11 +32,11 @@ namespace BusPuzzle
             camera.transform.rotation = Quaternion.Euler(CameraPitchDegrees, 0f, 0f);
 
             var aspect = GetCameraAspect(camera);
+            var safeAreaRatios = GetSafeAreaRatios(safeArea, screenSize);
+            var safeWidthRatio = Mathf.Clamp(safeAreaRatios.width, 0.55f, 1f);
+            var safeHeightRatio = Mathf.Clamp(safeAreaRatios.height, 0.55f, 1f);
             var usableHeight = Mathf.Clamp(1f - TopUiInset - BottomUiInset, 0.62f, 0.92f);
-            var horizontalInset = aspect < NarrowAspectThreshold
-                ? Mathf.Lerp(0.004f, HorizontalUiInset, Mathf.InverseLerp(0.42f, NarrowAspectThreshold, aspect))
-                : HorizontalUiInset;
-            var usableWidth = Mathf.Clamp(1f - horizontalInset * 2f, 0.72f, 0.995f);
+            var usableWidth = Mathf.Clamp(1f - HorizontalUiInset * 2f, 0.72f, 0.995f);
             var corners = GetBoundsCorners(contentBounds);
             var center = contentBounds.center;
             var right = camera.transform.right;
@@ -54,21 +57,19 @@ namespace BusPuzzle
                 maxY = Mathf.Max(maxY, projectedY);
             }
 
-            var requiredForHeight = (maxY - minY) / (2f * usableHeight);
-            var requiredForWidth = (maxX - minX) / (2f * aspect * usableWidth);
-            if (aspect < NarrowAspectThreshold)
-            {
-                var narrowBlend = Mathf.InverseLerp(NarrowAspectMinimum, NarrowAspectThreshold, aspect);
-                requiredForWidth *= Mathf.Lerp(NarrowAspectWidthFitScale, 1f, narrowBlend);
-            }
+            var requiredForHeight = (maxY - minY) / (2f * safeHeightRatio * usableHeight);
+            var requiredForWidth = (maxX - minX) / (2f * aspect * safeWidthRatio * usableWidth);
 
-            var requiredSize = Mathf.Max(requiredForHeight, requiredForWidth) * ComfortZoomScale;
+            var requiredSize = Mathf.Max(requiredForHeight, requiredForWidth) * SafeFitPaddingScale;
             camera.orthographicSize = Mathf.Clamp(requiredSize, MinOrthographicSize, MaxOrthographicSize);
 
-            var usableCenter = BottomUiInset + usableHeight * 0.5f;
-            var targetLocalY = (usableCenter - 0.5f) * 2f * camera.orthographicSize;
+            var usableCenterX = safeAreaRatios.x + safeAreaRatios.width * 0.5f;
+            var usableCenterY = safeAreaRatios.y + safeAreaRatios.height * (BottomUiInset + usableHeight * 0.5f);
+            var targetLocalX = (usableCenterX - 0.5f) * 2f * camera.orthographicSize * aspect;
+            var targetLocalY = (usableCenterY - 0.5f) * 2f * camera.orthographicSize;
             camera.transform.position =
                 center -
+                camera.transform.right * targetLocalX -
                 camera.transform.up * targetLocalY -
                 camera.transform.forward * CameraDistance;
         }
@@ -83,6 +84,21 @@ namespace BusPuzzle
             return Screen.height > 0
                 ? Mathf.Max(0.01f, Screen.width / (float)Screen.height)
                 : 9f / 16f;
+        }
+
+        private static Rect GetSafeAreaRatios(Rect safeArea, Vector2Int screenSize)
+        {
+            if (screenSize.x <= 0 || screenSize.y <= 0 || safeArea.width <= 0f || safeArea.height <= 0f)
+            {
+                return new Rect(0f, 0f, 1f, 1f);
+            }
+
+            var xMin = Mathf.Clamp01(safeArea.xMin / screenSize.x);
+            var yMin = Mathf.Clamp01(safeArea.yMin / screenSize.y);
+            var xMax = Mathf.Clamp01(safeArea.xMax / screenSize.x);
+            var yMax = Mathf.Clamp01(safeArea.yMax / screenSize.y);
+
+            return new Rect(xMin, yMin, Mathf.Max(0.01f, xMax - xMin), Mathf.Max(0.01f, yMax - yMin));
         }
 
         private static Vector3[] GetBoundsCorners(Bounds bounds)

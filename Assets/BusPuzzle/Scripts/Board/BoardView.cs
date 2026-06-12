@@ -14,6 +14,8 @@ namespace BusPuzzle
         private const float StationUpperRoadForwardCells = 2.05f;
         private const float RotaryStationLaneClearanceCells = 0.55f;
         private const float RotaryVisualGuardrailPaddingCells = 0.45f;
+        private const float CameraVisibleFeederRows = 2.35f;
+        private const float CameraFeederTopPadding = 0.12f;
 
         private readonly StationSlotController stationSlots = new StationSlotController(
             BoardLayoutConfig.ActiveStationSlots,
@@ -64,7 +66,12 @@ namespace BusPuzzle
             var feederTopY = hasVisibleFeederQueue
                 ? rotaryLayout.VisibleFeederTopY + 0.20f
                 : rotaryTopY;
-            var topZ = rotaryCenterZ + Mathf.Max(rotaryTopY, feederTopY);
+            var cameraFeederTopY = hasVisibleFeederQueue
+                ? Mathf.Min(
+                    feederTopY,
+                    rotaryTopY + BoardLayoutConfig.CellSize * CameraVisibleFeederRows + CameraFeederTopPadding)
+                : rotaryTopY;
+            var topZ = rotaryCenterZ + Mathf.Max(rotaryTopY, cameraFeederTopY);
 
             var center = new Vector3(0f, 0.10f, (bottomZ + topZ) * 0.5f);
             var size = new Vector3(halfWidth * 2f, 0.36f, topZ - bottomZ);

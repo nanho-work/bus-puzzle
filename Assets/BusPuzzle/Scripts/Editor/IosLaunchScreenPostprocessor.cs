@@ -59,6 +59,7 @@ public static class IosLaunchScreenPostprocessor
         root.SetString("UILaunchStoryboardName~iphone", "LaunchScreen-iPhone");
         root.SetString("UILaunchStoryboardName~ipod", "LaunchScreen-iPhone");
         root.SetString("UILaunchStoryboardName~ipad", "LaunchScreen-iPad");
+        root.SetString("NSUserTrackingUsageDescription", "Bus Pop uses this permission to show relevant ads and measure ad performance.");
 
         PlistElementArray orientations = root.CreateArray("UISupportedInterfaceOrientations");
         orientations.AddString("UIInterfaceOrientationPortrait");
@@ -80,7 +81,9 @@ public static class IosLaunchScreenPostprocessor
         project.ReadFromFile(projectPath);
 
         string mainTargetGuid = project.GetUnityMainTargetGuid();
+        string frameworkTargetGuid = project.GetUnityFrameworkTargetGuid();
         project.SetBuildProperty(mainTargetGuid, "TARGETED_DEVICE_FAMILY", "1");
+        project.AddFrameworkToProject(frameworkTargetGuid, "AppTrackingTransparency.framework", false);
 
         project.WriteToFile(projectPath);
         Debug.Log("iOS target device family was patched to iPhone only for Bus Pop.");

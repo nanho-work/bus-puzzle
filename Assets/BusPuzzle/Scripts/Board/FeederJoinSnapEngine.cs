@@ -75,7 +75,10 @@ namespace BusPuzzle
             var roadWidth = roadProfile.RoadWidth;
             var outerRoadOffset = roadProfile.OuterRoadOffset;
             var joinPoint = joinSample.Point + joinSample.Outward * Mathf.Max(0.05f, outerRoadOffset - 0.015f);
-            var laneLength = Mathf.Max(1.05f, preset.FeederRowsPerStack * preset.FeederRowSpacing + roadProfile.LaneWidth);
+            var laneLength = Mathf.Max(
+                1.05f,
+                preset.FeederRowsPerStack * preset.FeederRowSpacing * PassengerUnitLayout.FeederQueueSpacingMultiplier +
+                roadProfile.LaneWidth);
             var laneX = ResolveLaneX(rotaryPath, side, roadWidth, joinPoint.x);
 
             return new FeederJoinResolution(progress, joinSample, joinPoint, laneX, laneLength);

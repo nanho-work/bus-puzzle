@@ -33,8 +33,7 @@ namespace BusPuzzle
             var person2Sample = SamplePersonLanePath(1, routeDistance);
             var person3Sample = SamplePersonLanePath(2, routeDistance);
             var person4Sample = SamplePersonLanePath(3, routeDistance);
-            var tangent = person1Sample.Tangent + person2Sample.Tangent + person3Sample.Tangent + person4Sample.Tangent;
-            tangent = tangent.sqrMagnitude > 0.0001f ? tangent.normalized : person4Sample.Tangent;
+            var tangent = GetMiddleLaneTangent(person2Sample, person3Sample, person4Sample.Tangent);
 
             return PassengerUnitRoadPose.FromPersonWorldPositions(
                 layout.ToWorldPoint(person1Sample.Point, centerZ, y),
@@ -96,6 +95,20 @@ namespace BusPuzzle
         {
             var sample = layout.Path.SampleByDistance(centerDistance);
             return sample.Point + sample.Outward * laneOffset;
+        }
+
+        private static Vector2 GetMiddleLaneTangent(
+            RotaryPathSample innerMiddleSample,
+            RotaryPathSample outerMiddleSample,
+            Vector2 fallback)
+        {
+            var tangent = innerMiddleSample.Tangent + outerMiddleSample.Tangent;
+            if (tangent.sqrMagnitude > 0.0001f)
+            {
+                return tangent.normalized;
+            }
+
+            return fallback.sqrMagnitude > 0.0001f ? fallback.normalized : Vector2.right;
         }
 
         private static void BuildLaneTangents(Vector2[] points, Vector2[] tangents)

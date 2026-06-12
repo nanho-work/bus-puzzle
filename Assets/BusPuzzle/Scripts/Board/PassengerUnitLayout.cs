@@ -7,18 +7,28 @@ namespace BusPuzzle
         public const bool UseAssetPassengerPrefabs = false;
         public const int PeoplePerUnit = 4;
 
+        private const float BaseVisualScale = 2.8f;
+        private const float BaseFootprintScale = 2.65f;
+        private const float BasePersonSpacingScale = 3.05f;
+        private const float BaseRailClearance = 0.032f;
+        private const float BaseRotaryUnitSpacing = 0.108f;
+        private const float BaseFeederQueueSpacingMultiplier = 1.17f;
+
         public const float VisualScale = 1.2f;
-        public const float FootprintScale = 2.65f;
+        public const float LayoutScale = VisualScale / BaseVisualScale;
+        public const float FootprintScale = BaseFootprintScale * LayoutScale;
         public const float PersonRadius = 0.065f * FootprintScale;
-        public const float RailClearance = 0.032f;
+        public const float RailClearance = BaseRailClearance * LayoutScale;
         public const float UnitY = 0.08f;
 
-        public const float PersonSpacingScale = 3.05f;
-        public const float RotaryUnitSpacing = 0.108f;
+        public const float PersonSpacingScale = BasePersonSpacingScale * LayoutScale;
+        public const float RotaryUnitSpacingScale = 1.2f;
+        public const float RotaryUnitSpacing = BaseRotaryUnitSpacing * RotaryUnitSpacingScale;
         public const float FeederVacancyWindowDistance = RotaryUnitSpacing * 0.62f;
 
         public const float FeederMergeClearanceRows = 2.35f;
-        public const float FeederQueueSpacingMultiplier = 1.17f;
+        public const float FeederQueueSpacingScale = 2f;
+        public const float FeederQueueSpacingMultiplier = BaseFeederQueueSpacingMultiplier * FeederQueueSpacingScale;
         public const float FeederStartPaddingRows = 0.35f;
         public const float FeederHiddenTailRows = 14f;
 
@@ -65,7 +75,7 @@ namespace BusPuzzle
                 PersonLocalZOffsets,
                 PersonRadius,
                 RailClearance,
-                preset.RoadShoulder);
+                preset.RoadShoulder * LayoutScale);
         }
     }
 }

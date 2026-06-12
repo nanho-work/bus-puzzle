@@ -405,7 +405,7 @@ namespace BusPuzzle
 
             MobilePerformanceProfile.ApplyCamera(gameCamera);
             MobilePerformanceProfile.ApplyRenderScaleForCurrentScreen();
-            BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds());
+            BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds(), safeArea, screenSize);
         }
 
         private void RestartLevel()

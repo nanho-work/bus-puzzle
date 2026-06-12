@@ -280,11 +280,11 @@ namespace BusPuzzle
             switch (difficulty)
             {
                 case LevelDifficulty.Hard:
-                    return 35;
+                    return 25;
                 case LevelDifficulty.SuperHard:
-                    return 40;
-                default:
                     return 30;
+                default:
+                    return 20;
             }
         }
 

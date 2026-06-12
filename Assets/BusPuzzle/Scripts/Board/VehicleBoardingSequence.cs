@@ -5,9 +5,10 @@ namespace BusPuzzle
 {
     internal static class VehicleBoardingSequence
     {
-        private const float BoardingWalkDuration = 0.58f;
-        private const float BoardingPersonEnterDuration = 0.24f;
-        private const float BoardingPersonEnterInterval = 0.075f;
+        private const float BoardingSpeedMultiplier = 2f;
+        private const float BoardingWalkDuration = 0.58f / BoardingSpeedMultiplier;
+        private const float BoardingPersonEnterDuration = 0.24f / BoardingSpeedMultiplier;
+        private const float BoardingPersonEnterInterval = 0.075f / BoardingSpeedMultiplier;
         private const float BoardingPassengerY = 0.08f;
 
         public static void BoardPassenger(

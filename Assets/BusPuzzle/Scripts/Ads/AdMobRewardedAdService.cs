@@ -39,14 +39,14 @@ namespace BusPuzzle
 
         public void Initialize()
         {
-            MobileAds.Initialize(_ =>
+            IosTrackingAuthorization.RequestIfNeeded(() => MobileAds.Initialize(_ =>
             {
                 MobileAdsEventExecutor.ExecuteInUpdate(() =>
                 {
                     isInitialized = true;
                     Preload();
                 });
-            });
+            }));
         }
 
         public void Preload()

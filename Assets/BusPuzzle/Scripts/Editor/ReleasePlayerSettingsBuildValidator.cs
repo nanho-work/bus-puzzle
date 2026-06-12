@@ -13,6 +13,7 @@ namespace BusPuzzle
         private const string QualitySettingsPath = "ProjectSettings/QualitySettings.asset";
         private const string AndroidResolverPath = "ProjectSettings/AndroidResolverDependencies.xml";
         private const string GameUiControllerPath = "Assets/BusPuzzle/Scripts/UI/GameUiController.cs";
+        private const string RemoteConfigServicePath = "Assets/BusPuzzle/Scripts/Core/RemoteConfigService.cs";
         private const string AppIconPath = "Assets/BusPuzzle/Resources/UI/Boosters/Bus_Pop(en)_icon.png";
         private const string AppIconGuid = "e9c693834f7d74611a1844930e77f5c5";
         private const string ProductName = "Bus Pop";
@@ -62,6 +63,8 @@ namespace BusPuzzle
 
             if (target == BuildTarget.Android)
             {
+                RequireContains(settings, "androidSplashScreen: {fileID: 0}", "Android native splash image must stay disabled; Bus Pop uses the in-game startup splash for stable portrait launch.");
+
                 if (ReadYamlField(settings, "AndroidTargetArchitectures") != "3")
                 {
                     throw new BuildFailedException("Android release must include ARM64.");
@@ -78,6 +81,9 @@ namespace BusPuzzle
                     throw new BuildFailedException("Android versionCode must be 3 or higher because versionCode 2 was already uploaded to Google Play.");
                 }
 
+                var remoteConfigService = ReadRequiredFile(RemoteConfigServicePath);
+                RequireContains(remoteConfigService, $"CurrentAndroidVersionCode = {versionCode}", "RemoteConfigService CurrentAndroidVersionCode must match Android versionCode.");
+
                 var resolverSettings = ReadRequiredFile(AndroidResolverPath);
                 RequireContains(resolverSettings, "arm64-v8a", "Android resolver ABI list must include arm64-v8a.");
                 RequireContains(resolverSettings, BundleIdentifier, "Android resolver bundle id is out of sync.");
@@ -91,6 +97,15 @@ namespace BusPuzzle
 
             if (target == BuildTarget.iOS)
             {
+                var iosBuildNumberText = ReadYamlNestedField(settings, "buildNumber", "iPhone");
+                if (!int.TryParse(iosBuildNumberText, out var iosBuildNumber) || iosBuildNumber < 3)
+                {
+                    throw new BuildFailedException("iOS build number must be 3 or higher because build 2 was already reviewed by App Store Connect.");
+                }
+
+                var remoteConfigService = ReadRequiredFile(RemoteConfigServicePath);
+                RequireContains(remoteConfigService, $"CurrentIosBuildNumber = {iosBuildNumber}", "RemoteConfigService CurrentIosBuildNumber must match iOS build number.");
+
                 if (ReadYamlField(settings, "appleDeveloperTeamID").Length == 0)
                 {
                     throw new BuildFailedException("iOS Apple Developer Team ID is missing. Set it in Player Settings before release builds.");

@@ -59,7 +59,7 @@ namespace BusPuzzle
         public int CapacityUnits => BusSizeUtility.ToPassengerUnits(Size);
         public int CapacityPeople => BusSizeUtility.ToPeopleCapacity(Size);
         public int BoardedUnits => boardedUnits;
-        public int RemainingPeople => Mathf.Max(0, (CapacityUnits - boardedUnits) * 4);
+        public int RemainingPeople => Mathf.Max(0, (CapacityUnits - boardedUnits) * PassengerUnitLayout.PeoplePerUnit);
         public bool IsFull => boardedUnits >= CapacityUnits;
         public bool IsBoardingPassengers => boardingUnitsInProgress > 0;
         public bool HasBoardingReservations => reservedUnits > 0;

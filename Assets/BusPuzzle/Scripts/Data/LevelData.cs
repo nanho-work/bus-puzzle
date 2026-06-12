@@ -37,7 +37,7 @@ namespace BusPuzzle
         public IReadOnlyList<GarageDefinition> Garages => garages ?? EmptyGarages;
         public IReadOnlyList<BusDefinition> AllVehicles => GetAllVehicles();
         public int PassengerUnitCount => PassengerUnits.Count;
-        public int PassengerPeopleCount => PassengerUnits.Count * 4;
+        public int PassengerPeopleCount => PassengerUnits.Count * PassengerUnitLayout.PeoplePerUnit;
 
         private static readonly IReadOnlyList<GarageDefinition> EmptyGarages = Array.Empty<GarageDefinition>();
 
@@ -82,7 +82,7 @@ namespace BusPuzzle
                 }
 
                 mismatches.Add(
-                    $"{PuzzlePalette.DisplayName(color)} passengers {passengerUnitCount * 4}, capacity {capacityUnitCount * 4}");
+                    $"{PuzzlePalette.DisplayName(color)} passengers {passengerUnitCount * PassengerUnitLayout.PeoplePerUnit}, capacity {capacityUnitCount * PassengerUnitLayout.PeoplePerUnit}");
             }
 
             if (mismatches.Count == 0)

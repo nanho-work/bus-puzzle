@@ -4,8 +4,6 @@ namespace BusPuzzle
 {
     internal static class FeederQueueLayout
     {
-        public const int PeoplePerUnit = 4;
-
         public static RotaryPathSample Sample(int side, FeederRoadPath path, float progress)
         {
             return ResolveSideAwareSample(side, path.Sample(progress));
@@ -68,7 +66,7 @@ namespace BusPuzzle
         private readonly int side;
         private readonly FeederRoadPath path;
         private readonly PassengerRoadProfile roadProfile;
-        private readonly LanePathCache[] personLanePaths = new LanePathCache[FeederQueueLayout.PeoplePerUnit];
+        private readonly LanePathCache[] personLanePaths = new LanePathCache[PassengerUnitLayout.PeoplePerUnit];
 
         public FeederQueueLaneSampler(int side, FeederRoadPath path, PassengerRoadProfile roadProfile, int sampleCount)
         {
@@ -82,7 +80,7 @@ namespace BusPuzzle
                 personLanePaths[personIndex] = BuildLanePathMap(roadProfile.GetPersonLaneOffset(personIndex), sampleCount);
             }
 
-            ReferencePathLength = Mathf.Max(0.01f, personLanePaths[FeederQueueLayout.PeoplePerUnit - 1].PathLength);
+            ReferencePathLength = Mathf.Max(0.01f, personLanePaths[PassengerUnitLayout.PeoplePerUnit - 1].PathLength);
         }
 
         public float ReferencePathLength { get; }

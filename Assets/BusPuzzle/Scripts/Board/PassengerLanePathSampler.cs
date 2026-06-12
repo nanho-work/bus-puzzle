@@ -4,8 +4,6 @@ namespace BusPuzzle
 {
     internal sealed class PassengerLanePathSampler
     {
-        private const int PeoplePerUnit = 4;
-
         private struct LanePathCache
         {
             public float PathLength;
@@ -18,7 +16,7 @@ namespace BusPuzzle
         private float centerPathLength = 1f;
         private float outerPathLength = 1f;
         private float[] centerDistanceSamples = new float[0];
-        private readonly LanePathCache[] personLanePaths = new LanePathCache[PeoplePerUnit];
+        private readonly LanePathCache[] personLanePaths = new LanePathCache[PassengerUnitLayout.PeoplePerUnit];
 
         public float RoutePathLength => outerPathLength;
 
@@ -61,12 +59,12 @@ namespace BusPuzzle
                 centerDistanceSamples[index] = centerPathLength * index / sampleCount;
             }
 
-            for (var personIndex = 0; personIndex < PeoplePerUnit; personIndex++)
+            for (var personIndex = 0; personIndex < PassengerUnitLayout.PeoplePerUnit; personIndex++)
             {
                 personLanePaths[personIndex] = BuildLanePathMap(layout.GetPersonLaneOffset(personIndex), sampleCount);
             }
 
-            outerPathLength = Mathf.Max(0.01f, personLanePaths[PeoplePerUnit - 1].PathLength);
+            outerPathLength = Mathf.Max(0.01f, personLanePaths[PassengerUnitLayout.PeoplePerUnit - 1].PathLength);
         }
 
         private LanePathCache BuildLanePathMap(float laneOffset, int sampleCount)
@@ -123,7 +121,7 @@ namespace BusPuzzle
         private RotaryPathSample SamplePersonLanePath(int personIndex, float outerDistance)
         {
             outerDistance = Mathf.Repeat(outerDistance, outerPathLength);
-            var cache = personLanePaths[Mathf.Clamp(personIndex, 0, PeoplePerUnit - 1)];
+            var cache = personLanePaths[Mathf.Clamp(personIndex, 0, PassengerUnitLayout.PeoplePerUnit - 1)];
             var laneProgress = outerDistance / outerPathLength;
             var laneDistance = Mathf.Repeat(laneProgress * cache.PathLength, cache.PathLength);
 
@@ -150,7 +148,7 @@ namespace BusPuzzle
         private float MapCenterDistanceToOuterDistance(float centerDistance)
         {
             centerDistance = Mathf.Repeat(centerDistance, centerPathLength);
-            var outerDistances = personLanePaths[PeoplePerUnit - 1].Distances;
+            var outerDistances = personLanePaths[PassengerUnitLayout.PeoplePerUnit - 1].Distances;
             for (var index = 0; index < centerDistanceSamples.Length - 1; index++)
             {
                 if (centerDistance > centerDistanceSamples[index + 1])

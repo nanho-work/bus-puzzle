@@ -66,6 +66,9 @@ namespace BusPuzzle
         private int vipUsesGrantedThisStage;
         private int vipTeleportTickets;
         private Coroutine departBoostRoutine;
+        private Vector2Int lastCameraFrameScreenSize;
+        private Rect lastCameraFrameSafeArea;
+        private float lastCameraFrameAspect;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ApplyStartupOrientation()
@@ -80,7 +83,7 @@ namespace BusPuzzle
         private void Awake()
         {
             ApplyStartupOrientation();
-            Application.targetFrameRate = 60;
+            MobilePerformanceProfile.Apply();
 
             EnsureSceneDependencies();
             RemoteConfigService.ValuesUpdated += ApplyRemoteConfigState;
@@ -198,6 +201,11 @@ namespace BusPuzzle
             }
         }
 
+        private void LateUpdate()
+        {
+            ReframeBoardCamera(false);
+        }
+
         private void EnsureSceneDependencies()
         {
             levelSequence = ResolveLevelSequence();
@@ -243,6 +251,8 @@ namespace BusPuzzle
             {
                 gameCamera = CreateDefaultCamera();
             }
+
+            MobilePerformanceProfile.ApplyCamera(gameCamera);
 
             if (FindFirstObjectByType<Light>() == null)
             {
@@ -355,7 +365,7 @@ namespace BusPuzzle
 
             boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses);
             RevealReadyConcealedBuses();
-            BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds());
+            ReframeBoardCamera(true);
             UpdateCounters();
             UpdateGoldUi();
             UpdateRewardedAdUi();
@@ -369,6 +379,33 @@ namespace BusPuzzle
 
             CheckBlocked();
             ScheduleStagePreload();
+        }
+
+        private void ReframeBoardCamera(bool force)
+        {
+            if (gameCamera == null || boardView == null || Screen.width <= 0 || Screen.height <= 0)
+            {
+                return;
+            }
+
+            var screenSize = new Vector2Int(Screen.width, Screen.height);
+            var safeArea = Screen.safeArea;
+            var aspect = gameCamera.aspect > 0.01f ? gameCamera.aspect : screenSize.x / (float)screenSize.y;
+            if (!force &&
+                lastCameraFrameScreenSize == screenSize &&
+                lastCameraFrameSafeArea == safeArea &&
+                Mathf.Abs(lastCameraFrameAspect - aspect) < 0.001f)
+            {
+                return;
+            }
+
+            lastCameraFrameScreenSize = screenSize;
+            lastCameraFrameSafeArea = safeArea;
+            lastCameraFrameAspect = aspect;
+
+            MobilePerformanceProfile.ApplyCamera(gameCamera);
+            MobilePerformanceProfile.ApplyRenderScaleForCurrentScreen();
+            BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds());
         }
 
         private void RestartLevel()

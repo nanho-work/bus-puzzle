@@ -10,6 +10,7 @@ namespace BusPuzzle
     public sealed class ReleasePlayerSettingsBuildValidator : IPreprocessBuildWithReport
     {
         private const string ProjectSettingsPath = "ProjectSettings/ProjectSettings.asset";
+        private const string QualitySettingsPath = "ProjectSettings/QualitySettings.asset";
         private const string AndroidResolverPath = "ProjectSettings/AndroidResolverDependencies.xml";
         private const string GameUiControllerPath = "Assets/BusPuzzle/Scripts/UI/GameUiController.cs";
         private const string AppIconPath = "Assets/BusPuzzle/Resources/UI/Boosters/Bus_Pop(en)_icon.png";
@@ -47,11 +48,12 @@ namespace BusPuzzle
             RequireContains(settings, $"iPhone: {BundleIdentifier}", "iOS bundle identifier must be com.koofylab.buspop.");
             RequireContains(settings, "bundleVersion: 1.0.0", "Release version should start at 1.0.0.");
             RequireContains(settings, AppIconGuid, "App icon is not assigned in Player Settings.");
-            RequireContains(settings, "defaultScreenOrientation: 2", "Default orientation must be Portrait. Do not ship reverse portrait builds.");
+            RequireContains(settings, "defaultScreenOrientation: 1", "Default orientation must be Portrait. Do not ship reverse portrait builds.");
             RequireContains(settings, "allowedAutorotateToPortrait: 1", "Portrait orientation must be allowed.");
             RequireContains(settings, "allowedAutorotateToPortraitUpsideDown: 0", "Portrait upside down must be disabled.");
             RequireContains(settings, "allowedAutorotateToLandscapeRight: 0", "Landscape right must be disabled.");
             RequireContains(settings, "allowedAutorotateToLandscapeLeft: 0", "Landscape left must be disabled.");
+            RequireContains(settings, "androidResizeableActivity: 0", "Android activity must not be resizeable for portrait launch stability.");
 
             if (!File.Exists(AppIconPath))
             {
@@ -71,14 +73,20 @@ namespace BusPuzzle
                 }
 
                 var versionCodeText = ReadYamlField(settings, "AndroidBundleVersionCode");
-                if (!int.TryParse(versionCodeText, out var versionCode) || versionCode < 2)
+                if (!int.TryParse(versionCodeText, out var versionCode) || versionCode < 3)
                 {
-                    throw new BuildFailedException("Android versionCode must be 2 or higher because versionCode 1 was already uploaded to Google Play.");
+                    throw new BuildFailedException("Android versionCode must be 3 or higher because versionCode 2 was already uploaded to Google Play.");
                 }
 
                 var resolverSettings = ReadRequiredFile(AndroidResolverPath);
                 RequireContains(resolverSettings, "arm64-v8a", "Android resolver ABI list must include arm64-v8a.");
                 RequireContains(resolverSettings, BundleIdentifier, "Android resolver bundle id is out of sync.");
+
+                var qualitySettings = ReadRequiredFile(QualitySettingsPath);
+                if (ReadYamlNestedField(qualitySettings, "m_PerPlatformDefaultQuality", "Android") != "1")
+                {
+                    throw new BuildFailedException("Android release must use Low quality by default for stable mobile frame pacing.");
+                }
             }
 
             if (target == BuildTarget.iOS)

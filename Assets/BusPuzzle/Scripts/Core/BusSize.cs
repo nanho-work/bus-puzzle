@@ -71,7 +71,7 @@ namespace BusPuzzle
 
         public static int ToPeopleCapacity(BusSize size)
         {
-            return ToPassengerUnits(size) * 4;
+            return ToPassengerUnits(size) * PassengerUnitLayout.PeoplePerUnit;
         }
 
         public static string DisplayName(BusSize size)

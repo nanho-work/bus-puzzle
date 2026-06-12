@@ -6,11 +6,12 @@ namespace BusPuzzle
     {
         private const float CameraPitchDegrees = 62f;
         private const float CameraDistance = 8.15f;
-        private const float MinOrthographicSize = 4.46f;
-        private const float MaxOrthographicSize = 5.90f;
-        private const float TopUiInset = 0.068f;
-        private const float BottomUiInset = 0.160f;
-        private const float HorizontalUiInset = 0.022f;
+        private const float MinOrthographicSize = 4.20f;
+        private const float MaxOrthographicSize = 5.55f;
+        private const float TopUiInset = 0.060f;
+        private const float BottomUiInset = 0.130f;
+        private const float HorizontalUiInset = 0.018f;
+        private const float ComfortZoomScale = 0.94f;
         private const float NarrowAspectThreshold = 0.50f;
         private const float NarrowAspectMinimum = 0.42f;
         private const float NarrowAspectWidthFitScale = 0.80f;
@@ -23,6 +24,8 @@ namespace BusPuzzle
             }
 
             camera.orthographic = true;
+            camera.allowHDR = false;
+            camera.allowMSAA = false;
             camera.transform.rotation = Quaternion.Euler(CameraPitchDegrees, 0f, 0f);
 
             var aspect = GetCameraAspect(camera);
@@ -59,10 +62,8 @@ namespace BusPuzzle
                 requiredForWidth *= Mathf.Lerp(NarrowAspectWidthFitScale, 1f, narrowBlend);
             }
 
-            camera.orthographicSize = Mathf.Clamp(
-                Mathf.Max(requiredForHeight, requiredForWidth),
-                MinOrthographicSize,
-                MaxOrthographicSize);
+            var requiredSize = Mathf.Max(requiredForHeight, requiredForWidth) * ComfortZoomScale;
+            camera.orthographicSize = Mathf.Clamp(requiredSize, MinOrthographicSize, MaxOrthographicSize);
 
             var usableCenter = BottomUiInset + usableHeight * 0.5f;
             var targetLocalY = (usableCenter - 0.5f) * 2f * camera.orthographicSize;

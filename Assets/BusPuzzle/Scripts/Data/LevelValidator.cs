@@ -250,19 +250,19 @@ namespace BusPuzzle
                 {
                     report.Add(
                         LevelValidationSeverity.Error,
-                        $"Solution route uses {PuzzlePalette.DisplayName(pair.Key)} passengers {pair.Value * 4}, above vehicle capacity {capacityUnits * 4}.");
+                        $"Solution route uses {PuzzlePalette.DisplayName(pair.Key)} passengers {pair.Value * PassengerUnitLayout.PeoplePerUnit}, above vehicle capacity {capacityUnits * PassengerUnitLayout.PeoplePerUnit}.");
                 }
                 else if (pair.Value < capacityUnits && !flowPlan.AutoFillMissingCapacity)
                 {
                     report.Add(
                         LevelValidationSeverity.Error,
-                        $"Solution route leaves {PuzzlePalette.DisplayName(pair.Key)} capacity {(capacityUnits - pair.Value) * 4} unfilled while auto-fill is disabled.");
+                        $"Solution route leaves {PuzzlePalette.DisplayName(pair.Key)} capacity {(capacityUnits - pair.Value) * PassengerUnitLayout.PeoplePerUnit} unfilled while auto-fill is disabled.");
                 }
                 else if (pair.Value < capacityUnits)
                 {
                     report.Add(
                         LevelValidationSeverity.Warning,
-                        $"Solution route leaves {PuzzlePalette.DisplayName(pair.Key)} capacity {(capacityUnits - pair.Value) * 4}; auto-fill will add passengers.");
+                        $"Solution route leaves {PuzzlePalette.DisplayName(pair.Key)} capacity {(capacityUnits - pair.Value) * PassengerUnitLayout.PeoplePerUnit}; auto-fill will add passengers.");
                 }
             }
         }

@@ -111,11 +111,6 @@ namespace BusPuzzle
 
     internal readonly struct RotaryLayout
     {
-        private const float FeederMergeClearanceRows = 2.35f;
-        private const float FeederQueueSpacingMultiplier = 1.17f;
-        private const float FeederStartPaddingRows = 0.35f;
-        private const float FeederHiddenTailRows = 14f;
-
         public RotaryLayout(
             RoadPresetDefinition preset,
             int capacityUnits,
@@ -223,9 +218,9 @@ namespace BusPuzzle
         {
             var queueLength = GetFeederQueueLength(side);
             var distanceFromJoin =
-                (FeederMergeClearanceRows + Mathf.Max(0, slotIndex) * FeederQueueSpacingMultiplier) *
+                (PassengerUnitLayout.FeederMergeClearanceRows + Mathf.Max(0, slotIndex) * PassengerUnitLayout.FeederQueueSpacingMultiplier) *
                 Preset.FeederRowSpacing;
-            var maxDistanceFromJoin = Mathf.Max(Preset.FeederRowSpacing, queueLength - Preset.FeederRowSpacing * FeederStartPaddingRows);
+            var maxDistanceFromJoin = Mathf.Max(Preset.FeederRowSpacing, queueLength - Preset.FeederRowSpacing * PassengerUnitLayout.FeederStartPaddingRows);
             distanceFromJoin = Mathf.Min(distanceFromJoin, maxDistanceFromJoin);
             return Mathf.Clamp(queueLength - distanceFromJoin, 0f, queueLength);
         }
@@ -285,7 +280,7 @@ namespace BusPuzzle
             }
 
             hiddenTailDirection.Normalize();
-            var hiddenStart = start + hiddenTailDirection * preset.FeederRowSpacing * FeederHiddenTailRows;
+            var hiddenStart = start + hiddenTailDirection * preset.FeederRowSpacing * PassengerUnitLayout.FeederHiddenTailRows;
             var joinOverlap = joinPoint - joinSample.Outward * Mathf.Min(0.085f, roadProfile.RoadWidth * 0.18f);
             var approach = new Vector2(
                 Mathf.Lerp(laneX, joinPoint.x, 0.68f),

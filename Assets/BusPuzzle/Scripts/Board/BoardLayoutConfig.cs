@@ -14,8 +14,8 @@ namespace BusPuzzle
         public const float GridBottomZ = -4.17f;
         public const float StationZ = 0.66f;
         public const float StationSlotSpacing = 0.47f;
-        public const float StationSlotWidth = 0.325f;
-        public const float StationSlotDepth = 0.70f;
+        public const float StationSlotWidth = 0.35f;
+        public const float StationSlotDepth = 0.74f;
         public const float StationYawDegrees = 7f;
         public const float StationCounterBelowSlotOffset = 0.12f;
         public const float StationCounterY = 0.12f;
@@ -23,10 +23,10 @@ namespace BusPuzzle
 
         public const float VehicleBaseVisualWidthCells = 0.72f;
         public const float VehicleBaseVisualHeightCells = 0.90f;
-        public const float VehicleVisualWidthScale = 1.18f;
-        public const float VehicleVisualHeightScale = 1.16f;
-        public const float VehicleBodyVisualWidthScale = 1.12f;
-        public const float VehicleBodyVisualLengthScale = 1.01f;
+        public const float VehicleVisualWidthScale = 1.24f;
+        public const float VehicleVisualHeightScale = 1.21f;
+        public const float VehicleBodyVisualWidthScale = 1.13f;
+        public const float VehicleBodyVisualLengthScale = 1.03f;
         public const float VehicleVisualWidthCells = VehicleBaseVisualWidthCells * VehicleVisualWidthScale;
         public const float VehicleVisualHeightCells = VehicleBaseVisualHeightCells * VehicleVisualHeightScale;
         public const float VehicleFootprintWidthFactor = 0.96f;

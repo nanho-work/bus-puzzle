@@ -11,7 +11,8 @@ namespace BusPuzzle
 {
     public sealed class AndroidManifestPostprocessor : IPostGenerateGradleAndroidProject
     {
-        private const string UnityPlayerActivity = "com.unity3d.player.UnityPlayerActivity";
+        private const string PortraitOrientation = "portrait";
+        private const string UnityPlayerActivityPrefix = "com.unity3d.player.UnityPlayer";
         private static readonly XNamespace AndroidNamespace = "http://schemas.android.com/apk/res/android";
 
         public int callbackOrder => 1000;
@@ -30,19 +31,87 @@ namespace BusPuzzle
             }
 
             var document = XDocument.Load(manifestPath);
-            var activity = document
+            var activities = document
                 .Descendants("activity")
-                .FirstOrDefault(element =>
-                    (string)element.Attribute(AndroidNamespace + "name") == UnityPlayerActivity);
+                .Where(IsUnityLauncherActivity)
+                .ToList();
 
-            if (activity == null)
+            if (activities.Count == 0)
             {
-                throw new BuildFailedException("UnityPlayerActivity was not found in the generated Android manifest.");
+                throw new BuildFailedException("Unity launcher activity was not found in the generated Android manifest.");
             }
 
-            activity.SetAttributeValue(AndroidNamespace + "screenOrientation", "portrait");
+            foreach (var activity in activities)
+            {
+                ForcePortraitActivity(activity);
+            }
+
+            ForcePortraitApplicationMetadata(document);
             document.Save(manifestPath);
-            Debug.Log($"Bus Pop Android manifest locked to portrait: {manifestPath}");
+            Debug.Log($"Bus Pop Android manifest locked to portrait for {activities.Count} launcher activity entry: {manifestPath}");
+        }
+
+        private static bool IsUnityLauncherActivity(XElement activity)
+        {
+            var activityName = (string)activity.Attribute(AndroidNamespace + "name") ?? string.Empty;
+            if (activityName.StartsWith(UnityPlayerActivityPrefix, System.StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (HasMetadata(activity, "unityplayer.UnityActivity"))
+            {
+                return true;
+            }
+
+            return activity
+                .Descendants("intent-filter")
+                .Any(filter =>
+                    filter.Descendants("action").Any(action =>
+                        (string)action.Attribute(AndroidNamespace + "name") == "android.intent.action.MAIN") &&
+                    filter.Descendants("category").Any(category =>
+                        (string)category.Attribute(AndroidNamespace + "name") == "android.intent.category.LAUNCHER"));
+        }
+
+        private static void ForcePortraitActivity(XElement activity)
+        {
+            activity.SetAttributeValue(AndroidNamespace + "screenOrientation", PortraitOrientation);
+            activity.SetAttributeValue(AndroidNamespace + "resizeableActivity", "false");
+            SetOrCreateMetadata(activity, "WindowManagerPreference:FreeformWindowOrientation", "@string/FreeformWindowOrientation_portrait");
+        }
+
+        private static void ForcePortraitApplicationMetadata(XDocument document)
+        {
+            var application = document.Descendants("application").FirstOrDefault();
+            if (application == null)
+            {
+                return;
+            }
+
+            SetOrCreateMetadata(application, "notch.config", PortraitOrientation);
+        }
+
+        private static bool HasMetadata(XElement parent, string name)
+        {
+            return parent
+                .Elements("meta-data")
+                .Any(element => (string)element.Attribute(AndroidNamespace + "name") == name);
+        }
+
+        private static void SetOrCreateMetadata(XElement parent, string name, string value)
+        {
+            var metadata = parent
+                .Elements("meta-data")
+                .FirstOrDefault(element => (string)element.Attribute(AndroidNamespace + "name") == name);
+
+            if (metadata == null)
+            {
+                metadata = new XElement("meta-data");
+                parent.Add(metadata);
+            }
+
+            metadata.SetAttributeValue(AndroidNamespace + "name", name);
+            metadata.SetAttributeValue(AndroidNamespace + "value", value);
         }
     }
 }

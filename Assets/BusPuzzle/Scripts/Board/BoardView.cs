@@ -9,20 +9,8 @@ namespace BusPuzzle
 
         private const float BoardingGateProgressWindow = 0.022f;
         private const float BoardingReservationProgressWindow = 0.180f;
-        private const float PassengerVisualScale = 4.08f;
-        private const float PassengerFootprintScale = 2.65f;
-        private const float PassengerSetSpacingScale = 3.05f;
-        private const float PassengerInnerPersonLocalZ = -0.155f * PassengerSetSpacingScale;
-        private const float PassengerSecondPersonLocalZ = -0.052f * PassengerSetSpacingScale;
-        private const float PassengerThirdPersonLocalZ = 0.052f * PassengerSetSpacingScale;
-        private const float PassengerOuterPersonLocalZ = 0.155f * PassengerSetSpacingScale;
-        private const float PassengerPersonRadius = 0.065f * PassengerFootprintScale;
-        private const float PassengerRailClearance = 0.032f;
-        private const float PassengerTangentialSlotSpacing = 0.108f;
-        private const float PassengerUnitY = 0.08f;
         private const float FeederMergeDuration = 0.34f;
         private const float FeederQueueStepDuration = 0.20f;
-        private const float FeederVacancyWindowDistance = PassengerTangentialSlotSpacing * 0.62f;
         private const float StationUpperRoadForwardCells = 2.05f;
         private const float RotaryStationLaneClearanceCells = 0.55f;
         private const float RotaryVisualGuardrailPaddingCells = 0.45f;
@@ -88,8 +76,8 @@ namespace BusPuzzle
             rotaryLayout = RotaryLayout.Create(
                 levelData.RoadPreset,
                 levelData.RotaryStartCapacity,
-                PassengerTangentialSlotSpacing,
-                CreatePassengerRoadProfile(levelData.RoadPreset));
+                PassengerUnitLayout.RotaryUnitSpacing,
+                PassengerUnitLayout.CreateRoadProfile(levelData.RoadPreset));
             rotaryCenterZ = CalculateRotaryCenterZ(rotaryLayout);
             rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count);
             currentPassengerUnitCount = levelData.PassengerUnits.Count;
@@ -387,30 +375,13 @@ namespace BusPuzzle
         {
             return new PassengerTrafficSettings(
                 rotaryCenterZ,
-                PassengerUnitY,
+                PassengerUnitLayout.UnitY,
                 FeederMergeDuration,
                 FeederQueueStepDuration,
-                FeederVacancyWindowDistance,
+                PassengerUnitLayout.FeederVacancyWindowDistance,
                 BoardingGateProgressWindow,
                 BoardingReservationProgressWindow,
-                new Vector4(
-                    PassengerInnerPersonLocalZ,
-                    PassengerSecondPersonLocalZ,
-                    PassengerThirdPersonLocalZ,
-                    PassengerOuterPersonLocalZ));
-        }
-
-        private static PassengerRoadProfile CreatePassengerRoadProfile(RoadPresetDefinition preset)
-        {
-            return PassengerRoadProfile.Create(
-                new Vector4(
-                    PassengerInnerPersonLocalZ,
-                    PassengerSecondPersonLocalZ,
-                    PassengerThirdPersonLocalZ,
-                    PassengerOuterPersonLocalZ),
-                PassengerPersonRadius,
-                PassengerRailClearance,
-                preset.RoadShoulder);
+                PassengerUnitLayout.PersonLocalZOffsets);
         }
 
         private static float CalculateRotaryCenterZ(RotaryLayout layout)

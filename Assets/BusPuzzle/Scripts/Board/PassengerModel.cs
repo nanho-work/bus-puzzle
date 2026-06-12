@@ -90,8 +90,8 @@ namespace BusPuzzle
                 ApplyLegSwing(rightLowerLegs, defaultRightLowerLegLocalRotations, index, offsetSwing * 0.52f);
                 ApplyLegSwing(leftFeet, defaultLeftFootLocalRotations, index, offsetSwing * 0.36f);
                 ApplyLegSwing(rightFeet, defaultRightFootLocalRotations, index, -offsetSwing * 0.36f);
-                ApplyArmSwing(leftArms, defaultLeftArmLocalRotations, index, -offsetSwing * 0.26f);
-                ApplyArmSwing(rightArms, defaultRightArmLocalRotations, index, offsetSwing * 0.26f);
+                ApplyArmSwing(leftArms, defaultLeftArmLocalRotations, index, -offsetSwing * 0.42f);
+                ApplyArmSwing(rightArms, defaultRightArmLocalRotations, index, offsetSwing * 0.42f);
             }
         }
 

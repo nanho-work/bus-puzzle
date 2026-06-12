@@ -14,6 +14,7 @@ namespace BusPuzzle
         public const string VipBusTeleportRewardType = "vip_bus_teleport";
         public const string BusColorShuffleRewardType = "bus_color_shuffle";
         public const string DepartBoostRewardType = "depart_boost";
+        public const string StageClearDoubleRewardType = "stage_clear_double";
 
         [SerializeField] private bool useProductionAdsInRelease = true;
         [SerializeField] private string androidAppId = "ca-app-pub-5773331970563455~5379288524";
@@ -104,6 +105,8 @@ namespace BusPuzzle
                     return androidShuffleRewardedProductionAdUnitId;
                 case RewardedAdPlacement.DepartBoost:
                     return androidDepartRewardedProductionAdUnitId;
+                case RewardedAdPlacement.StageClearDouble:
+                    return androidRewardedProductionAdUnitId;
                 default:
                     return androidRewardedProductionAdUnitId;
             }
@@ -119,6 +122,8 @@ namespace BusPuzzle
                     return iosShuffleRewardedProductionAdUnitId;
                 case RewardedAdPlacement.DepartBoost:
                     return iosDepartRewardedProductionAdUnitId;
+                case RewardedAdPlacement.StageClearDouble:
+                    return iosRewardedProductionAdUnitId;
                 default:
                     return iosRewardedProductionAdUnitId;
             }

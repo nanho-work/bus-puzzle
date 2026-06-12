@@ -74,6 +74,11 @@ namespace BusPuzzle
             return ShowRewardedAd(RewardedAdPlacement.DepartBoost, AdMobSettings.DepartBoostRewardType, onCompleted);
         }
 
+        public bool ShowStageClearDoubleAd(Action<RewardedAdResult> onCompleted)
+        {
+            return ShowRewardedAd(RewardedAdPlacement.StageClearDouble, AdMobSettings.StageClearDoubleRewardType, onCompleted);
+        }
+
         private bool ShowRewardedAd(RewardedAdPlacement placement, string rewardType, Action<RewardedAdResult> onCompleted)
         {
             if (!IsReady)

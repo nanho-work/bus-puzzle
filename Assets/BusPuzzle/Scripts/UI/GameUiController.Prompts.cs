@@ -152,9 +152,16 @@ namespace BusPuzzle
             clearRewardText.color = new Color(1.00f, 0.78f, 0.16f);
             SetAnchors(clearRewardText.rectTransform, new Vector2(0.31f, 0f), Vector2.one, new Vector2(0f, 2f), new Vector2(-16f, -2f));
 
+            clearRewardDoubleButton = CreatePromptAdButton("Clear Reward Double Button", modal, Localization.Text("reward_double_ad"), UiAdActionColor, out clearRewardDoubleButtonText);
+            SetAnchors(clearRewardDoubleButton.GetComponent<RectTransform>(), new Vector2(0.08f, 0.01f), new Vector2(0.48f, 0.31f), new Vector2(6f, 16f), new Vector2(-6f, -10f));
+            clearRewardDoubleButton.onClick.AddListener(() =>
+            {
+                ClearRewardDoubleRequested?.Invoke();
+            });
+
             nextButton = CreateImageActionButton("Clear Next Button", modal, NextButtonIconResource, Localization.Text("next"), UiPrimaryActionColor);
             nextButtonText = GetButtonLabel(nextButton);
-            SetAnchors(nextButton.GetComponent<RectTransform>(), new Vector2(0.18f, 0.01f), new Vector2(0.82f, 0.31f), new Vector2(0f, 16f), new Vector2(0f, -10f));
+            SetAnchors(nextButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.01f), new Vector2(0.92f, 0.31f), new Vector2(6f, 16f), new Vector2(-6f, -10f));
             nextButton.onClick.AddListener(() =>
             {
                 HideClearPrompt();
@@ -193,6 +200,8 @@ namespace BusPuzzle
             {
                 nextButtonText.text = hasNextLevel ? Localization.Text("next") : Localization.Text("done");
             }
+
+            SetClearRewardDouble(goldReward, false, false, false, false);
         }
 
         private void HideClearPrompt()

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -31,6 +32,8 @@ namespace BusPuzzle
         private Transform garageRoot;
         private Transform stationRoot;
         private Transform themeRoot;
+        private Coroutine tutorialStationHighlightRoutine;
+        private GameObject tutorialStationHighlight;
         private int currentPassengerUnitCount;
         private float rotaryCenterZ = BoardLayoutConfig.RotaryCenterZ;
         private bool vipStationSlotOccupied;
@@ -293,6 +296,46 @@ namespace BusPuzzle
                 Vector3.up * BoardLayoutConfig.StationCounterY;
         }
 
+        public bool TryGetFirstLockedStationSlotPosition(out Vector3 position)
+        {
+            if (!CanUnlockStationSlot)
+            {
+                position = Vector3.zero;
+                return false;
+            }
+
+            position = GetLockedStationPosition(0);
+            return true;
+        }
+
+        public bool TryGetLastActiveStationSlotPosition(out Vector3 position)
+        {
+            if (stationSlots.Capacity <= 0)
+            {
+                position = Vector3.zero;
+                return false;
+            }
+
+            position = BoardLayoutConfig.GetStationPosition(stationSlots.Capacity - 1);
+            return true;
+        }
+
+        public void SetTutorialStationUnlockHighlight(bool highlighted)
+        {
+            if (!highlighted || !CanUnlockStationSlot || stationRoot == null)
+            {
+                StopTutorialStationHighlight();
+                return;
+            }
+
+            ShowTutorialStationHighlight(GetLockedStationPosition(0), 0f);
+        }
+
+        public void PulseTutorialStationSlot(Vector3 position)
+        {
+            ShowTutorialStationHighlight(position, 1.45f);
+        }
+
         public Vector3 GetWorldDirection(BusView bus)
         {
             return bus != null ? bus.VehicleForwardWorld : Vector3.forward;
@@ -311,20 +354,98 @@ namespace BusPuzzle
                 return;
             }
 
+            StopTutorialStationHighlight();
             for (var index = stationRoot.childCount - 1; index >= 0; index--)
             {
                 Destroy(stationRoot.GetChild(index).gameObject);
             }
 
+            tutorialStationHighlight = null;
             CreateStationSlots();
         }
 
         private void ClearBoard()
         {
+            StopTutorialStationHighlight();
             for (var index = transform.childCount - 1; index >= 0; index--)
             {
                 Destroy(transform.GetChild(index).gameObject);
             }
+
+            tutorialStationHighlight = null;
+        }
+
+        private void ShowTutorialStationHighlight(Vector3 position, float duration)
+        {
+            if (stationRoot == null)
+            {
+                return;
+            }
+
+            if (tutorialStationHighlight == null)
+            {
+                var material = PuzzlePalette.CreateTransparentMaterial("Tutorial Station Slot Highlight", new Color(1.00f, 0.86f, 0.16f, 0.46f));
+                tutorialStationHighlight = BoardGeometry.CreateFlatRoundedRect(
+                    "Tutorial Station Slot Highlight",
+                    stationRoot,
+                    Vector3.zero,
+                    new Vector2(BoardLayoutConfig.StationSlotWidth + BoardLayoutConfig.CellSize * 0.08f, BoardLayoutConfig.StationSlotDepth + BoardLayoutConfig.CellSize * 0.08f),
+                    BoardLayoutConfig.StationSlotWidth * 0.18f,
+                    material,
+                    BoardLayoutConfig.StationRotation);
+            }
+
+            tutorialStationHighlight.transform.position = position + Vector3.up * 0.036f;
+            tutorialStationHighlight.transform.rotation = BoardLayoutConfig.StationRotation;
+            tutorialStationHighlight.transform.localScale = Vector3.one;
+            tutorialStationHighlight.SetActive(true);
+
+            if (tutorialStationHighlightRoutine != null)
+            {
+                StopCoroutine(tutorialStationHighlightRoutine);
+            }
+
+            tutorialStationHighlightRoutine = StartCoroutine(TutorialStationHighlightRoutine(duration));
+        }
+
+        private void StopTutorialStationHighlight()
+        {
+            if (tutorialStationHighlightRoutine != null)
+            {
+                StopCoroutine(tutorialStationHighlightRoutine);
+                tutorialStationHighlightRoutine = null;
+            }
+
+            if (tutorialStationHighlight != null)
+            {
+                tutorialStationHighlight.SetActive(false);
+                tutorialStationHighlight.transform.localScale = Vector3.one;
+            }
+        }
+
+        private IEnumerator TutorialStationHighlightRoutine(float duration)
+        {
+            var elapsed = 0f;
+            while (duration <= 0f || elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                if (tutorialStationHighlight != null)
+                {
+                    var pulse = 1f + Mathf.Sin(Time.time * 6.4f) * 0.055f;
+                    tutorialStationHighlight.transform.localScale = new Vector3(pulse, 1f, pulse);
+                    tutorialStationHighlight.SetActive(Mathf.PingPong(Time.time * 5.0f, 1f) > 0.16f);
+                }
+
+                yield return null;
+            }
+
+            if (tutorialStationHighlight != null)
+            {
+                tutorialStationHighlight.SetActive(false);
+                tutorialStationHighlight.transform.localScale = Vector3.one;
+            }
+
+            tutorialStationHighlightRoutine = null;
         }
 
         private void CreateRoots()

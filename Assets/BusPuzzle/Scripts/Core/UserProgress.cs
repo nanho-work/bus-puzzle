@@ -5,6 +5,9 @@ namespace BusPuzzle
     internal static class UserProgress
     {
         private const string LastStageIndexKey = "bus_puzzle_last_stage_index";
+        private const string TutorialCompletedKey = "bus_puzzle_tutorial_completed_v1";
+
+        public static bool HasCompletedTutorial => PlayerPrefs.GetInt(TutorialCompletedKey, 0) != 0;
 
         public static int GetLastStageIndex(int stageCount)
         {
@@ -30,6 +33,17 @@ namespace BusPuzzle
             }
 
             PlayerPrefs.SetInt(LastStageIndexKey, clampedStageIndex);
+            PlayerPrefs.Save();
+        }
+
+        public static void MarkTutorialCompleted()
+        {
+            if (HasCompletedTutorial)
+            {
+                return;
+            }
+
+            PlayerPrefs.SetInt(TutorialCompletedKey, 1);
             PlayerPrefs.Save();
         }
     }

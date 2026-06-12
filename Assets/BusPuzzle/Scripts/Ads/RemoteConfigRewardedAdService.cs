@@ -72,6 +72,11 @@ namespace BusPuzzle
             return ShowIfEnabled(onCompleted, () => inner != null && inner.ShowDepartBoostAd(onCompleted));
         }
 
+        public bool ShowStageClearDoubleAd(Action<RewardedAdResult> onCompleted)
+        {
+            return ShowIfEnabled(onCompleted, () => inner != null && inner.ShowStageClearDoubleAd(onCompleted));
+        }
+
         private bool ShowIfEnabled(Action<RewardedAdResult> onCompleted, Func<bool> show)
         {
             if (!RemoteConfigService.AreRewardedAdsEnabled)

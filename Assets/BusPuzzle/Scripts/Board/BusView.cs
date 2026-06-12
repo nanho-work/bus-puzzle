@@ -23,8 +23,10 @@ namespace BusPuzzle
         private Coroutine motionRoutine;
         private Coroutine hitShakeRoutine;
         private Coroutine vipHighlightRoutine;
+        private Coroutine tutorialHighlightRoutine;
         private GameObject directionArrow;
         private GameObject vipHighlight;
+        private GameObject tutorialHighlight;
         private GameObject mysteryBadge;
         private VehicleBoardingCounter boardingCounter;
         private BoxCollider touchCollider;
@@ -144,6 +146,7 @@ namespace BusPuzzle
             }
 
             StopVipHighlight();
+            StopTutorialHighlight();
             ClearVisualChildren();
             Color = newColor;
             gameObject.name = $"{PuzzlePalette.DisplayName(Color)} {BusSizeUtility.DisplayName(Size)}";
@@ -158,6 +161,7 @@ namespace BusPuzzle
             }
 
             StopVipHighlight();
+            StopTutorialHighlight();
             ClearVisualChildren();
             IsConcealed = false;
             gameObject.name = $"{PuzzlePalette.DisplayName(Color)} {BusSizeUtility.DisplayName(Size)}";
@@ -177,6 +181,21 @@ namespace BusPuzzle
             if (vipHighlightRoutine == null && gameObject.activeInHierarchy)
             {
                 vipHighlightRoutine = StartCoroutine(VipHighlightRoutine());
+            }
+        }
+
+        public void SetTutorialHighlight(bool highlighted)
+        {
+            if (!highlighted)
+            {
+                StopTutorialHighlight();
+                return;
+            }
+
+            EnsureTutorialHighlight();
+            if (tutorialHighlightRoutine == null && gameObject.activeInHierarchy)
+            {
+                tutorialHighlightRoutine = StartCoroutine(TutorialHighlightRoutine());
             }
         }
 
@@ -231,6 +250,7 @@ namespace BusPuzzle
             Action onLaunchClearanceReached)
         {
             StopVipHighlight();
+            StopTutorialHighlight();
             ResetStationIdlePulse();
             boardingCounter?.SetWorldPosition(counterWorldPosition);
             if (route == null || route.Length == 0)
@@ -300,6 +320,7 @@ namespace BusPuzzle
         {
             StopMotion();
             StopVipHighlight();
+            StopTutorialHighlight();
             ResetStationIdlePulse();
 
             var rootPosition = GetRootPositionForVisualCenter(stationVisualCenterPosition, stationRotation);
@@ -401,6 +422,7 @@ namespace BusPuzzle
 
             StopMotion();
             StopVipHighlight();
+            StopTutorialHighlight();
             ResetStationIdlePulse();
             HideBoardingCounter();
             IsDeparting = true;
@@ -585,6 +607,27 @@ namespace BusPuzzle
             vipHighlight.SetActive(true);
         }
 
+        private void EnsureTutorialHighlight()
+        {
+            if (tutorialHighlight != null)
+            {
+                tutorialHighlight.SetActive(true);
+                return;
+            }
+
+            var material = PuzzlePalette.CreateTransparentMaterial("Tutorial Bus Edge Highlight", new Color(1.00f, 0.85f, 0.12f, 0.44f));
+            tutorialHighlight = BoardGeometry.CreateFlatRoundedRect(
+                "Tutorial Bus Edge Highlight",
+                transform,
+                Vector3.zero,
+                new Vector2(BodyVisualWidth + cellSize * 0.08f, BodyVisualLength + cellSize * 0.08f),
+                cellSize * 0.10f,
+                material);
+            tutorialHighlight.transform.localPosition = new Vector3(0f, 0.024f, BodyVisualCenterZ);
+            tutorialHighlight.transform.localRotation = Quaternion.identity;
+            tutorialHighlight.SetActive(true);
+        }
+
         private void StopVipHighlight()
         {
             if (vipHighlightRoutine != null)
@@ -599,6 +642,21 @@ namespace BusPuzzle
             }
         }
 
+        private void StopTutorialHighlight()
+        {
+            if (tutorialHighlightRoutine != null)
+            {
+                StopCoroutine(tutorialHighlightRoutine);
+                tutorialHighlightRoutine = null;
+            }
+
+            if (tutorialHighlight != null)
+            {
+                tutorialHighlight.SetActive(false);
+                tutorialHighlight.transform.localScale = Vector3.one;
+            }
+        }
+
         private IEnumerator VipHighlightRoutine()
         {
             while (true)
@@ -606,6 +664,21 @@ namespace BusPuzzle
                 if (vipHighlight != null)
                 {
                     vipHighlight.SetActive(Mathf.PingPong(Time.time * 4.4f, 1f) > 0.28f);
+                }
+
+                yield return null;
+            }
+        }
+
+        private IEnumerator TutorialHighlightRoutine()
+        {
+            while (true)
+            {
+                if (tutorialHighlight != null)
+                {
+                    var pulse = 1f + Mathf.Sin(Time.time * 6.2f) * 0.045f;
+                    tutorialHighlight.transform.localScale = new Vector3(pulse, 1f, pulse);
+                    tutorialHighlight.SetActive(Mathf.PingPong(Time.time * 4.8f, 1f) > 0.18f);
                 }
 
                 yield return null;
@@ -696,8 +769,15 @@ namespace BusPuzzle
 
         private void ClearVisualChildren()
         {
+            if (tutorialHighlightRoutine != null)
+            {
+                StopCoroutine(tutorialHighlightRoutine);
+                tutorialHighlightRoutine = null;
+            }
+
             directionArrow = null;
             vipHighlight = null;
+            tutorialHighlight = null;
             mysteryBadge = null;
             boardingCounter = null;
             visualBodyRoot = null;

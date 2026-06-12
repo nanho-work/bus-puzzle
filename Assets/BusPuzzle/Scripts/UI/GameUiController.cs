@@ -76,6 +76,8 @@ namespace BusPuzzle
         private Text clearPromptTitleText;
         private Text clearPromptText;
         private Text clearRewardText;
+        private Button clearRewardDoubleButton;
+        private Text clearRewardDoubleButtonText;
         private RectTransform failPrompt;
         private Text failPromptTitleText;
         private Text failPromptText;
@@ -134,6 +136,7 @@ namespace BusPuzzle
 
         public event Action RestartRequested;
         public event Action NextLevelRequested;
+        public event Action ClearRewardDoubleRequested;
         public event Action ExitConfirmed;
         public event Action StationUnlockRequested;
         public event Action StationUnlockConfirmed;
@@ -171,6 +174,7 @@ namespace BusPuzzle
         private void LateUpdate()
         {
             UpdateSafeArea();
+            UpdateTutorialOverlay();
         }
 
         public void SetLevel(int levelNumber, int totalLevels)
@@ -459,6 +463,50 @@ namespace BusPuzzle
             HideFailPrompt();
             HideExitPrompt();
             ShowClearPrompt(levelNumber, hasNextLevel, goldReward);
+        }
+
+        public void SetClearRewardDouble(int baseGoldReward, bool doubled, bool canRequest, bool adReady, bool adInProgress)
+        {
+            if (clearRewardDoubleButton == null)
+            {
+                return;
+            }
+
+            var hasReward = baseGoldReward > 0;
+            clearRewardDoubleButton.gameObject.SetActive(hasReward);
+            if (nextButton != null)
+            {
+                SetAnchors(
+                    nextButton.GetComponent<RectTransform>(),
+                    hasReward ? new Vector2(0.52f, 0.01f) : new Vector2(0.18f, 0.01f),
+                    hasReward ? new Vector2(0.92f, 0.31f) : new Vector2(0.82f, 0.31f),
+                    hasReward ? new Vector2(6f, 16f) : new Vector2(0f, 16f),
+                    hasReward ? new Vector2(-6f, -10f) : new Vector2(0f, -10f));
+            }
+
+            if (!hasReward)
+            {
+                return;
+            }
+
+            clearRewardDoubleButton.interactable = canRequest && adReady && !adInProgress && !doubled;
+            if (clearRewardDoubleButtonText != null)
+            {
+                clearRewardDoubleButtonText.text = doubled
+                    ? Localization.Text("reward_doubled")
+                    : adInProgress
+                        ? Localization.Text("loading_ad")
+                        : adReady
+                            ? Localization.Text("reward_double_ad")
+                            : Localization.Text("loading_ad");
+            }
+
+            if (clearRewardText != null)
+            {
+                clearRewardText.text = doubled
+                    ? Localization.Text("reward_gold", baseGoldReward * 2)
+                    : Localization.Text("reward_gold", baseGoldReward);
+            }
         }
 
         public void ShowFailed(bool canUnlockStationSlot, bool canVipTeleport, bool canMixShuffle, bool canDepart)

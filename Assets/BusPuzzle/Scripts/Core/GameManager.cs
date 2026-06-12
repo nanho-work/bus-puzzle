@@ -13,6 +13,20 @@ namespace BusPuzzle
             Failed
         }
 
+        private enum TutorialStep
+        {
+            None,
+            TapFirstBus,
+            DepartHint,
+            TapSecondBus,
+            FastForwardHint,
+            PlusFree,
+            MixFree,
+            DepartFree,
+            VipHint,
+            Complete
+        }
+
         private sealed class DepartAssignment
         {
             public readonly BusView Bus;
@@ -40,6 +54,7 @@ namespace BusPuzzle
         private const int VipTeleportGoldCost = 120;
         private const int MixShuffleGoldCost = 90;
         private const int DepartGoldCost = 90;
+        private const float TutorialDepartHintMinimumSeconds = 0.75f;
         private const string GeneratedLevelSequenceResourcePath = "Levels/Generated/GeneratedLevelSequence";
         private const string ActiveLevelSequenceResourcePath = "Levels/LevelSequence";
         private const string StageGenerationConfigResourcePath = "Levels/StageGenerationConfig";
@@ -59,12 +74,28 @@ namespace BusPuzzle
         private bool isVipAdInProgress;
         private bool isMixShuffleAdInProgress;
         private bool isDepartAdInProgress;
+        private bool isClearRewardDoubleAdInProgress;
         private bool isVipSelectionMode;
         private bool isFailureWaitingForRotaryFill;
         private bool isRecoveryChoiceHoldingFailure;
         private bool remoteConfigBlocksGameplay;
+        private int currentClearGoldReward;
         private int vipUsesGrantedThisStage;
         private int vipTeleportTickets;
+        private bool clearRewardDoubled;
+        private bool tutorialFreeUseEnabledForStage;
+        private bool tutorialStationUnlockFreeUsed;
+        private bool tutorialMixShuffleFreeUsed;
+        private bool tutorialDepartFreeUsed;
+        private bool tutorialGameplayPaused;
+        private int tutorialDispatchedBusCount;
+        private float tutorialStepTimer;
+        private float tutorialPreviousTimeScale = 1f;
+        private TutorialStep tutorialStep;
+        private BusView tutorialFirstBusTarget;
+        private BusView tutorialSecondBusTarget;
+        private BusView tutorialDepartHintBus;
+        private BusView tutorialHighlightedBus;
         private Coroutine departBoostRoutine;
         private Vector2Int lastCameraFrameScreenSize;
         private Rect lastCameraFrameSafeArea;
@@ -100,6 +131,7 @@ namespace BusPuzzle
 
         private void OnDestroy()
         {
+            SetTutorialGameplayPaused(false);
             boardingFlowController?.Stop();
             StopStagePreload();
             RemoteConfigService.ValuesUpdated -= ApplyRemoteConfigState;
@@ -111,6 +143,7 @@ namespace BusPuzzle
 
             uiController.RestartRequested -= RestartLevel;
             uiController.NextLevelRequested -= LoadNextLevel;
+            uiController.ClearRewardDoubleRequested -= RequestClearRewardDoubleAd;
             uiController.ExitConfirmed -= QuitApplication;
             uiController.StationUnlockRequested -= ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
@@ -146,6 +179,12 @@ namespace BusPuzzle
             }
 
             if (gameState != GameState.Playing)
+            {
+                return;
+            }
+
+            UpdateTutorial(Time.deltaTime);
+            if (tutorialGameplayPaused)
             {
                 return;
             }
@@ -186,6 +225,22 @@ namespace BusPuzzle
 
             if (inputController.TryTakeStationUnlockTap(out _))
             {
+                if (TryBlockTutorialAction(TutorialStep.PlusFree))
+                {
+                    return;
+                }
+
+                if (TryUseTutorialFreeStationUnlock())
+                {
+                    return;
+                }
+
+                if (IsTutorialActive)
+                {
+                    ShowCurrentTutorialMessage();
+                    return;
+                }
+
                 ShowStationUnlockPrompt();
                 return;
             }
@@ -197,7 +252,15 @@ namespace BusPuzzle
 
             if (inputController.TryTakeBusTap(out var bus))
             {
-                vehicleDispatchController.TryLaunch(bus);
+                if (!IsTutorialBusTapAllowed(bus))
+                {
+                    return;
+                }
+
+                if (vehicleDispatchController.TryLaunch(bus))
+                {
+                    HandleTutorialBusDispatched(bus);
+                }
             }
         }
 
@@ -228,6 +291,7 @@ namespace BusPuzzle
 
             uiController.RestartRequested += RestartLevel;
             uiController.NextLevelRequested += LoadNextLevel;
+            uiController.ClearRewardDoubleRequested += RequestClearRewardDoubleAd;
             uiController.ExitConfirmed += QuitApplication;
             uiController.StationUnlockRequested += ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed += RequestStationSlotUnlock;
@@ -338,6 +402,8 @@ namespace BusPuzzle
             ResetVipTeleportState();
             ResetMixShuffleState();
             ResetDepartState();
+            ResetClearRewardDoubleState();
+            ResetTutorialState();
             currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
             UserProgress.SaveLastStageIndex(currentLevelIndex, levelSequence.Count);
             currentLevel = levelSequence.GetLevel(currentLevelIndex);
@@ -378,6 +444,7 @@ namespace BusPuzzle
             }
 
             CheckBlocked();
+            StartTutorialIfNeeded();
             ScheduleStagePreload();
         }
 
@@ -483,6 +550,11 @@ namespace BusPuzzle
 
         private void ShowStationUnlockPrompt()
         {
+            if (TryBlockTutorialAction(TutorialStep.PlusFree))
+            {
+                return;
+            }
+
             if (!CanShowRecoveryPrompt() ||
                 IsAnyRewardedAdInProgress ||
                 boardView == null ||
@@ -560,6 +632,17 @@ namespace BusPuzzle
 
         private void HandleVipTeleportRequested()
         {
+            if (TryBlockTutorialAction(TutorialStep.VipHint))
+            {
+                return;
+            }
+
+            if (tutorialStep == TutorialStep.VipHint)
+            {
+                TryUseTutorialFreeVipTeleport();
+                return;
+            }
+
             if (!CanShowRecoveryPrompt())
             {
                 UpdateVipTeleportUi();
@@ -796,6 +879,22 @@ namespace BusPuzzle
 
         private void HandleMixShuffleRequested()
         {
+            if (TryBlockTutorialAction(TutorialStep.MixFree))
+            {
+                return;
+            }
+
+            if (TryUseTutorialFreeMixShuffle())
+            {
+                return;
+            }
+
+            if (IsTutorialActive)
+            {
+                ShowCurrentTutorialMessage();
+                return;
+            }
+
             if (!CanShowRecoveryPrompt() || isVipSelectionMode)
             {
                 UpdateMixShuffleUi();
@@ -945,6 +1044,22 @@ namespace BusPuzzle
 
         private void HandleDepartRequested()
         {
+            if (TryBlockTutorialAction(TutorialStep.DepartFree))
+            {
+                return;
+            }
+
+            if (TryUseTutorialFreeDepart())
+            {
+                return;
+            }
+
+            if (IsTutorialActive)
+            {
+                ShowCurrentTutorialMessage();
+                return;
+            }
+
             if (!CanShowRecoveryPrompt() || isVipSelectionMode)
             {
                 UpdateDepartUi();
@@ -1105,11 +1220,653 @@ namespace BusPuzzle
             departBoostRoutine = null;
         }
 
+        private void ResetClearRewardDoubleState()
+        {
+            isClearRewardDoubleAdInProgress = false;
+            currentClearGoldReward = 0;
+            clearRewardDoubled = false;
+        }
+
+        private void ResetTutorialState()
+        {
+            SetTutorialGameplayPaused(false);
+            tutorialStep = TutorialStep.None;
+            tutorialStepTimer = 0f;
+            tutorialDispatchedBusCount = 0;
+            tutorialFreeUseEnabledForStage = false;
+            tutorialStationUnlockFreeUsed = false;
+            tutorialMixShuffleFreeUsed = false;
+            tutorialDepartFreeUsed = false;
+            tutorialFirstBusTarget = null;
+            tutorialSecondBusTarget = null;
+            tutorialDepartHintBus = null;
+            ClearTutorialTargetHighlights();
+            uiController?.HideTutorial();
+        }
+
+        private void StartTutorialIfNeeded()
+        {
+            if (currentLevelIndex != 0 ||
+                UserProgress.HasCompletedTutorial ||
+                uiController == null ||
+                gameState != GameState.Playing)
+            {
+                return;
+            }
+
+            tutorialFreeUseEnabledForStage = true;
+            tutorialFirstBusTarget = FindTutorialLaunchableBus();
+            AdvanceTutorial(TutorialStep.TapFirstBus);
+        }
+
+        private void UpdateTutorial(float deltaTime)
+        {
+            if (tutorialStep == TutorialStep.None || tutorialStep == TutorialStep.Complete)
+            {
+                return;
+            }
+
+            if (gameState != GameState.Playing || uiController == null)
+            {
+                uiController?.HideTutorial();
+                return;
+            }
+
+            tutorialStepTimer += deltaTime;
+            switch (tutorialStep)
+            {
+                case TutorialStep.TapFirstBus:
+                    ShowTutorialForBusTarget(GetTutorialLaunchTarget(), Localization.Text("tutorial_tap_bus"));
+                    break;
+                case TutorialStep.DepartHint:
+                    ShowTutorialForDepartHintBus(Localization.Text("tutorial_bus_depart"));
+                    if (IsTutorialDepartHintComplete())
+                    {
+                        tutorialSecondBusTarget = FindTutorialLaunchableBus();
+                        AdvanceTutorial(TutorialStep.TapSecondBus);
+                    }
+
+                    break;
+                case TutorialStep.TapSecondBus:
+                    if (tutorialSecondBusTarget == null || !IsTutorialLaunchCandidate(tutorialSecondBusTarget))
+                    {
+                        tutorialSecondBusTarget = FindTutorialLaunchableBus();
+                    }
+
+                    ShowTutorialForBusTarget(GetTutorialLaunchTarget(), Localization.Text("tutorial_finish_all"));
+                    break;
+                case TutorialStep.FastForwardHint:
+                    ClearTutorialTargetHighlights();
+                    uiController.ShowTutorialForScreen(
+                        new Vector2(Screen.width * 0.50f, Screen.height * 0.42f),
+                        104f,
+                        Localization.Text("tutorial_fast_forward"));
+                    if (IsPassengerFastForwardHeld())
+                    {
+                        AdvanceTutorial(TutorialStep.PlusFree);
+                    }
+
+                    break;
+                case TutorialStep.PlusFree:
+                    if (tutorialStationUnlockFreeUsed || boardView == null || !boardView.CanUnlockStationSlot)
+                    {
+                        if (!tutorialStationUnlockFreeUsed)
+                        {
+                            AdvanceTutorial(TutorialStep.MixFree);
+                        }
+
+                        break;
+                    }
+
+                    if (boardView.TryGetFirstLockedStationSlotPosition(out var lockedPosition))
+                    {
+                        SetTutorialBusHighlight(null);
+                        boardView.SetTutorialStationUnlockHighlight(true);
+                        uiController.ShowTutorialForWorld(
+                            gameCamera,
+                            lockedPosition + Vector3.up * 0.25f,
+                            48f,
+                            Localization.Text("tutorial_plus_free"));
+                    }
+
+                    break;
+                case TutorialStep.MixFree:
+                    ClearTutorialTargetHighlights();
+                    if (tutorialMixShuffleFreeUsed)
+                    {
+                        AdvanceTutorial(TutorialStep.DepartFree);
+                        break;
+                    }
+
+                    if (!CanUseTutorialFreeMixShuffleNow())
+                    {
+                        AdvanceTutorial(TutorialStep.DepartFree);
+                        break;
+                    }
+
+                    uiController.ShowTutorialForMixButton(Localization.Text("tutorial_mix_free"));
+                    break;
+                case TutorialStep.DepartFree:
+                    ClearTutorialTargetHighlights();
+                    if (tutorialDepartFreeUsed)
+                    {
+                        SetTutorialGameplayPaused(false);
+                        AdvanceTutorial(TutorialStep.VipHint);
+                        break;
+                    }
+
+                    if (!AreOpenStationSlotsFull())
+                    {
+                        SetTutorialGameplayPaused(false);
+                        uiController.HideTutorial();
+                        break;
+                    }
+
+                    if (!CanUseTutorialFreeDepartNow())
+                    {
+                        SetTutorialGameplayPaused(false);
+                        uiController.HideTutorial();
+                        break;
+                    }
+
+                    SetTutorialGameplayPaused(true);
+                    UpdateDepartUi();
+                    uiController.ShowTutorialForDepartButton(Localization.Text("tutorial_depart_free"));
+                    break;
+                case TutorialStep.VipHint:
+                    ClearTutorialTargetHighlights();
+                    uiController.ShowTutorialForVipButton(Localization.Text("tutorial_vip_hint"));
+                    break;
+            }
+        }
+
+        private void AdvanceTutorial(TutorialStep nextStep)
+        {
+            if (nextStep != TutorialStep.DepartFree)
+            {
+                SetTutorialGameplayPaused(false);
+            }
+
+            ClearTutorialTargetHighlights();
+            tutorialStep = nextStep;
+            tutorialStepTimer = 0f;
+            if (nextStep == TutorialStep.Complete)
+            {
+                CompleteTutorial();
+            }
+        }
+
+        private void CompleteTutorial()
+        {
+            SetTutorialGameplayPaused(false);
+            tutorialStep = TutorialStep.Complete;
+            tutorialStepTimer = 0f;
+            ClearTutorialTargetHighlights();
+            uiController?.HideTutorial();
+            UserProgress.MarkTutorialCompleted();
+            UpdateRewardedAdUi();
+        }
+
+        private bool IsTutorialActive =>
+            tutorialStep != TutorialStep.None &&
+            tutorialStep != TutorialStep.Complete;
+
+        private bool TryBlockTutorialAction(TutorialStep expectedStep)
+        {
+            if (!IsTutorialActive || tutorialStep == expectedStep)
+            {
+                return false;
+            }
+
+            ShowCurrentTutorialMessage();
+            return true;
+        }
+
+        private void ShowCurrentTutorialMessage()
+        {
+            uiController?.ShowInvalid(GetCurrentTutorialMessage());
+        }
+
+        private string GetCurrentTutorialMessage()
+        {
+            switch (tutorialStep)
+            {
+                case TutorialStep.TapFirstBus:
+                    return Localization.Text("tutorial_tap_bus");
+                case TutorialStep.DepartHint:
+                    return Localization.Text("tutorial_bus_depart");
+                case TutorialStep.TapSecondBus:
+                    return Localization.Text("tutorial_finish_all");
+                case TutorialStep.FastForwardHint:
+                    return Localization.Text("tutorial_fast_forward");
+                case TutorialStep.PlusFree:
+                    return Localization.Text("tutorial_plus_free");
+                case TutorialStep.MixFree:
+                    return Localization.Text("tutorial_mix_free");
+                case TutorialStep.DepartFree:
+                    return Localization.Text("tutorial_depart_free");
+                case TutorialStep.VipHint:
+                    return Localization.Text("tutorial_vip_hint");
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private void SetTutorialBusHighlight(BusView bus)
+        {
+            if (tutorialHighlightedBus == bus)
+            {
+                if (tutorialHighlightedBus != null)
+                {
+                    tutorialHighlightedBus.SetTutorialHighlight(true);
+                }
+
+                return;
+            }
+
+            if (tutorialHighlightedBus != null)
+            {
+                tutorialHighlightedBus.SetTutorialHighlight(false);
+            }
+
+            tutorialHighlightedBus = bus;
+            if (tutorialHighlightedBus != null)
+            {
+                tutorialHighlightedBus.SetTutorialHighlight(true);
+            }
+        }
+
+        private void ClearTutorialTargetHighlights()
+        {
+            if (tutorialHighlightedBus != null)
+            {
+                tutorialHighlightedBus.SetTutorialHighlight(false);
+                tutorialHighlightedBus = null;
+            }
+
+            boardView?.SetTutorialStationUnlockHighlight(false);
+        }
+
+        private bool IsTutorialBusTapAllowed(BusView bus)
+        {
+            if (!IsTutorialActive)
+            {
+                return true;
+            }
+
+            if (IsTutorialWaitingForOpenStationSlotsFull())
+            {
+                return true;
+            }
+
+            if (tutorialStep == TutorialStep.DepartHint)
+            {
+                SetTutorialBusHighlight(tutorialDepartHintBus);
+                ShowCurrentTutorialMessage();
+                return false;
+            }
+
+            var target = GetTutorialLaunchTarget();
+            if (tutorialStep != TutorialStep.TapFirstBus && tutorialStep != TutorialStep.TapSecondBus)
+            {
+                ShowCurrentTutorialMessage();
+                return false;
+            }
+
+            if (target == null)
+            {
+                ShowCurrentTutorialMessage();
+                return false;
+            }
+
+            if (bus == target)
+            {
+                return true;
+            }
+
+            SetTutorialBusHighlight(target);
+            ShowCurrentTutorialMessage();
+            return false;
+        }
+
+        private BusView GetTutorialLaunchTarget()
+        {
+            switch (tutorialStep)
+            {
+                case TutorialStep.TapFirstBus:
+                    if (tutorialFirstBusTarget == null || !IsTutorialLaunchCandidate(tutorialFirstBusTarget))
+                    {
+                        tutorialFirstBusTarget = FindTutorialLaunchableBus();
+                    }
+
+                    return tutorialFirstBusTarget;
+                case TutorialStep.TapSecondBus:
+                    if (tutorialSecondBusTarget == null || !IsTutorialLaunchCandidate(tutorialSecondBusTarget))
+                    {
+                        tutorialSecondBusTarget = FindTutorialLaunchableBus();
+                    }
+
+                    return tutorialSecondBusTarget;
+                default:
+                    return null;
+            }
+        }
+
+        private void HandleTutorialBusDispatched(BusView bus)
+        {
+            if (!tutorialFreeUseEnabledForStage)
+            {
+                return;
+            }
+
+            tutorialDispatchedBusCount++;
+            if (tutorialStep == TutorialStep.TapFirstBus)
+            {
+                tutorialDepartHintBus = bus;
+                AdvanceTutorial(TutorialStep.DepartHint);
+            }
+            else if (tutorialStep == TutorialStep.TapSecondBus)
+            {
+                AdvanceTutorial(TutorialStep.FastForwardHint);
+            }
+        }
+
+        private void ShowTutorialForBusTarget(BusView targetBus, string message)
+        {
+            if (targetBus == null)
+            {
+                SetTutorialBusHighlight(null);
+                uiController.ShowTutorialForScreen(
+                    new Vector2(Screen.width * 0.50f, Screen.height * 0.36f),
+                    58f,
+                    message);
+                return;
+            }
+
+            SetTutorialBusHighlight(targetBus);
+            uiController.ShowTutorialForWorld(
+                gameCamera,
+                targetBus.transform.position + Vector3.up * 0.35f,
+                52f,
+                message);
+        }
+
+        private void ShowTutorialForDepartHintBus(string message)
+        {
+            var targetBus = tutorialDepartHintBus != null && !tutorialDepartHintBus.IsDeparted
+                ? tutorialDepartHintBus
+                : FindTutorialStationBus();
+            if (targetBus == null)
+            {
+                SetTutorialBusHighlight(null);
+                uiController.ShowTutorialForScreen(
+                    new Vector2(Screen.width * 0.50f, Screen.height * 0.58f),
+                    62f,
+                    message);
+                return;
+            }
+
+            SetTutorialBusHighlight(targetBus);
+            uiController.ShowTutorialForWorld(
+                gameCamera,
+                targetBus.transform.position + Vector3.up * 0.35f,
+                54f,
+                message);
+        }
+
+        private bool IsTutorialDepartHintComplete()
+        {
+            if (tutorialStepTimer < TutorialDepartHintMinimumSeconds)
+            {
+                return false;
+            }
+
+            if (tutorialDepartHintBus == null)
+            {
+                return FindTutorialStationBus() == null;
+            }
+
+            if (tutorialDepartHintBus.IsDeparted)
+            {
+                return true;
+            }
+
+            if (tutorialDepartHintBus.IsMoving ||
+                tutorialDepartHintBus.IsBoardingPassengers ||
+                tutorialDepartHintBus.HasBoardingReservations)
+            {
+                return false;
+            }
+
+            return tutorialDepartHintBus.IsParkedAtStation;
+        }
+
+        private BusView FindTutorialLaunchableBus()
+        {
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                if (!IsTutorialLaunchCandidate(bus))
+                {
+                    continue;
+                }
+
+                if (boardView != null && boardView.IsPathClear(bus, buses, out _))
+                {
+                    return bus;
+                }
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                if (IsTutorialLaunchCandidate(bus))
+                {
+                    return bus;
+                }
+            }
+
+            return null;
+        }
+
+        private BusView FindTutorialStationBus()
+        {
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                if (bus != null && bus.IsParkedAtStation && !bus.IsDeparted)
+                {
+                    return bus;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsTutorialLaunchCandidate(BusView bus)
+        {
+            return bus != null &&
+                bus.IsOnBoard &&
+                !bus.IsConcealed &&
+                !bus.IsMoving &&
+                !bus.IsDeparted;
+        }
+
+        private bool TryUseTutorialFreeStationUnlock()
+        {
+            if (!CanUseTutorialFreeStationUnlockNow())
+            {
+                return false;
+            }
+
+            if (!boardView.TryUnlockStationSlot())
+            {
+                return false;
+            }
+
+            tutorialStationUnlockFreeUsed = true;
+            if (tutorialStep == TutorialStep.PlusFree)
+            {
+                AdvanceTutorial(TutorialStep.MixFree);
+            }
+
+            if (boardView.TryGetLastActiveStationSlotPosition(out var unlockedPosition))
+            {
+                boardView.PulseTutorialStationSlot(unlockedPosition);
+            }
+
+            uiController.ShowInvalid(Localization.Text("tutorial_plus_unlocked"));
+            UpdateCounters();
+            UpdateRewardedAdUi();
+
+            CheckBlocked();
+            return true;
+        }
+
+        private bool TryUseTutorialFreeMixShuffle()
+        {
+            if (!CanUseTutorialFreeMixShuffleNow())
+            {
+                return false;
+            }
+
+            if (!TryShuffleVisibleBusColors())
+            {
+                return false;
+            }
+
+            tutorialMixShuffleFreeUsed = true;
+            uiController.ShowInvalid(Localization.Text("tutorial_mix_done"));
+            UpdateRewardedAdUi();
+            if (tutorialStep == TutorialStep.MixFree)
+            {
+                AdvanceTutorial(TutorialStep.DepartFree);
+            }
+
+            CheckBlocked();
+            return true;
+        }
+
+        private bool TryUseTutorialFreeDepart()
+        {
+            if (!CanUseTutorialFreeDepartNow())
+            {
+                return false;
+            }
+
+            SetTutorialGameplayPaused(false);
+            if (!TryStartDepartBoost())
+            {
+                return false;
+            }
+
+            tutorialDepartFreeUsed = true;
+            uiController.ShowInvalid(Localization.Text("tutorial_depart_done"));
+            UpdateRewardedAdUi();
+            if (tutorialStep == TutorialStep.DepartFree)
+            {
+                AdvanceTutorial(TutorialStep.VipHint);
+            }
+
+            return true;
+        }
+
+        private bool TryUseTutorialFreeVipTeleport()
+        {
+            if (tutorialStep != TutorialStep.VipHint ||
+                !tutorialFreeUseEnabledForStage ||
+                gameState != GameState.Playing ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress)
+            {
+                return false;
+            }
+
+            if (!HasVipTeleportTarget())
+            {
+                uiController.ShowInvalid(Localization.Text("status_no_vip_target"));
+                UpdateVipTeleportUi();
+                return true;
+            }
+
+            vipTeleportTickets++;
+            CompleteTutorial();
+            EnterVipSelectionMode();
+            return true;
+        }
+
+        private bool CanUseTutorialFreeStationUnlockNow()
+        {
+            return tutorialFreeUseEnabledForStage &&
+                tutorialStep == TutorialStep.PlusFree &&
+                !tutorialStationUnlockFreeUsed &&
+                gameState == GameState.Playing &&
+                !IsAnyRewardedAdInProgress &&
+                boardView != null &&
+                boardView.CanUnlockStationSlot;
+        }
+
+        private bool CanUseTutorialFreeMixShuffleNow()
+        {
+            return tutorialFreeUseEnabledForStage &&
+                tutorialStep == TutorialStep.MixFree &&
+                !tutorialMixShuffleFreeUsed &&
+                gameState == GameState.Playing &&
+                !isVipSelectionMode &&
+                !IsAnyRewardedAdInProgress &&
+                HasMixShuffleTarget();
+        }
+
+        private bool CanUseTutorialFreeDepartNow()
+        {
+            return tutorialFreeUseEnabledForStage &&
+                tutorialStep == TutorialStep.DepartFree &&
+                !tutorialDepartFreeUsed &&
+                gameState == GameState.Playing &&
+                !isVipSelectionMode &&
+                !IsAnyRewardedAdInProgress &&
+                AreOpenStationSlotsFull() &&
+                HasPotentialDepartTarget();
+        }
+
+        private bool IsTutorialWaitingForOpenStationSlotsFull()
+        {
+            return tutorialStep == TutorialStep.DepartFree && !AreOpenStationSlotsFull();
+        }
+
+        private bool AreOpenStationSlotsFull()
+        {
+            return boardView != null &&
+                boardView.StationCapacity > 0 &&
+                boardView.OccupiedStationSlots >= boardView.StationCapacity;
+        }
+
+        private void SetTutorialGameplayPaused(bool paused)
+        {
+            if (tutorialGameplayPaused == paused)
+            {
+                return;
+            }
+
+            if (paused)
+            {
+                tutorialPreviousTimeScale = Time.timeScale > 0f ? Time.timeScale : 1f;
+                Time.timeScale = 0f;
+            }
+            else
+            {
+                Time.timeScale = tutorialPreviousTimeScale > 0f ? tutorialPreviousTimeScale : 1f;
+            }
+
+            tutorialGameplayPaused = paused;
+        }
+
         private bool IsAnyRewardedAdInProgress =>
             isStationUnlockAdInProgress ||
             isVipAdInProgress ||
             isMixShuffleAdInProgress ||
-            isDepartAdInProgress;
+            isDepartAdInProgress ||
+            isClearRewardDoubleAdInProgress;
 
         private bool CanShowRecoveryPrompt()
         {
@@ -1662,6 +2419,15 @@ namespace BusPuzzle
 
             ClearPendingFailureRecoveryState();
             gameState = GameState.Cleared;
+            if (tutorialFreeUseEnabledForStage || tutorialStep != TutorialStep.None)
+            {
+                CompleteTutorial();
+            }
+            else
+            {
+                uiController.HideTutorial();
+            }
+
             ExitVipSelectionModeForEndState();
             if (currentLevelIndex + 1 < levelSequence.Count)
             {
@@ -1671,11 +2437,61 @@ namespace BusPuzzle
             var goldReward = UserEconomy.TryGrantStageClearGold(currentLevelIndex + 1, StageClearGoldReward)
                 ? StageClearGoldReward
                 : 0;
+            currentClearGoldReward = goldReward;
+            clearRewardDoubled = false;
+            isClearRewardDoubleAdInProgress = false;
             UpdateCounters();
             UpdateGoldUi();
-            UpdateRewardedAdUi();
             uiController.ShowClear(currentLevelIndex + 1, currentLevelIndex + 1 < levelSequence.Count, goldReward);
+            UpdateRewardedAdUi();
             EffectAudioPlayer.PlayVictory();
+        }
+
+        private void RequestClearRewardDoubleAd()
+        {
+            if (gameState != GameState.Cleared ||
+                IsAnyRewardedAdInProgress ||
+                currentClearGoldReward <= 0 ||
+                clearRewardDoubled ||
+                rewardedAdService == null)
+            {
+                UpdateClearRewardDoubleUi();
+                return;
+            }
+
+            if (!rewardedAdService.IsReadyFor(RewardedAdPlacement.StageClearDouble))
+            {
+                rewardedAdService.Preload(RewardedAdPlacement.StageClearDouble);
+                UpdateClearRewardDoubleUi();
+                return;
+            }
+
+            isClearRewardDoubleAdInProgress = true;
+            UpdateClearRewardDoubleUi();
+
+            if (!rewardedAdService.ShowStageClearDoubleAd(HandleClearRewardDoubleAdCompleted))
+            {
+                isClearRewardDoubleAdInProgress = false;
+                UpdateClearRewardDoubleUi();
+            }
+        }
+
+        private void HandleClearRewardDoubleAdCompleted(RewardedAdResult result)
+        {
+            isClearRewardDoubleAdInProgress = false;
+
+            if (gameState == GameState.Cleared &&
+                result == RewardedAdResult.RewardEarned &&
+                currentClearGoldReward > 0 &&
+                !clearRewardDoubled)
+            {
+                UserEconomy.AddGold(currentClearGoldReward);
+                clearRewardDoubled = true;
+                UpdateGoldUi();
+            }
+
+            rewardedAdService?.Preload(RewardedAdPlacement.StageClearDouble);
+            UpdateClearRewardDoubleUi();
         }
 
         private bool TryCompleteLevelIfReady()
@@ -1698,6 +2514,8 @@ namespace BusPuzzle
 
             ClearPendingFailureRecoveryState();
             gameState = GameState.Failed;
+            ClearTutorialTargetHighlights();
+            uiController.HideTutorial();
             ExitVipSelectionModeForEndState();
             UpdateRewardedAdUi();
             uiController.ShowFailed(
@@ -1835,6 +2653,7 @@ namespace BusPuzzle
             UpdateVipTeleportUi();
             UpdateMixShuffleUi();
             UpdateDepartUi();
+            UpdateClearRewardDoubleUi();
         }
 
         private void UpdateStationUnlockUi()
@@ -1862,8 +2681,9 @@ namespace BusPuzzle
 
             var canRequest = gameState == GameState.Playing &&
                 !IsAnyRewardedAdInProgress &&
-                RemainingVipTeleportUses > 0 &&
-                HasVipTeleportTarget();
+                (IsTutorialActive
+                    ? tutorialStep == TutorialStep.VipHint
+                    : RemainingVipTeleportUses > 0 && HasVipTeleportTarget());
 
             uiController.SetVipTeleport(
                 vipUsesGrantedThisStage,
@@ -1888,7 +2708,7 @@ namespace BusPuzzle
             var canRequest = gameState == GameState.Playing &&
                 !isVipSelectionMode &&
                 !IsAnyRewardedAdInProgress &&
-                HasMixShuffleTarget();
+                (HasMixShuffleTarget() || CanUseTutorialFreeMixShuffleNow());
 
             uiController.SetMixShuffle(
                 canRequest,
@@ -1909,7 +2729,9 @@ namespace BusPuzzle
             var canRequest = gameState == GameState.Playing &&
                 !isVipSelectionMode &&
                 !IsAnyRewardedAdInProgress &&
-                HasPotentialDepartTarget();
+                (IsTutorialActive
+                    ? tutorialStep == TutorialStep.DepartFree && CanUseTutorialFreeDepartNow()
+                    : HasPotentialDepartTarget());
 
             uiController.SetDepart(
                 canRequest,
@@ -1918,6 +2740,35 @@ namespace BusPuzzle
                 UserEconomy.CanSpendGold(DepartGoldCost),
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
                 isDepartAdInProgress);
+        }
+
+        private void UpdateClearRewardDoubleUi()
+        {
+            if (uiController == null)
+            {
+                return;
+            }
+
+            var canRequest = gameState == GameState.Cleared &&
+                currentClearGoldReward > 0 &&
+                !clearRewardDoubled &&
+                !IsAnyRewardedAdInProgress;
+            var adReady = rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StageClearDouble);
+            if (gameState == GameState.Cleared &&
+                currentClearGoldReward > 0 &&
+                !clearRewardDoubled &&
+                rewardedAdService != null &&
+                !adReady)
+            {
+                rewardedAdService.Preload(RewardedAdPlacement.StageClearDouble);
+            }
+
+            uiController.SetClearRewardDouble(
+                currentClearGoldReward,
+                clearRewardDoubled,
+                canRequest,
+                adReady,
+                isClearRewardDoubleAdInProgress);
         }
 
         private bool IsPassengerFastForwardHeld()

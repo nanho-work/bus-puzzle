@@ -17,6 +17,11 @@ namespace BusPuzzle
             PlayOneShot(34, 64);
         }
 
+        public static void PlayUiConfirm()
+        {
+            PlayOneShot(20, 48);
+        }
+
         private static void PlayOneShot(long durationMs, int amplitude)
         {
             if (!UserPreferences.VibrationEnabled)

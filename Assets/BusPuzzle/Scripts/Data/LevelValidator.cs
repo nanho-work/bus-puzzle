@@ -285,16 +285,25 @@ namespace BusPuzzle
             for (var firstIndex = 0; firstIndex < buses.Count; firstIndex++)
             {
                 var firstFootprint = GetDefinitionFootprint(buses[firstIndex]);
+                var firstVisualFootprint = GetDefinitionVisualFootprint(buses[firstIndex]);
                 for (var secondIndex = firstIndex + 1; secondIndex < buses.Count; secondIndex++)
                 {
                     var secondFootprint = GetDefinitionFootprint(buses[secondIndex]);
                     if (firstFootprint.Overlaps(secondFootprint))
                     {
                         report.Add(
-                            LevelValidationSeverity.Warning,
+                            LevelValidationSeverity.Error,
                             $"Vehicle #{firstIndex + 1} {DescribeVehicle(buses[firstIndex])} overlaps vehicle #{secondIndex + 1} {DescribeVehicle(buses[secondIndex])} at start.");
                     }
-                    else if (firstFootprint.IsWithinPadding(secondFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
+
+                    var secondVisualFootprint = GetDefinitionVisualFootprint(buses[secondIndex]);
+                    if (firstVisualFootprint.Overlaps(secondVisualFootprint))
+                    {
+                        report.Add(
+                            LevelValidationSeverity.Error,
+                            $"Vehicle #{firstIndex + 1} {DescribeVehicle(buses[firstIndex])} visually overlaps vehicle #{secondIndex + 1} {DescribeVehicle(buses[secondIndex])} at start.");
+                    }
+                    else if (firstVisualFootprint.IsWithinPadding(secondVisualFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
                     {
                         report.Add(
                             LevelValidationSeverity.Warning,
@@ -374,12 +383,16 @@ namespace BusPuzzle
                     }
                 }
 
+                ValidateGarageVehiclePlacement(report, garage, index, visibleBuses);
+
                 for (var otherIndex = index + 1; otherIndex < garages.Count; otherIndex++)
                 {
                     if (garageFootprint.Overlaps(GetGarageFootprint(garages[otherIndex])))
                     {
                         report.Add(LevelValidationSeverity.Error, $"Garage #{index + 1} overlaps garage #{otherIndex + 1}.");
                     }
+
+                    ValidateGarageVehicleSeparation(report, garage, index, garages[otherIndex], otherIndex);
                 }
             }
         }
@@ -438,6 +451,11 @@ namespace BusPuzzle
             return BoardLayoutConfig.GetVehicleFootprintCells(bus);
         }
 
+        private static VehicleFootprint GetDefinitionVisualFootprint(BusDefinition bus)
+        {
+            return BoardLayoutConfig.GetVehicleVisualFootprintCells(bus);
+        }
+
         private static VehicleFootprint GetGarageFootprint(GarageDefinition garage)
         {
             return new VehicleFootprint(
@@ -451,6 +469,90 @@ namespace BusPuzzle
         private static string DescribeVehicle(BusDefinition bus)
         {
             return $"{PuzzlePalette.DisplayName(bus.Color)} {BusSizeUtility.DisplayName(bus.Size)}";
+        }
+
+        private static void ValidateGarageVehiclePlacement(
+            LevelValidationReport report,
+            GarageDefinition garage,
+            int garageIndex,
+            IReadOnlyList<BusDefinition> visibleBuses)
+        {
+            var vehicleIndex = 0;
+            foreach (var garageVehicle in garage.EnumerateVehicles())
+            {
+                vehicleIndex++;
+                ValidateGarageVehicleGridCell(report, garageVehicle, garageIndex, vehicleIndex);
+                var garageVehicleFootprint = GetDefinitionVisualFootprint(garageVehicle);
+                if (garageVehicleFootprint.Overlaps(GetGarageFootprint(garage)))
+                {
+                    report.Add(
+                        LevelValidationSeverity.Error,
+                        $"Garage #{garageIndex + 1} vehicle #{vehicleIndex} {DescribeVehicle(garageVehicle)} visually overlaps its garage.");
+                }
+
+                for (var busIndex = 0; busIndex < visibleBuses.Count; busIndex++)
+                {
+                    if (garageVehicleFootprint.Overlaps(GetDefinitionVisualFootprint(visibleBuses[busIndex])))
+                    {
+                        report.Add(
+                            LevelValidationSeverity.Error,
+                            $"Garage #{garageIndex + 1} vehicle #{vehicleIndex} {DescribeVehicle(garageVehicle)} visually overlaps vehicle #{busIndex + 1} {DescribeVehicle(visibleBuses[busIndex])}.");
+                    }
+                }
+            }
+        }
+
+        private static void ValidateGarageVehicleGridCell(
+            LevelValidationReport report,
+            BusDefinition garageVehicle,
+            int garageIndex,
+            int vehicleIndex)
+        {
+            if (!BoardLayoutConfig.IsInsideGrid(garageVehicle.GridPosition))
+            {
+                report.Add(
+                    LevelValidationSeverity.Error,
+                    $"Garage #{garageIndex + 1} vehicle #{vehicleIndex} starts outside the {BoardLayoutConfig.GridColumns}x{BoardLayoutConfig.GridRows} parking grid at {garageVehicle.GridPosition}.");
+            }
+        }
+
+        private static void ValidateGarageVehicleSeparation(
+            LevelValidationReport report,
+            GarageDefinition firstGarage,
+            int firstGarageIndex,
+            GarageDefinition secondGarage,
+            int secondGarageIndex)
+        {
+            foreach (var firstVehicle in firstGarage.EnumerateVehicles())
+            {
+                var firstFootprint = GetDefinitionVisualFootprint(firstVehicle);
+                if (firstFootprint.Overlaps(GetGarageFootprint(secondGarage)))
+                {
+                    report.Add(
+                        LevelValidationSeverity.Error,
+                        $"Garage #{firstGarageIndex + 1} vehicle {DescribeVehicle(firstVehicle)} visually overlaps garage #{secondGarageIndex + 1}.");
+                }
+
+                foreach (var secondVehicle in secondGarage.EnumerateVehicles())
+                {
+                    if (firstFootprint.Overlaps(GetDefinitionVisualFootprint(secondVehicle)))
+                    {
+                        report.Add(
+                            LevelValidationSeverity.Error,
+                            $"Garage #{firstGarageIndex + 1} vehicle {DescribeVehicle(firstVehicle)} visually overlaps garage #{secondGarageIndex + 1} vehicle {DescribeVehicle(secondVehicle)}.");
+                    }
+                }
+            }
+
+            foreach (var secondVehicle in secondGarage.EnumerateVehicles())
+            {
+                if (GetDefinitionVisualFootprint(secondVehicle).Overlaps(GetGarageFootprint(firstGarage)))
+                {
+                    report.Add(
+                        LevelValidationSeverity.Error,
+                        $"Garage #{secondGarageIndex + 1} vehicle {DescribeVehicle(secondVehicle)} visually overlaps garage #{firstGarageIndex + 1}.");
+                }
+            }
         }
 
         private static string DescribeVehicleIndices(IReadOnlyList<BusDefinition> buses, IReadOnlyList<int> indices)

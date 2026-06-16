@@ -498,7 +498,7 @@ namespace BusPuzzle
                         ? Localization.Text("loading_ad")
                         : adReady
                             ? Localization.Text("reward_double_ad")
-                            : Localization.Text("loading_ad");
+                            : Localization.Text("ad_unavailable");
             }
 
             if (clearRewardText != null)

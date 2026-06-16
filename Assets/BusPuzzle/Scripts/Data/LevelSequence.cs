@@ -16,11 +16,17 @@ namespace BusPuzzle
         public bool UsesRuntimeGeneration => runtimeGenerationConfig != null;
         public bool IsVerifiedGeneratedSet => runtimeGenerationConfig == null && verifiedGeneratedSet && levels != null && levels.Count > 0;
         public int RuntimePreloadAheadCount => runtimeGenerationConfig != null ? runtimeGenerationConfig.RuntimePreloadAheadCount : 0;
+        public IReadOnlyList<LevelData> StaticLevels => levels;
 
         public LevelData GetLevel(int index)
         {
             if (runtimeGenerationConfig != null)
             {
+                if (TryGetStaticLevel(index, out var staticLevel))
+                {
+                    return staticLevel;
+                }
+
                 return GetRuntimeGeneratedLevel(index);
             }
 
@@ -48,16 +54,21 @@ namespace BusPuzzle
             runtimeGeneratedLevels = null;
         }
 
-        public void ConfigureRuntimeGeneration(StageGenerationConfig config)
+        public void ConfigureRuntimeGeneration(StageGenerationConfig config, IEnumerable<LevelData> seedLevels = null)
         {
             runtimeGenerationConfig = config;
             runtimeGeneratedLevels = new LevelData[config.GeneratedStageCount];
-            levels = new List<LevelData>();
+            levels = seedLevels != null ? new List<LevelData>(seedLevels) : new List<LevelData>();
             verifiedGeneratedSet = false;
         }
 
         public bool IsLevelCached(int index)
         {
+            if (TryGetStaticLevel(index, out _))
+            {
+                return true;
+            }
+
             return runtimeGenerationConfig == null ||
                 runtimeGeneratedLevels != null &&
                 index >= 0 &&
@@ -88,12 +99,24 @@ namespace BusPuzzle
             return sequence;
         }
 
-        public static LevelSequence CreateRuntimeGenerated(StageGenerationConfig config)
+        public static LevelSequence CreateRuntimeGenerated(StageGenerationConfig config, IEnumerable<LevelData> seedLevels = null)
         {
             var sequence = CreateInstance<LevelSequence>();
             sequence.hideFlags = HideFlags.DontSave;
-            sequence.ConfigureRuntimeGeneration(config);
+            sequence.ConfigureRuntimeGeneration(config, seedLevels);
             return sequence;
+        }
+
+        private bool TryGetStaticLevel(int index, out LevelData level)
+        {
+            level = null;
+            if (levels == null || index < 0 || index >= levels.Count)
+            {
+                return false;
+            }
+
+            level = levels[index];
+            return level != null;
         }
 
         private LevelData GetRuntimeGeneratedLevel(int index)

@@ -443,10 +443,10 @@ namespace BusPuzzle
                 return false;
             }
 
-            var candidateFootprint = BoardLayoutConfig.GetVehicleFootprintCells(candidate);
+            var candidateFootprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(candidate);
             for (var index = 0; index < placedVehicles.Count; index++)
             {
-                var otherFootprint = BoardLayoutConfig.GetVehicleFootprintCells(placedVehicles[index]);
+                var otherFootprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(placedVehicles[index]);
                 if (candidateFootprint.IsWithinPadding(otherFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
                 {
                     return false;
@@ -462,8 +462,7 @@ namespace BusPuzzle
             {
                 for (var index = 0; index < garages.Count; index++)
                 {
-                    if (candidateFootprint.IsWithinPadding(GetGarageFootprint(garages[index]), BoardLayoutConfig.VehicleNearPaddingCells) ||
-                        candidateFootprint.IsWithinPadding(BoardLayoutConfig.GetVehicleFootprintCells(garages[index].FrontVehicle), BoardLayoutConfig.VehicleNearPaddingCells))
+                    if (IsVehicleTooCloseToGarage(candidateFootprint, garages[index]))
                     {
                         return false;
                     }
@@ -486,6 +485,26 @@ namespace BusPuzzle
                 firstBlockingIndex == 1 &&
                 !LevelVehicleExitPlanner.IsPathClear(1, pair, active, out var secondBlockingIndex) &&
                 secondBlockingIndex == 0;
+        }
+
+        private static bool IsVehicleTooCloseToGarage(VehicleFootprint vehicleFootprint, GarageDefinition garage)
+        {
+            if (vehicleFootprint.IsWithinPadding(GetGarageFootprint(garage), BoardLayoutConfig.VehicleNearPaddingCells))
+            {
+                return true;
+            }
+
+            foreach (var garageVehicle in garage.EnumerateVehicles())
+            {
+                if (vehicleFootprint.IsWithinPadding(
+                    BoardLayoutConfig.GetVehicleVisualFootprintCells(garageVehicle),
+                    BoardLayoutConfig.VehicleNearPaddingCells))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsNearBoardEdge(BusDefinition vehicle)
@@ -804,8 +823,13 @@ namespace BusPuzzle
         private static bool IsGaragePlaceable(GarageDefinition candidate, IReadOnlyList<GarageDefinition> placedGarages)
         {
             var garageFootprint = GetGarageFootprint(candidate);
-            var frontFootprint = BoardLayoutConfig.GetVehicleFootprintCells(candidate.FrontVehicle);
+            var frontFootprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(candidate.FrontVehicle);
             if (garageFootprint.Overlaps(frontFootprint))
+            {
+                return false;
+            }
+
+            if (DoesGarageVehicleOverlapFootprint(candidate, garageFootprint))
             {
                 return false;
             }
@@ -813,17 +837,78 @@ namespace BusPuzzle
             for (var index = 0; index < placedGarages.Count; index++)
             {
                 var placedGarageFootprint = GetGarageFootprint(placedGarages[index]);
-                var placedFrontFootprint = BoardLayoutConfig.GetVehicleFootprintCells(placedGarages[index].FrontVehicle);
                 if (garageFootprint.IsWithinPadding(placedGarageFootprint, BoardLayoutConfig.VehicleNearPaddingCells) ||
-                    garageFootprint.IsWithinPadding(placedFrontFootprint, BoardLayoutConfig.VehicleNearPaddingCells) ||
-                    frontFootprint.IsWithinPadding(placedGarageFootprint, BoardLayoutConfig.VehicleNearPaddingCells) ||
-                    frontFootprint.IsWithinPadding(placedFrontFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
+                    DoesGarageVehicleConflictWithFootprint(candidate, placedGarageFootprint) ||
+                    DoesGarageVehicleConflictWithGarage(candidate, placedGarages[index]))
                 {
                     return false;
                 }
             }
 
             return true;
+        }
+
+        private static bool DoesGarageVehicleConflictWithFootprint(GarageDefinition garage, VehicleFootprint footprint)
+        {
+            foreach (var vehicle in garage.EnumerateVehicles())
+            {
+                if (BoardLayoutConfig.GetVehicleVisualFootprintCells(vehicle).IsWithinPadding(
+                    footprint,
+                    BoardLayoutConfig.VehicleNearPaddingCells))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool DoesGarageVehicleOverlapFootprint(GarageDefinition garage, VehicleFootprint footprint)
+        {
+            foreach (var vehicle in garage.EnumerateVehicles())
+            {
+                if (BoardLayoutConfig.GetVehicleVisualFootprintCells(vehicle).Overlaps(footprint))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool DoesGarageVehicleConflictWithGarage(GarageDefinition first, GarageDefinition second)
+        {
+            foreach (var firstVehicle in first.EnumerateVehicles())
+            {
+                var firstFootprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(firstVehicle);
+                if (firstFootprint.IsWithinPadding(GetGarageFootprint(second), BoardLayoutConfig.VehicleNearPaddingCells))
+                {
+                    return true;
+                }
+
+                foreach (var secondVehicle in second.EnumerateVehicles())
+                {
+                    if (firstFootprint.IsWithinPadding(
+                        BoardLayoutConfig.GetVehicleVisualFootprintCells(secondVehicle),
+                        BoardLayoutConfig.VehicleNearPaddingCells))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            var firstGarageFootprint = GetGarageFootprint(first);
+            foreach (var secondVehicle in second.EnumerateVehicles())
+            {
+                if (BoardLayoutConfig.GetVehicleVisualFootprintCells(secondVehicle).IsWithinPadding(
+                    firstGarageFootprint,
+                    BoardLayoutConfig.VehicleNearPaddingCells))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static VehicleFootprint GetGarageFootprint(GarageDefinition garage)

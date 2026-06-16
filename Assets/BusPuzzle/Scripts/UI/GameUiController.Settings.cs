@@ -67,7 +67,14 @@ namespace BusPuzzle
                 UserPreferences.VibrationEnabled,
                 out vibrationLabelText);
             SetAnchors(vibrationToggle.GetComponent<RectTransform>(), new Vector2(0.52f, 0.39f), new Vector2(0.73f, 0.72f), Vector2.zero, Vector2.zero);
-            vibrationToggle.onValueChanged.AddListener(value => UserPreferences.VibrationEnabled = value);
+            vibrationToggle.onValueChanged.AddListener(value =>
+            {
+                UserPreferences.VibrationEnabled = value;
+                if (value)
+                {
+                    HapticFeedback.PlayUiConfirm();
+                }
+            });
 
             languageButton = CreateSettingIconButton(
                 "Language Button",

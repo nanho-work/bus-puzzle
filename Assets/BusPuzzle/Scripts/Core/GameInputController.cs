@@ -60,17 +60,20 @@ namespace BusPuzzle
 
             var ray = gameCamera.ScreenPointToRay(screenPosition);
             var hits = Physics.RaycastAll(ray, 100f);
-
-            foreach (var hit in hits)
+            BusView nearestBus = null;
+            var nearestDistance = float.PositiveInfinity;
+            for (var index = 0; index < hits.Length; index++)
             {
+                var hit = hits[index];
                 var bus = hit.collider.GetComponentInParent<BusView>();
-                if (bus != null)
+                if (bus != null && hit.distance < nearestDistance)
                 {
-                    return bus;
+                    nearestBus = bus;
+                    nearestDistance = hit.distance;
                 }
             }
 
-            return null;
+            return nearestBus;
         }
 
         private StationSlotUnlockTarget TryGetStationUnlockTargetAtScreenPosition(Vector2 screenPosition)
@@ -82,17 +85,20 @@ namespace BusPuzzle
 
             var ray = gameCamera.ScreenPointToRay(screenPosition);
             var hits = Physics.RaycastAll(ray, 100f);
-
-            foreach (var hit in hits)
+            StationSlotUnlockTarget nearestTarget = null;
+            var nearestDistance = float.PositiveInfinity;
+            for (var index = 0; index < hits.Length; index++)
             {
+                var hit = hits[index];
                 var target = hit.collider.GetComponentInParent<StationSlotUnlockTarget>();
-                if (target != null)
+                if (target != null && hit.distance < nearestDistance)
                 {
-                    return target;
+                    nearestTarget = target;
+                    nearestDistance = hit.distance;
                 }
             }
 
-            return null;
+            return nearestTarget;
         }
 
         private static bool TryGetPointerDown(out Vector2 screenPosition, out int pointerId)

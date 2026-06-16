@@ -326,13 +326,13 @@ namespace BusPuzzle
 
         private LevelSequence ResolveLevelSequence()
         {
+            var stageGenerationConfig = Resources.Load<StageGenerationConfig>(StageGenerationConfigResourcePath);
             var generatedSequence = Resources.Load<LevelSequence>(GeneratedLevelSequenceResourcePath);
-            if (IsUsableVerifiedSequence(generatedSequence))
+            if (TryResolveVerifiedSequence(generatedSequence, stageGenerationConfig, "Generated level sequence", out var resolvedSequence))
             {
-                return generatedSequence;
+                return resolvedSequence;
             }
 
-            var stageGenerationConfig = Resources.Load<StageGenerationConfig>(StageGenerationConfigResourcePath);
             if (stageGenerationConfig != null)
             {
                 if (generatedSequence == null || generatedSequence.Count == 0)
@@ -348,9 +348,9 @@ namespace BusPuzzle
             }
 
             var activeSequence = Resources.Load<LevelSequence>(ActiveLevelSequenceResourcePath);
-            if (IsUsableVerifiedSequence(activeSequence))
+            if (TryResolveVerifiedSequence(activeSequence, stageGenerationConfig, "Active level sequence", out resolvedSequence))
             {
-                return activeSequence;
+                return resolvedSequence;
             }
 
             if (levelSequence != null && levelSequence.Count > 0)
@@ -368,9 +368,37 @@ namespace BusPuzzle
             return null;
         }
 
-        private static bool IsUsableVerifiedSequence(LevelSequence sequence)
+        private static bool TryResolveVerifiedSequence(
+            LevelSequence sequence,
+            StageGenerationConfig config,
+            string sourceName,
+            out LevelSequence resolvedSequence)
         {
-            return sequence != null && sequence.Count > 0 && sequence.IsVerifiedGeneratedSet;
+            resolvedSequence = null;
+            if (sequence == null || sequence.Count <= 0 || !sequence.IsVerifiedGeneratedSet)
+            {
+                return false;
+            }
+
+            if (config == null || sequence.Count == config.GeneratedStageCount)
+            {
+                resolvedSequence = sequence;
+                return true;
+            }
+
+            if (sequence.Count < config.GeneratedStageCount)
+            {
+                Debug.LogWarning(
+                    $"{sourceName} contains {sequence.Count} verified stages, while StageGenerationConfig expects " +
+                    $"{config.GeneratedStageCount}. Existing stages will be used first, and later stages will be generated at runtime.");
+                resolvedSequence = LevelSequence.CreateRuntimeGenerated(config, sequence.StaticLevels);
+                return true;
+            }
+
+            Debug.LogWarning(
+                $"{sourceName} contains {sequence.Count} stages, which is more than StageGenerationConfig expects " +
+                $"({config.GeneratedStageCount}). Using runtime generated stages from StageGenerationConfig.");
+            return false;
         }
 
         private void ConfigureControllers()

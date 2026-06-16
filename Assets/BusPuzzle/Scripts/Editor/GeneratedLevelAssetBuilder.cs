@@ -134,6 +134,13 @@ namespace BusPuzzle.EditorTools
                 return false;
             }
 
+            if (!MatchesGenerationRequest(level, request))
+            {
+                Debug.Log(
+                    $"Existing generated stage {request.StageNumber:000} does not match the current generation config and will be rebuilt.");
+                return false;
+            }
+
             var report = LevelValidator.Validate(level, false, GetValidationSolutionLimit(config, request));
             if (!report.HasErrors)
             {
@@ -146,6 +153,30 @@ namespace BusPuzzle.EditorTools
                 $"Existing generated stage {request.StageNumber:000} failed validation and will be rebuilt. " +
                 report.ToConsoleMessage(level.LevelName));
             return false;
+        }
+
+        private static bool MatchesGenerationRequest(LevelData level, StageGenerationRequest request)
+        {
+            if (level == null || request.Profile == null)
+            {
+                return false;
+            }
+
+            var profile = level.DifficultyProfile;
+            if (profile == null)
+            {
+                return false;
+            }
+
+            return profile.Difficulty == request.Difficulty &&
+                profile.TargetVehicleCount == request.Profile.TargetVehicleCount &&
+                profile.TargetColorCount == request.Profile.TargetColorCount &&
+                Mathf.Abs(profile.ParkingTension - request.Profile.ParkingTension) < 0.001f &&
+                Mathf.Abs(profile.StationPressure - request.Profile.StationPressure) < 0.001f &&
+                profile.RequireSolutionRoute == request.Profile.RequireSolutionRoute &&
+                level.RoadPresetId == request.RoadPresetId &&
+                level.RotaryUnitCapacity == LevelGenerator.GetRotaryCapacity(request.Difficulty) &&
+                level.Garages.Count == request.GarageCount;
         }
 
         private static int GetValidationSolutionLimit(StageGenerationConfig config, StageGenerationRequest request)

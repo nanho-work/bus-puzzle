@@ -15,7 +15,7 @@ namespace BusPuzzle
         private const float StationUpperRoadForwardCells = 2.05f;
         private const float RotaryStationLaneClearanceCells = 0.55f;
         private const float RotaryVisualGuardrailPaddingCells = 0.45f;
-        private const float CameraVisibleFeederRows = 2.35f;
+        private const float CameraVisibleFeederRows = 1.45f;
         private const float CameraFeederTopPadding = 0.12f;
 
         private readonly StationSlotController stationSlots = new StationSlotController(

@@ -550,9 +550,11 @@ namespace BusPuzzle
         {
             if (stationUnlockPromptText != null)
             {
-                stationUnlockPromptText.text = adInProgress || !adReady
+                stationUnlockPromptText.text = adInProgress
                     ? Localization.Text("loading_ad")
-                    : Localization.Text("watch_ad_stop", lockedSlotsRemaining);
+                    : adReady
+                        ? Localization.Text("watch_ad_stop", lockedSlotsRemaining)
+                        : Localization.Text("ad_unavailable_try_later");
             }
 
             if (stationUnlockConfirmButton != null)
@@ -562,7 +564,7 @@ namespace BusPuzzle
 
             if (stationUnlockConfirmButtonText != null)
             {
-                stationUnlockConfirmButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
+                stationUnlockConfirmButtonText.text = GetRewardedAdButtonLabel(adReady, adInProgress);
             }
         }
 
@@ -592,7 +594,7 @@ namespace BusPuzzle
 
             if (vipTeleportWatchButtonText != null)
             {
-                vipTeleportWatchButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
+                vipTeleportWatchButtonText.text = GetRewardedAdButtonLabel(adReady, adInProgress);
             }
 
             if (vipTeleportGoldConfirmButton != null)
@@ -629,7 +631,7 @@ namespace BusPuzzle
 
             if (mixShuffleWatchButtonText != null)
             {
-                mixShuffleWatchButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
+                mixShuffleWatchButtonText.text = GetRewardedAdButtonLabel(adReady, adInProgress);
             }
 
             if (mixShuffleGoldConfirmButton != null)
@@ -666,7 +668,7 @@ namespace BusPuzzle
 
             if (departWatchButtonText != null)
             {
-                departWatchButtonText.text = adInProgress || !adReady ? Localization.Text("loading") : Localization.Text("watch");
+                departWatchButtonText.text = GetRewardedAdButtonLabel(adReady, adInProgress);
             }
 
             if (departGoldConfirmButton != null)
@@ -678,6 +680,16 @@ namespace BusPuzzle
             {
                 departConfirmButton.interactable = adReady && !adInProgress;
             }
+        }
+
+        private static string GetRewardedAdButtonLabel(bool adReady, bool adInProgress)
+        {
+            if (adInProgress)
+            {
+                return Localization.Text("loading");
+            }
+
+            return adReady ? Localization.Text("watch") : Localization.Text("ad_unavailable");
         }
     }
 }

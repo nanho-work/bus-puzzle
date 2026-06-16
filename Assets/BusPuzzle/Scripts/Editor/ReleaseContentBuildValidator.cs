@@ -9,6 +9,7 @@ namespace BusPuzzle
     public sealed class ReleaseContentBuildValidator : IPreprocessBuildWithReport
     {
         private const string GeneratedLevelSequenceResourcePath = "Levels/Generated/GeneratedLevelSequence";
+        private const string StageGenerationConfigResourcePath = "Levels/StageGenerationConfig";
 
         public int callbackOrder => 1;
 
@@ -35,6 +36,21 @@ namespace BusPuzzle
             if (generatedSequence.Count <= 0)
             {
                 throw new BuildFailedException("Generated level sequence contains no stages.");
+            }
+
+            var stageGenerationConfig = Resources.Load<StageGenerationConfig>(StageGenerationConfigResourcePath);
+            if (stageGenerationConfig != null && generatedSequence.Count > stageGenerationConfig.GeneratedStageCount)
+            {
+                throw new BuildFailedException(
+                    $"Generated level sequence contains {generatedSequence.Count} stages, which is more than StageGenerationConfig expects " +
+                    $"{stageGenerationConfig.GeneratedStageCount}. Rebuild generated stages or lower the generated sequence count.");
+            }
+
+            if (stageGenerationConfig != null && generatedSequence.Count < stageGenerationConfig.GeneratedStageCount)
+            {
+                Debug.LogWarning(
+                    $"Generated level sequence contains {generatedSequence.Count} verified stages, while StageGenerationConfig expects " +
+                    $"{stageGenerationConfig.GeneratedStageCount}. The release will use verified stages first and runtime-generate later stages.");
             }
 
             for (var index = 0; index < generatedSequence.Count; index++)

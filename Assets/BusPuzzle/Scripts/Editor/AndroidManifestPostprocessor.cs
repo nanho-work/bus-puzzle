@@ -12,6 +12,7 @@ namespace BusPuzzle
     public sealed class AndroidManifestPostprocessor : IPostGenerateGradleAndroidProject
     {
         private const string PortraitOrientation = "portrait";
+        private const string VibratePermission = "android.permission.VIBRATE";
         private const string UnityPlayerActivityPrefix = "com.unity3d.player.UnityPlayer";
         private static readonly XNamespace AndroidNamespace = "http://schemas.android.com/apk/res/android";
 
@@ -46,6 +47,7 @@ namespace BusPuzzle
                 ForcePortraitActivity(activity);
             }
 
+            EnsurePermission(document, VibratePermission);
             ForcePortraitApplicationMetadata(document);
             document.Save(manifestPath);
             Debug.Log($"Bus Pop Android manifest locked to portrait for {activities.Count} launcher activity entry: {manifestPath}");
@@ -89,6 +91,21 @@ namespace BusPuzzle
             }
 
             SetOrCreateMetadata(application, "notch.config", PortraitOrientation);
+        }
+
+        private static void EnsurePermission(XDocument document, string permissionName)
+        {
+            var manifest = document.Root;
+            if (manifest == null ||
+                manifest.Elements("uses-permission")
+                    .Any(element => (string)element.Attribute(AndroidNamespace + "name") == permissionName))
+            {
+                return;
+            }
+
+            manifest.AddFirst(new XElement(
+                "uses-permission",
+                new XAttribute(AndroidNamespace + "name", permissionName)));
         }
 
         private static bool HasMetadata(XElement parent, string name)

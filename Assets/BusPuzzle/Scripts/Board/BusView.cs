@@ -846,11 +846,11 @@ namespace BusPuzzle
                 }
             }
 
-            touchCollider.center = new Vector3(0f, VisualHeight * 0.52f, VisualCenterZ);
+            touchCollider.center = new Vector3(0f, VisualHeight * 0.52f, BodyVisualCenterZ);
             touchCollider.size = new Vector3(
-                VisualWidth * 1.22f,
-                VisualHeight * 1.32f,
-                VisualLength * 1.14f);
+                BodyVisualWidth * 0.96f,
+                VisualHeight * 1.05f,
+                BodyVisualLength * 0.96f);
         }
 
         private void ShowBoardingCounter()

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9061ec0a61c04f65868e40d63e0606ce, type: 3}
   m_Name: StageGenerationConfig
   m_EditorClassIdentifier: 
-  generatedStageCount: 50
+  generatedStageCount: 100
   baseSeed: 10000
   candidateAttemptsPerStage: 36
   releaseVehicleGenerationAttempts: 8
@@ -25,7 +25,7 @@ MonoBehaviour:
   stagePattern:
   - difficulty: 0
     modifiers: 0
-  - difficulty: 0
+  - difficulty: 1
     modifiers: 0
   - difficulty: 1
     modifiers: 2
@@ -35,48 +35,48 @@ MonoBehaviour:
     modifiers: 5
   difficultyPattern:
   - 0
-  - 0
+  - 1
   - 1
   - 2
   - 2
   normalRule:
     difficulty: 0
-    earlyVehicleCount: 25
-    lateVehicleCount: 38
+    earlyVehicleCount: 26
+    lateVehicleCount: 40
     earlyColorCount: 5
     lateColorCount: 8
-    earlyParkingTension: 0.3
-    lateParkingTension: 0.55
-    earlyStationPressure: 0.25
-    lateStationPressure: 0.52
-    minSolutionCount: 80
-    maxSolutionCount: 256
+    earlyParkingTension: 0.34
+    lateParkingTension: 0.6
+    earlyStationPressure: 0.3
+    lateStationPressure: 0.58
+    minSolutionCount: 48
+    maxSolutionCount: 180
     requireSolutionRoute: 0
   hardRule:
     difficulty: 1
-    earlyVehicleCount: 28
-    lateVehicleCount: 42
+    earlyVehicleCount: 30
+    lateVehicleCount: 44
     earlyColorCount: 6
     lateColorCount: 9
-    earlyParkingTension: 0.45
-    lateParkingTension: 0.68
-    earlyStationPressure: 0.4
-    lateStationPressure: 0.68
-    minSolutionCount: 18
-    maxSolutionCount: 96
+    earlyParkingTension: 0.5
+    lateParkingTension: 0.72
+    earlyStationPressure: 0.45
+    lateStationPressure: 0.72
+    minSolutionCount: 10
+    maxSolutionCount: 70
     requireSolutionRoute: 1
   superHardRule:
     difficulty: 2
-    earlyVehicleCount: 32
+    earlyVehicleCount: 34
     lateVehicleCount: 50
     earlyColorCount: 7
     lateColorCount: 10
-    earlyParkingTension: 0.58
-    lateParkingTension: 0.82
-    earlyStationPressure: 0.55
-    lateStationPressure: 0.82
+    earlyParkingTension: 0.62
+    lateParkingTension: 0.84
+    earlyStationPressure: 0.58
+    lateStationPressure: 0.84
     minSolutionCount: 1
-    maxSolutionCount: 24
+    maxSolutionCount: 18
     requireSolutionRoute: 1
   superHardGarageRule:
     enabled: 1

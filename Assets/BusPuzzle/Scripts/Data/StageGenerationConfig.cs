@@ -44,44 +44,44 @@ namespace BusPuzzle
             {
                 case LevelDifficulty.Hard:
                     rule.difficulty = LevelDifficulty.Hard;
-                    rule.earlyVehicleCount = 28;
-                    rule.lateVehicleCount = 42;
+                    rule.earlyVehicleCount = 30;
+                    rule.lateVehicleCount = 44;
                     rule.earlyColorCount = 6;
                     rule.lateColorCount = 9;
-                    rule.earlyParkingTension = 0.45f;
-                    rule.lateParkingTension = 0.68f;
-                    rule.earlyStationPressure = 0.40f;
-                    rule.lateStationPressure = 0.68f;
-                    rule.minSolutionCount = 18;
-                    rule.maxSolutionCount = 96;
+                    rule.earlyParkingTension = 0.50f;
+                    rule.lateParkingTension = 0.72f;
+                    rule.earlyStationPressure = 0.45f;
+                    rule.lateStationPressure = 0.72f;
+                    rule.minSolutionCount = 10;
+                    rule.maxSolutionCount = 70;
                     rule.requireSolutionRoute = true;
                     break;
                 case LevelDifficulty.SuperHard:
                     rule.difficulty = LevelDifficulty.SuperHard;
-                    rule.earlyVehicleCount = 32;
+                    rule.earlyVehicleCount = 34;
                     rule.lateVehicleCount = 50;
                     rule.earlyColorCount = 7;
                     rule.lateColorCount = 10;
-                    rule.earlyParkingTension = 0.58f;
-                    rule.lateParkingTension = 0.82f;
-                    rule.earlyStationPressure = 0.55f;
-                    rule.lateStationPressure = 0.82f;
+                    rule.earlyParkingTension = 0.62f;
+                    rule.lateParkingTension = 0.84f;
+                    rule.earlyStationPressure = 0.58f;
+                    rule.lateStationPressure = 0.84f;
                     rule.minSolutionCount = 1;
-                    rule.maxSolutionCount = 24;
+                    rule.maxSolutionCount = 18;
                     rule.requireSolutionRoute = true;
                     break;
                 default:
                     rule.difficulty = LevelDifficulty.Normal;
-                    rule.earlyVehicleCount = 25;
-                    rule.lateVehicleCount = 38;
+                    rule.earlyVehicleCount = 26;
+                    rule.lateVehicleCount = 40;
                     rule.earlyColorCount = 5;
                     rule.lateColorCount = 8;
-                    rule.earlyParkingTension = 0.30f;
-                    rule.lateParkingTension = 0.55f;
-                    rule.earlyStationPressure = 0.25f;
-                    rule.lateStationPressure = 0.52f;
-                    rule.minSolutionCount = 80;
-                    rule.maxSolutionCount = 256;
+                    rule.earlyParkingTension = 0.34f;
+                    rule.lateParkingTension = 0.60f;
+                    rule.earlyStationPressure = 0.30f;
+                    rule.lateStationPressure = 0.58f;
+                    rule.minSolutionCount = 48;
+                    rule.maxSolutionCount = 180;
                     rule.requireSolutionRoute = false;
                     break;
             }
@@ -143,7 +143,7 @@ namespace BusPuzzle
     [CreateAssetMenu(menuName = "Bus Puzzle/Stage Generation Config", fileName = "StageGenerationConfig")]
     public sealed class StageGenerationConfig : ScriptableObject
     {
-        [SerializeField, Range(1, 500)] private int generatedStageCount = 50;
+        [SerializeField, Range(1, 500)] private int generatedStageCount = 100;
         [SerializeField] private int baseSeed = 10000;
         [SerializeField, Range(1, 300)] private int candidateAttemptsPerStage = 36;
         [SerializeField, Range(1, 80)] private int releaseVehicleGenerationAttempts = 8;
@@ -156,7 +156,7 @@ namespace BusPuzzle
         [SerializeField] private List<StagePatternEntry> stagePattern = new List<StagePatternEntry>
         {
             StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
-            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.None),
             StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
             StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages),
             StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.LightMysteryVehicles)
@@ -164,7 +164,7 @@ namespace BusPuzzle
         [SerializeField, HideInInspector] private List<LevelDifficulty> difficultyPattern = new List<LevelDifficulty>
         {
             LevelDifficulty.Normal,
-            LevelDifficulty.Normal,
+            LevelDifficulty.Hard,
             LevelDifficulty.Hard,
             LevelDifficulty.SuperHard,
             LevelDifficulty.SuperHard

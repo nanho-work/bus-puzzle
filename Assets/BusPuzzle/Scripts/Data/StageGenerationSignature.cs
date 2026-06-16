@@ -5,7 +5,7 @@ namespace BusPuzzle
 {
     public static class StageGenerationSignature
     {
-        private const int SignatureVersion = 1;
+        private const int SignatureVersion = 3;
 
         public static string Create(StageGenerationConfig config, StageGenerationRequest request)
         {
@@ -19,10 +19,19 @@ namespace BusPuzzle
             Append(builder, "seed", request.Seed);
             Append(builder, "difficulty", (int)request.Difficulty);
             Append(builder, "modifiers", (int)request.Modifiers);
+            Append(builder, "progress", request.Progress);
+            Append(builder, "post50", request.Post50Pressure);
             Append(builder, "road", (int)request.RoadPresetId);
             Append(builder, "layoutVariant", request.VehicleLayoutVariantIndex);
             Append(builder, "layoutPool", request.VehicleLayoutVariantPoolSize);
             Append(builder, "garages", request.GarageCount);
+            Append(builder, "garageQueueMin", request.MinGarageQueuedVehicles);
+            Append(builder, "garageQueueMax", request.MaxGarageQueuedVehicles);
+            Append(builder, "rotary", request.RotaryCapacity);
+            Append(builder, "mysteryEnabled", request.MysteryVehicleProfile.Enabled ? 1 : 0);
+            Append(builder, "mysteryMin", request.MysteryVehicleProfile.MinVehicles);
+            Append(builder, "mysteryMax", request.MysteryVehicleProfile.MaxVehicles);
+            Append(builder, "mysteryRatio", request.MysteryVehicleProfile.Ratio);
             Append(builder, "minSolutions", request.MinSolutionCount);
             Append(builder, "maxSolutions", request.MaxSolutionCount);
             Append(builder, "vehicles", profile.TargetVehicleCount);
@@ -37,12 +46,18 @@ namespace BusPuzzle
             Append(builder, "interference", passengerRule.InterferenceRatio);
             Append(builder, "preserve", passengerRule.PreserveSolutionRoute ? 1 : 0);
             Append(builder, "garageEnabled", garageRule.Enabled ? 1 : 0);
-            Append(builder, "garageQueueMin", garageRule.MinQueuedVehiclesPerGarage);
-            Append(builder, "garageQueueMax", garageRule.MaxQueuedVehiclesPerGarage);
+            Append(builder, "garageRuleQueueMin", garageRule.MinQueuedVehiclesPerGarage);
+            Append(builder, "garageRuleQueueMax", garageRule.MaxQueuedVehiclesPerGarage);
+            Append(builder, "garageRulePostQueueMin", garageRule.Post50MinQueuedVehiclesPerGarage);
+            Append(builder, "garageRulePostQueueMax", garageRule.Post50MaxQueuedVehiclesPerGarage);
 
             if (config != null)
             {
                 Append(builder, "stageCount", config.GeneratedStageCount);
+                Append(builder, "rampStart", config.DifficultyRampStartStage);
+                Append(builder, "rampReference", config.DifficultyRampReferenceStage);
+                Append(builder, "rampMax", config.DifficultyRampMaxStage);
+                Append(builder, "postRampMax", config.Post50RampMaxStage);
                 Append(builder, "baseSeed", config.BaseSeed);
                 Append(builder, "releaseVehicleAttempts", config.ReleaseVehicleGenerationAttempts);
                 Append(builder, "solutionLimit", config.SolutionCountLimit);

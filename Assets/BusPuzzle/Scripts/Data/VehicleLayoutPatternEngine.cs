@@ -10,7 +10,11 @@ namespace BusPuzzle
         DiagonalBands,
         Spiral,
         SplitClusters,
-        Chevron
+        Chevron,
+        DenseBlock,
+        DiamondCross,
+        MazeRows,
+        PackedClusters
     }
 
     internal readonly struct VehicleLayoutSlot
@@ -50,7 +54,11 @@ namespace BusPuzzle
             VehicleLayoutPatternId.Ring,
             VehicleLayoutPatternId.Spiral,
             VehicleLayoutPatternId.SplitClusters,
-            VehicleLayoutPatternId.Chevron
+            VehicleLayoutPatternId.Chevron,
+            VehicleLayoutPatternId.DenseBlock,
+            VehicleLayoutPatternId.DiamondCross,
+            VehicleLayoutPatternId.MazeRows,
+            VehicleLayoutPatternId.PackedClusters
         };
 
         private static readonly VehicleLayoutPatternId[] NormalPatterns =
@@ -72,6 +80,28 @@ namespace BusPuzzle
             VehicleLayoutPatternId.DiagonalBands,
             VehicleLayoutPatternId.Spiral,
             VehicleLayoutPatternId.TerminalRows
+        };
+
+        private static readonly VehicleLayoutPatternId[] MidPressurePatterns =
+        {
+            VehicleLayoutPatternId.TerminalRows,
+            VehicleLayoutPatternId.DiagonalBands,
+            VehicleLayoutPatternId.Spiral,
+            VehicleLayoutPatternId.SplitClusters,
+            VehicleLayoutPatternId.Chevron,
+            VehicleLayoutPatternId.DenseBlock
+        };
+
+        private static readonly VehicleLayoutPatternId[] LatePressurePatterns =
+        {
+            VehicleLayoutPatternId.DiagonalBands,
+            VehicleLayoutPatternId.Spiral,
+            VehicleLayoutPatternId.SplitClusters,
+            VehicleLayoutPatternId.Chevron,
+            VehicleLayoutPatternId.DenseBlock,
+            VehicleLayoutPatternId.DiamondCross,
+            VehicleLayoutPatternId.MazeRows,
+            VehicleLayoutPatternId.PackedClusters
         };
 
         public static int UniqueLayoutVariantCount => StagePatternPool.Length * VariantsPerPattern;
@@ -96,11 +126,23 @@ namespace BusPuzzle
 
             var slots = new List<VehicleLayoutSlot>(targetVehicleCount * 3);
             var occupiedCells = new HashSet<int>();
-            var pattern = PickPattern(profile.Difficulty, random, layoutVariantIndex);
+            var pattern = PickPattern(profile, random, layoutVariantIndex);
             var slotRandom = CreateSlotRandom(profile.Difficulty, random, targetVehicleCount, layoutVariantIndex);
 
             switch (pattern)
             {
+                case VehicleLayoutPatternId.DenseBlock:
+                    AddDenseBlock(slots, occupiedCells, profile, slotRandom);
+                    break;
+                case VehicleLayoutPatternId.DiamondCross:
+                    AddDiamondCross(slots, occupiedCells, profile, slotRandom);
+                    break;
+                case VehicleLayoutPatternId.MazeRows:
+                    AddMazeRows(slots, occupiedCells, profile, slotRandom);
+                    break;
+                case VehicleLayoutPatternId.PackedClusters:
+                    AddPackedClusters(slots, occupiedCells, profile, slotRandom);
+                    break;
                 case VehicleLayoutPatternId.TerminalRows:
                     AddTerminalRows(slots, occupiedCells, profile, slotRandom);
                     break;
@@ -126,27 +168,39 @@ namespace BusPuzzle
         }
 
         private static VehicleLayoutPatternId PickPattern(
-            LevelDifficulty difficulty,
+            LevelDifficultyProfile profile,
             System.Random random,
             int layoutVariantIndex)
         {
-            if (layoutVariantIndex >= 0 && StagePatternPool.Length > 0)
+            var patterns = GetPatternPool(profile);
+            if (layoutVariantIndex >= 0 && patterns.Length > 0)
             {
-                return StagePatternPool[Mathf.Abs(layoutVariantIndex) % StagePatternPool.Length];
+                return patterns[Mathf.Abs(layoutVariantIndex) % patterns.Length];
             }
 
-            return PickAutoPattern(difficulty, random);
+            return patterns[random.Next(0, patterns.Length)];
         }
 
-        private static VehicleLayoutPatternId PickAutoPattern(LevelDifficulty difficulty, System.Random random)
+        private static VehicleLayoutPatternId[] GetPatternPool(LevelDifficultyProfile profile)
         {
-            var patterns = difficulty == LevelDifficulty.SuperHard
-                ? SuperHardPatterns
-                : difficulty == LevelDifficulty.Hard
-                    ? HardPatterns
-                    : NormalPatterns;
+            profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            var pressure = Mathf.Clamp01(profile.ParkingTension * 0.65f + profile.StationPressure * 0.35f);
+            if (profile.Difficulty == LevelDifficulty.SuperHard && pressure >= 0.78f)
+            {
+                return LatePressurePatterns;
+            }
 
-            return patterns[random.Next(0, patterns.Length)];
+            if (profile.Difficulty != LevelDifficulty.Normal && pressure >= 0.64f)
+            {
+                return MidPressurePatterns;
+            }
+
+            if (profile.Difficulty == LevelDifficulty.SuperHard)
+            {
+                return SuperHardPatterns;
+            }
+
+            return profile.Difficulty == LevelDifficulty.Hard ? HardPatterns : NormalPatterns;
         }
 
         private static System.Random CreateSlotRandom(
@@ -385,6 +439,169 @@ namespace BusPuzzle
             }
         }
 
+        private static void AddDenseBlock(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random)
+        {
+            var left = random.NextDouble() >= 0.5d ? 1 : 2;
+            var right = MaxCellX - (random.NextDouble() >= 0.5d ? 0 : 1);
+            var bottom = random.NextDouble() >= 0.5d ? 1 : 2;
+            var top = MaxCellY - (random.NextDouble() >= 0.5d ? 0 : 1);
+            for (var y = bottom; y <= top; y++)
+            {
+                var leftToRight = (y + random.Next(0, 2)) % 2 == 0;
+                if (leftToRight)
+                {
+                    for (var x = left; x <= right; x++)
+                    {
+                        AddDenseBlockSlot(slots, occupiedCells, profile, random, x, y);
+                    }
+                }
+                else
+                {
+                    for (var x = right; x >= left; x--)
+                    {
+                        AddDenseBlockSlot(slots, occupiedCells, profile, random, x, y);
+                    }
+                }
+            }
+        }
+
+        private static void AddDenseBlockSlot(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random,
+            int x,
+            int y)
+        {
+            var mode = Mathf.Abs(x * 17 + y * 31 + random.Next(0, 3)) % 4;
+            var direction = mode == 0
+                ? GridDirection.Right
+                : mode == 1
+                    ? GridDirection.Left
+                    : mode == 2
+                        ? GridDirection.Up
+                        : GridDirection.Down;
+            AddCardinalSlot(slots, occupiedCells, profile, random, x, y, direction);
+        }
+
+        private static void AddDiamondCross(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random)
+        {
+            var center = new Vector2Int(Mathf.RoundToInt(CenterX), Mathf.RoundToInt(CenterY));
+            for (var radius = 0; radius <= 6; radius++)
+            {
+                for (var dx = -radius; dx <= radius; dx++)
+                {
+                    var dy = radius - Mathf.Abs(dx);
+                    AddDiamondSlot(slots, occupiedCells, profile, random, center.x + dx, center.y + dy, dx, dy);
+                    if (dy != 0)
+                    {
+                        AddDiamondSlot(slots, occupiedCells, profile, random, center.x + dx, center.y - dy, dx, -dy);
+                    }
+                }
+            }
+
+            for (var offset = -5; offset <= 5; offset++)
+            {
+                AddCardinalSlot(slots, occupiedCells, profile, random, center.x + offset, center.y, offset < 0 ? GridDirection.Right : GridDirection.Left);
+                AddCardinalSlot(slots, occupiedCells, profile, random, center.x, center.y + offset, offset < 0 ? GridDirection.Up : GridDirection.Down);
+            }
+        }
+
+        private static void AddDiamondSlot(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random,
+            int x,
+            int y,
+            int dx,
+            int dy)
+        {
+            AddCardinalSlot(slots, occupiedCells, profile, random, x, y, DirectionFromDelta(dx, dy));
+        }
+
+        private static void AddMazeRows(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random)
+        {
+            var connectorA = random.Next(3, 6);
+            var connectorB = random.Next(8, 11);
+            for (var y = MinCell; y <= MaxCellY; y++)
+            {
+                var leftToRight = y % 2 == 0;
+                var start = leftToRight ? MinCell : MaxCellX;
+                var end = leftToRight ? MaxCellX : MinCell;
+                var step = leftToRight ? 1 : -1;
+                for (var x = start; (leftToRight ? x <= end : x >= end); x += step)
+                {
+                    if ((y % 3 == 1) && x > MinCell + 1 && x < MaxCellX - 1 && x % 4 == 0)
+                    {
+                        continue;
+                    }
+
+                    var direction = leftToRight ? GridDirection.Right : GridDirection.Left;
+                    if (x == connectorA || x == connectorB)
+                    {
+                        direction = y < CenterY ? GridDirection.Up : GridDirection.Down;
+                    }
+
+                    AddCardinalSlot(slots, occupiedCells, profile, random, x, y, direction);
+                }
+            }
+        }
+
+        private static void AddPackedClusters(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random)
+        {
+            var centers = new[]
+            {
+                new Vector2Int(3, 3),
+                new Vector2Int(10, 3),
+                new Vector2Int(3, 10),
+                new Vector2Int(10, 10),
+                new Vector2Int(6, 6),
+                new Vector2Int(7, 7)
+            };
+
+            for (var centerIndex = 0; centerIndex < centers.Length; centerIndex++)
+            {
+                var center = centers[centerIndex];
+                var radius = centerIndex < 4 ? 2 : 3;
+                for (var dx = -radius; dx <= radius; dx++)
+                {
+                    for (var dy = -radius; dy <= radius; dy++)
+                    {
+                        if (Mathf.Abs(dx) + Mathf.Abs(dy) > radius + 1)
+                        {
+                            continue;
+                        }
+
+                        AddCardinalSlot(
+                            slots,
+                            occupiedCells,
+                            profile,
+                            random,
+                            center.x + dx,
+                            center.y + dy,
+                            DirectionFromDelta(dx, dy));
+                    }
+                }
+            }
+        }
+
         private static void AddFillerSlots(
             List<VehicleLayoutSlot> slots,
             HashSet<int> occupiedCells,
@@ -502,6 +719,21 @@ namespace BusPuzzle
             return new Vector2(
                 Mathf.Clamp(offset.x, -limit, limit),
                 Mathf.Clamp(offset.y, -limit, limit));
+        }
+
+        private static GridDirection DirectionFromDelta(int dx, int dy)
+        {
+            if (Mathf.Abs(dx) > Mathf.Abs(dy))
+            {
+                return dx < 0 ? GridDirection.Right : GridDirection.Left;
+            }
+
+            if (dy != 0)
+            {
+                return dy < 0 ? GridDirection.Up : GridDirection.Down;
+            }
+
+            return GridDirection.Up;
         }
     }
 }

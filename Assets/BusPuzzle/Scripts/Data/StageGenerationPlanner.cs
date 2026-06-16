@@ -9,10 +9,16 @@ namespace BusPuzzle
         public readonly LevelDifficulty Difficulty;
         public readonly StageModifierFlags Modifiers;
         public readonly LevelDifficultyProfile Profile;
+        public readonly float Progress;
+        public readonly float Post50Pressure;
         public readonly RotaryRoadPresetId RoadPresetId;
         public readonly int VehicleLayoutVariantIndex;
         public readonly int VehicleLayoutVariantPoolSize;
         public readonly int GarageCount;
+        public readonly int MinGarageQueuedVehicles;
+        public readonly int MaxGarageQueuedVehicles;
+        public readonly int RotaryCapacity;
+        public readonly MysteryVehicleGenerationProfile MysteryVehicleProfile;
         public readonly int MinSolutionCount;
         public readonly int MaxSolutionCount;
 
@@ -22,10 +28,16 @@ namespace BusPuzzle
             LevelDifficulty difficulty,
             StageModifierFlags modifiers,
             LevelDifficultyProfile profile,
+            float progress,
+            float post50Pressure,
             RotaryRoadPresetId roadPresetId,
             int vehicleLayoutVariantIndex,
             int vehicleLayoutVariantPoolSize,
             int garageCount,
+            int minGarageQueuedVehicles,
+            int maxGarageQueuedVehicles,
+            int rotaryCapacity,
+            MysteryVehicleGenerationProfile mysteryVehicleProfile,
             int minSolutionCount,
             int maxSolutionCount)
         {
@@ -34,12 +46,18 @@ namespace BusPuzzle
             Difficulty = difficulty;
             Modifiers = modifiers;
             Profile = profile;
+            Progress = Mathf.Clamp01(progress);
+            Post50Pressure = Mathf.Clamp01(post50Pressure);
             RoadPresetId = roadPresetId;
             VehicleLayoutVariantIndex = vehicleLayoutVariantIndex;
             VehicleLayoutVariantPoolSize = vehicleLayoutVariantPoolSize;
             GarageCount = garageCount;
-            MinSolutionCount = minSolutionCount;
-            MaxSolutionCount = maxSolutionCount;
+            MinGarageQueuedVehicles = Mathf.Clamp(minGarageQueuedVehicles, 1, 8);
+            MaxGarageQueuedVehicles = Mathf.Clamp(Mathf.Max(MinGarageQueuedVehicles, maxGarageQueuedVehicles), 1, 8);
+            RotaryCapacity = Mathf.Clamp(rotaryCapacity, LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity);
+            MysteryVehicleProfile = mysteryVehicleProfile;
+            MinSolutionCount = Mathf.Max(1, minSolutionCount);
+            MaxSolutionCount = Mathf.Max(MinSolutionCount, maxSolutionCount);
         }
     }
 
@@ -64,27 +82,48 @@ namespace BusPuzzle
 
             var patternEntry = config.GetPatternEntryForStage(stageNumber);
             var difficulty = patternEntry.Difficulty;
-            var modifiers = patternEntry.Modifiers;
             var progress = config.GetProgress(stageNumber);
+            var post50Pressure = config.GetPost50Pressure(stageNumber);
+            var modifiers = config.GetPost50AdjustedModifiers(difficulty, patternEntry.Modifiers, post50Pressure);
             var rule = config.GetRule(difficulty);
+            var profile = rule.CreateProfile(progress);
             var seed = config.BaseSeed + stageNumber * 1009;
             var random = new System.Random(seed);
             var garageCount = (modifiers & StageModifierFlags.Garages) != 0
                 ? config.SuperHardGarageRule.PickGarageCount(random, progress)
                 : 0;
+            config.SuperHardGarageRule.GetQueuedVehicleRange(post50Pressure, out var minGarageQueue, out var maxGarageQueue);
+            config.GetSolutionRange(
+                difficulty,
+                rule.MinSolutionCount,
+                rule.MaxSolutionCount,
+                post50Pressure,
+                out var minSolutionCount,
+                out var maxSolutionCount);
+            var rotaryCapacity = config.GetRotaryCapacity(
+                difficulty,
+                LevelGenerator.GetRotaryCapacity(difficulty),
+                post50Pressure);
+            var mysteryVehicleProfile = config.GetMysteryVehicleProfile(modifiers, profile, post50Pressure);
 
             return new StageGenerationRequest(
                 stageNumber,
                 seed,
                 difficulty,
                 modifiers,
-                rule.CreateProfile(progress),
+                profile,
+                progress,
+                post50Pressure,
                 PickRoadPreset(stageNumber, config.BaseSeed),
                 PickVehicleLayoutVariant(stageNumber, config.BaseSeed),
                 VehicleLayoutPatternEngine.UniqueLayoutVariantCount,
                 garageCount,
-                rule.MinSolutionCount,
-                rule.MaxSolutionCount);
+                minGarageQueue,
+                maxGarageQueue,
+                rotaryCapacity,
+                mysteryVehicleProfile,
+                minSolutionCount,
+                maxSolutionCount);
         }
 
         private static RotaryRoadPresetId PickRoadPreset(int stageNumber, int baseSeed)

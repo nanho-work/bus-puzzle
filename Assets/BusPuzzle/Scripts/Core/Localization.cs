@@ -119,6 +119,8 @@ namespace BusPuzzle
             "color_black|Black|검은색|黒|黑色|黑色|ดำ|đen|hitam|negro|preto|schwarz|noir",
             "color_pink|Pink|분홍색|ピンク|粉色|粉紅色|ชมพู|hồng|merah muda|rosa|rosa|pink|rose",
             "color_sky_blue|Sky Blue|하늘색|水色|天蓝色|天藍色|ฟ้า|xanh da trời|biru langit|celeste|azul claro|hellblau|bleu ciel",
+            "color_lime|Lime|라임색|ライム|青柠色|萊姆色|ไลม์|xanh chanh|lime|lima|limão|limette|citron vert",
+            "color_brown|Brown|갈색|茶色|棕色|棕色|น้ำตาล|nâu|cokelat|marrón|marrom|braun|marron",
             "color_unknown|Unknown|알 수 없음|不明|未知|未知|ไม่ทราบ|không rõ|tidak diketahui|desconocido|desconhecido|unbekannt|inconnu"
         };
 
@@ -222,6 +224,10 @@ namespace BusPuzzle
                     return Text("color_pink");
                 case PuzzleColor.SkyBlue:
                     return Text("color_sky_blue");
+                case PuzzleColor.Lime:
+                    return Text("color_lime");
+                case PuzzleColor.Brown:
+                    return Text("color_brown");
                 default:
                     return Text("color_unknown");
             }

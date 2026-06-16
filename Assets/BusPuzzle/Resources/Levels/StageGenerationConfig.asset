@@ -13,6 +13,19 @@ MonoBehaviour:
   m_Name: StageGenerationConfig
   m_EditorClassIdentifier: 
   generatedStageCount: 50
+  difficultyRampStartStage: 11
+  difficultyRampReferenceStage: 30
+  difficultyRampMaxStage: 50
+  post50RampMaxStage: 100
+  post50NormalMinSolutionCount: 24
+  post50NormalMaxSolutionCount: 90
+  post50HardMinSolutionCount: 4
+  post50HardMaxSolutionCount: 18
+  post50SuperHardMinSolutionCount: 1
+  post50SuperHardMaxSolutionCount: 5
+  post50NormalRotaryCapacity: 20
+  post50HardRotaryCapacity: 22
+  post50SuperHardRotaryCapacity: 22
   baseSeed: 10000
   candidateAttemptsPerStage: 36
   releaseVehicleGenerationAttempts: 8
@@ -27,17 +40,17 @@ MonoBehaviour:
     modifiers: 0
   - difficulty: 1
     modifiers: 0
+  - difficulty: 0
+    modifiers: 0
   - difficulty: 1
     modifiers: 2
-  - difficulty: 2
-    modifiers: 1
   - difficulty: 2
     modifiers: 5
   difficultyPattern:
   - 0
   - 1
+  - 0
   - 1
-  - 2
   - 2
   normalRule:
     difficulty: 0
@@ -70,7 +83,7 @@ MonoBehaviour:
     earlyVehicleCount: 34
     lateVehicleCount: 50
     earlyColorCount: 7
-    lateColorCount: 10
+    lateColorCount: 12
     earlyParkingTension: 0.62
     lateParkingTension: 0.84
     earlyStationPressure: 0.58
@@ -86,3 +99,21 @@ MonoBehaviour:
     lateMaxGarageCount: 5
     minQueuedVehiclesPerGarage: 1
     maxQueuedVehiclesPerGarage: 4
+    post50MinQueuedVehiclesPerGarage: 2
+    post50MaxQueuedVehiclesPerGarage: 6
+  mysteryVehicleRule:
+    minVehicles: 5
+    maxVehicles: 12
+    earlyRatio: 0.18
+    lateRatio: 0.3
+    post50MinVehicles: 8
+    post50MaxVehicles: 20
+    post50Ratio: 0.46
+  lightMysteryVehicleRule:
+    minVehicles: 2
+    maxVehicles: 7
+    earlyRatio: 0.08
+    lateRatio: 0.16
+    post50MinVehicles: 5
+    post50MaxVehicles: 14
+    post50Ratio: 0.3

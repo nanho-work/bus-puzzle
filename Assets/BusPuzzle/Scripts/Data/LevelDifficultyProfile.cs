@@ -16,7 +16,7 @@ namespace BusPuzzle
         [SerializeField] private LevelDifficulty difficulty = LevelDifficulty.Normal;
         [SerializeField] private PassengerFlowDifficultyRule passengerFlowRule = PassengerFlowDifficultyRule.DefaultFor(LevelDifficulty.Normal);
         [SerializeField, Range(4, 50)] private int targetVehicleCount = 12;
-        [SerializeField, Range(2, 10)] private int targetColorCount = 6;
+        [SerializeField, Range(2, 12)] private int targetColorCount = 6;
         [SerializeField, Range(0f, 1f)] private float parkingTension = 0.35f;
         [SerializeField, Range(0f, 1f)] private float stationPressure = 0.30f;
         [SerializeField] private bool requireSolutionRoute;
@@ -26,7 +26,7 @@ namespace BusPuzzle
             ? passengerFlowRule
             : PassengerFlowDifficultyRule.DefaultFor(difficulty);
         public int TargetVehicleCount => Mathf.Clamp(targetVehicleCount, 4, 50);
-        public int TargetColorCount => Mathf.Clamp(targetColorCount, 2, 10);
+        public int TargetColorCount => Mathf.Clamp(targetColorCount, 2, 12);
         public float ParkingTension => Mathf.Clamp01(parkingTension);
         public float StationPressure => Mathf.Clamp01(stationPressure);
         public bool RequireSolutionRoute => requireSolutionRoute;
@@ -53,7 +53,7 @@ namespace BusPuzzle
                         difficulty = difficulty,
                         passengerFlowRule = PassengerFlowDifficultyRule.DefaultFor(difficulty),
                         targetVehicleCount = 26,
-                        targetColorCount = 10,
+                        targetColorCount = 12,
                         parkingTension = 0.78f,
                         stationPressure = 0.78f,
                         requireSolutionRoute = true
@@ -85,7 +85,7 @@ namespace BusPuzzle
                 difficulty = difficulty,
                 passengerFlowRule = PassengerFlowDifficultyRule.DefaultFor(difficulty),
                 targetVehicleCount = Mathf.Clamp(targetVehicleCount, 4, 50),
-                targetColorCount = Mathf.Clamp(targetColorCount, 2, 10),
+                targetColorCount = Mathf.Clamp(targetColorCount, 2, 12),
                 parkingTension = Mathf.Clamp01(parkingTension),
                 stationPressure = Mathf.Clamp01(stationPressure),
                 requireSolutionRoute = requireSolutionRoute

@@ -10,8 +10,8 @@ namespace BusPuzzle
         [SerializeField] private LevelDifficulty difficulty = LevelDifficulty.Normal;
         [SerializeField, Range(4, 50)] private int earlyVehicleCount = 25;
         [SerializeField, Range(4, 50)] private int lateVehicleCount = 35;
-        [SerializeField, Range(2, 10)] private int earlyColorCount = 5;
-        [SerializeField, Range(2, 10)] private int lateColorCount = 8;
+        [SerializeField, Range(2, 12)] private int earlyColorCount = 5;
+        [SerializeField, Range(2, 12)] private int lateColorCount = 8;
         [SerializeField, Range(0f, 1f)] private float earlyParkingTension = 0.30f;
         [SerializeField, Range(0f, 1f)] private float lateParkingTension = 0.55f;
         [SerializeField, Range(0f, 1f)] private float earlyStationPressure = 0.25f;
@@ -61,7 +61,7 @@ namespace BusPuzzle
                     rule.earlyVehicleCount = 34;
                     rule.lateVehicleCount = 50;
                     rule.earlyColorCount = 7;
-                    rule.lateColorCount = 10;
+                    rule.lateColorCount = 12;
                     rule.earlyParkingTension = 0.62f;
                     rule.lateParkingTension = 0.84f;
                     rule.earlyStationPressure = 0.58f;
@@ -100,10 +100,14 @@ namespace BusPuzzle
         [SerializeField, Range(0, 5)] private int lateMaxGarageCount = 5;
         [SerializeField, Range(1, 8)] private int minQueuedVehiclesPerGarage = 1;
         [SerializeField, Range(1, 8)] private int maxQueuedVehiclesPerGarage = 4;
+        [SerializeField, Range(1, 8)] private int post50MinQueuedVehiclesPerGarage = 2;
+        [SerializeField, Range(1, 8)] private int post50MaxQueuedVehiclesPerGarage = 6;
 
         public bool Enabled => enabled;
         public int MinQueuedVehiclesPerGarage => Mathf.Max(1, minQueuedVehiclesPerGarage);
         public int MaxQueuedVehiclesPerGarage => Mathf.Max(MinQueuedVehiclesPerGarage, maxQueuedVehiclesPerGarage);
+        public int Post50MinQueuedVehiclesPerGarage => Mathf.Max(1, post50MinQueuedVehiclesPerGarage);
+        public int Post50MaxQueuedVehiclesPerGarage => Mathf.Max(Post50MinQueuedVehiclesPerGarage, post50MaxQueuedVehiclesPerGarage);
 
         public int PickGarageCount(System.Random random, float progress)
         {
@@ -118,6 +122,84 @@ namespace BusPuzzle
             minCount = Mathf.Clamp(minCount, 1, 5);
             maxCount = Mathf.Clamp(Mathf.Max(minCount, maxCount), 1, 5);
             return random.Next(minCount, maxCount + 1);
+        }
+
+        public void GetQueuedVehicleRange(float post50Pressure, out int minCount, out int maxCount)
+        {
+            post50Pressure = Mathf.Clamp01(post50Pressure);
+            minCount = Mathf.RoundToInt(Mathf.Lerp(MinQueuedVehiclesPerGarage, Post50MinQueuedVehiclesPerGarage, post50Pressure));
+            maxCount = Mathf.RoundToInt(Mathf.Lerp(MaxQueuedVehiclesPerGarage, Post50MaxQueuedVehiclesPerGarage, post50Pressure));
+            minCount = Mathf.Clamp(minCount, 1, 8);
+            maxCount = Mathf.Clamp(Mathf.Max(minCount, maxCount), 1, 8);
+        }
+    }
+
+    public readonly struct MysteryVehicleGenerationProfile
+    {
+        public readonly bool Enabled;
+        public readonly int MinVehicles;
+        public readonly int MaxVehicles;
+        public readonly float Ratio;
+
+        public MysteryVehicleGenerationProfile(bool enabled, int minVehicles, int maxVehicles, float ratio)
+        {
+            Enabled = enabled;
+            MinVehicles = Mathf.Max(0, minVehicles);
+            MaxVehicles = Mathf.Max(MinVehicles, maxVehicles);
+            Ratio = Mathf.Clamp01(ratio);
+        }
+
+        public static MysteryVehicleGenerationProfile Disabled => new MysteryVehicleGenerationProfile(false, 0, 0, 0f);
+    }
+
+    [Serializable]
+    public sealed class MysteryVehicleGenerationRule
+    {
+        [SerializeField, Range(0, 50)] private int minVehicles = 5;
+        [SerializeField, Range(0, 50)] private int maxVehicles = 12;
+        [SerializeField, Range(0f, 1f)] private float earlyRatio = 0.18f;
+        [SerializeField, Range(0f, 1f)] private float lateRatio = 0.30f;
+        [SerializeField, Range(0, 50)] private int post50MinVehicles = 8;
+        [SerializeField, Range(0, 50)] private int post50MaxVehicles = 20;
+        [SerializeField, Range(0f, 1f)] private float post50Ratio = 0.46f;
+
+        public int MinVehicles => Mathf.Max(0, minVehicles);
+        public int MaxVehicles => Mathf.Max(MinVehicles, maxVehicles);
+        public float EarlyRatio => Mathf.Clamp01(earlyRatio);
+        public float LateRatio => Mathf.Clamp01(lateRatio);
+        public int Post50MinVehicles => Mathf.Max(0, post50MinVehicles);
+        public int Post50MaxVehicles => Mathf.Max(Post50MinVehicles, post50MaxVehicles);
+        public float Post50Ratio => Mathf.Clamp01(post50Ratio);
+
+        public MysteryVehicleGenerationProfile CreateProfile(float tension, float post50Pressure)
+        {
+            tension = Mathf.Clamp01(tension);
+            post50Pressure = Mathf.Clamp01(post50Pressure);
+            var baseRatio = Mathf.Lerp(EarlyRatio, LateRatio, tension);
+            return new MysteryVehicleGenerationProfile(
+                true,
+                Mathf.RoundToInt(Mathf.Lerp(MinVehicles, Post50MinVehicles, post50Pressure)),
+                Mathf.RoundToInt(Mathf.Lerp(MaxVehicles, Post50MaxVehicles, post50Pressure)),
+                Mathf.Lerp(baseRatio, Post50Ratio, post50Pressure));
+        }
+
+        public static MysteryVehicleGenerationRule DefaultMystery()
+        {
+            return new MysteryVehicleGenerationRule();
+        }
+
+        public static MysteryVehicleGenerationRule DefaultLightMystery()
+        {
+            return new MysteryVehicleGenerationRule
+            {
+                minVehicles = 2,
+                maxVehicles = 7,
+                earlyRatio = 0.08f,
+                lateRatio = 0.16f,
+                post50MinVehicles = 5,
+                post50MaxVehicles = 14,
+                post50Ratio = 0.30f
+            };
         }
     }
 
@@ -144,6 +226,19 @@ namespace BusPuzzle
     public sealed class StageGenerationConfig : ScriptableObject
     {
         [SerializeField, Range(1, 500)] private int generatedStageCount = 50;
+        [SerializeField, Range(1, 500)] private int difficultyRampStartStage = 11;
+        [SerializeField, Range(1, 500)] private int difficultyRampReferenceStage = 30;
+        [SerializeField, Range(1, 500)] private int difficultyRampMaxStage = 50;
+        [SerializeField, Range(2, 500)] private int post50RampMaxStage = 100;
+        [SerializeField, Range(1, 512)] private int post50NormalMinSolutionCount = 24;
+        [SerializeField, Range(1, 512)] private int post50NormalMaxSolutionCount = 90;
+        [SerializeField, Range(1, 512)] private int post50HardMinSolutionCount = 4;
+        [SerializeField, Range(1, 512)] private int post50HardMaxSolutionCount = 18;
+        [SerializeField, Range(1, 512)] private int post50SuperHardMinSolutionCount = 1;
+        [SerializeField, Range(1, 512)] private int post50SuperHardMaxSolutionCount = 5;
+        [SerializeField, Range(LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity)] private int post50NormalRotaryCapacity = 20;
+        [SerializeField, Range(LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity)] private int post50HardRotaryCapacity = 22;
+        [SerializeField, Range(LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity)] private int post50SuperHardRotaryCapacity = 22;
         [SerializeField] private int baseSeed = 10000;
         [SerializeField, Range(1, 300)] private int candidateAttemptsPerStage = 36;
         [SerializeField, Range(1, 80)] private int releaseVehicleGenerationAttempts = 8;
@@ -157,24 +252,30 @@ namespace BusPuzzle
         {
             StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
             StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
             StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
-            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages),
             StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.LightMysteryVehicles)
         };
         [SerializeField, HideInInspector] private List<LevelDifficulty> difficultyPattern = new List<LevelDifficulty>
         {
             LevelDifficulty.Normal,
             LevelDifficulty.Hard,
+            LevelDifficulty.Normal,
             LevelDifficulty.Hard,
-            LevelDifficulty.SuperHard,
             LevelDifficulty.SuperHard
         };
         [SerializeField] private StageDifficultyGenerationRule normalRule = StageDifficultyGenerationRule.DefaultFor(LevelDifficulty.Normal);
         [SerializeField] private StageDifficultyGenerationRule hardRule = StageDifficultyGenerationRule.DefaultFor(LevelDifficulty.Hard);
         [SerializeField] private StageDifficultyGenerationRule superHardRule = StageDifficultyGenerationRule.DefaultFor(LevelDifficulty.SuperHard);
         [SerializeField] private GarageGenerationRule superHardGarageRule = new GarageGenerationRule();
+        [SerializeField] private MysteryVehicleGenerationRule mysteryVehicleRule = MysteryVehicleGenerationRule.DefaultMystery();
+        [SerializeField] private MysteryVehicleGenerationRule lightMysteryVehicleRule = MysteryVehicleGenerationRule.DefaultLightMystery();
 
         public int GeneratedStageCount => Mathf.Max(1, generatedStageCount);
+        public int DifficultyRampStartStage => Mathf.Clamp(difficultyRampStartStage, 1, 500);
+        public int DifficultyRampReferenceStage => Mathf.Clamp(difficultyRampReferenceStage, 1, 500);
+        public int DifficultyRampMaxStage => Mathf.Max(DifficultyRampStartStage, Mathf.Clamp(difficultyRampMaxStage, 1, 500));
+        public int Post50RampMaxStage => Mathf.Max(GeneratedStageCount + 1, Mathf.Clamp(post50RampMaxStage, 2, 500));
         public int BaseSeed => baseSeed;
         public int CandidateAttemptsPerStage => Mathf.Max(1, candidateAttemptsPerStage);
         public int ReleaseVehicleGenerationAttempts => Mathf.Clamp(releaseVehicleGenerationAttempts, 1, 80);
@@ -185,6 +286,8 @@ namespace BusPuzzle
         public int SolutionCountLimit => Mathf.Max(1, solutionCountLimit);
         public int RuntimePreloadAheadCount => Mathf.Clamp(runtimePreloadAheadCount, 0, 10);
         public GarageGenerationRule SuperHardGarageRule => superHardGarageRule ?? new GarageGenerationRule();
+        public MysteryVehicleGenerationRule MysteryVehicleRule => mysteryVehicleRule ?? MysteryVehicleGenerationRule.DefaultMystery();
+        public MysteryVehicleGenerationRule LightMysteryVehicleRule => lightMysteryVehicleRule ?? MysteryVehicleGenerationRule.DefaultLightMystery();
 
         public StagePatternEntry GetPatternEntryForStage(int stageNumber)
         {
@@ -208,7 +311,39 @@ namespace BusPuzzle
 
         public StageModifierFlags GetModifiersForStage(int stageNumber)
         {
-            return GetPatternEntryForStage(stageNumber).Modifiers;
+            var entry = GetPatternEntryForStage(stageNumber);
+            return GetPost50AdjustedModifiers(entry.Difficulty, entry.Modifiers, GetPost50Pressure(stageNumber));
+        }
+
+        public StageModifierFlags GetPost50AdjustedModifiers(
+            LevelDifficulty difficulty,
+            StageModifierFlags modifiers,
+            float post50Pressure)
+        {
+            post50Pressure = Mathf.Clamp01(post50Pressure);
+            if (post50Pressure <= 0f)
+            {
+                return modifiers;
+            }
+
+            switch (difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    return post50Pressure >= 0.35f
+                        ? modifiers | StageModifierFlags.MysteryVehicles
+                        : modifiers | StageModifierFlags.LightMysteryVehicles;
+                case LevelDifficulty.SuperHard:
+                    if (post50Pressure >= 0.70f)
+                    {
+                        return modifiers | StageModifierFlags.MysteryVehicles;
+                    }
+
+                    return post50Pressure >= 0.25f
+                        ? modifiers | StageModifierFlags.LightMysteryVehicles
+                        : modifiers;
+                default:
+                    return modifiers | StageModifierFlags.LightMysteryVehicles;
+            }
         }
 
         public static StageModifierFlags GetDefaultModifiers(LevelDifficulty difficulty)
@@ -250,9 +385,121 @@ namespace BusPuzzle
 
         public float GetProgress(int stageNumber)
         {
+            var baseline = GetLinearProgress(stageNumber);
+            if (stageNumber < DifficultyRampStartStage)
+            {
+                return baseline;
+            }
+
+            var referenceProgress = GetLinearProgress(DifficultyRampReferenceStage);
+            var boostedProgress = Mathf.Lerp(
+                referenceProgress,
+                1f,
+                Mathf.InverseLerp(DifficultyRampStartStage, DifficultyRampMaxStage, stageNumber));
+            return Mathf.Clamp01(Mathf.Max(baseline, boostedProgress));
+        }
+
+        public float GetPost50Pressure(int stageNumber)
+        {
+            var startStage = GeneratedStageCount;
+            if (stageNumber <= startStage)
+            {
+                return 0f;
+            }
+
+            return Mathf.Clamp01(Mathf.InverseLerp(startStage, Post50RampMaxStage, stageNumber));
+        }
+
+        public void GetSolutionRange(
+            LevelDifficulty difficulty,
+            int baseMinSolutionCount,
+            int baseMaxSolutionCount,
+            float post50Pressure,
+            out int minSolutionCount,
+            out int maxSolutionCount)
+        {
+            var targetMin = GetPost50MinSolutionCount(difficulty);
+            var targetMax = GetPost50MaxSolutionCount(difficulty);
+            post50Pressure = Mathf.Clamp01(post50Pressure);
+            minSolutionCount = Mathf.RoundToInt(Mathf.Lerp(baseMinSolutionCount, targetMin, post50Pressure));
+            maxSolutionCount = Mathf.RoundToInt(Mathf.Lerp(baseMaxSolutionCount, targetMax, post50Pressure));
+            minSolutionCount = Mathf.Max(1, minSolutionCount);
+            maxSolutionCount = Mathf.Max(minSolutionCount, maxSolutionCount);
+        }
+
+        public int GetRotaryCapacity(LevelDifficulty difficulty, int baseCapacity, float post50Pressure)
+        {
+            var targetCapacity = GetPost50RotaryCapacity(difficulty);
+            return Mathf.Clamp(
+                Mathf.RoundToInt(Mathf.Lerp(baseCapacity, targetCapacity, Mathf.Clamp01(post50Pressure))),
+                LevelData.MinRotaryUnitCapacity,
+                LevelData.MaxRotaryUnitCapacity);
+        }
+
+        public MysteryVehicleGenerationProfile GetMysteryVehicleProfile(
+            StageModifierFlags modifiers,
+            LevelDifficultyProfile profile,
+            float post50Pressure)
+        {
+            var hasMystery = (modifiers & StageModifierFlags.MysteryVehicles) != 0;
+            var hasLightMystery = (modifiers & StageModifierFlags.LightMysteryVehicles) != 0;
+            if (!hasMystery && !hasLightMystery)
+            {
+                return MysteryVehicleGenerationProfile.Disabled;
+            }
+
+            var tension = profile != null
+                ? Mathf.Clamp01(profile.ParkingTension * 0.70f + profile.StationPressure * 0.30f)
+                : 0.50f;
+            return hasMystery
+                ? MysteryVehicleRule.CreateProfile(tension, post50Pressure)
+                : LightMysteryVehicleRule.CreateProfile(tension, post50Pressure);
+        }
+
+        private float GetLinearProgress(int stageNumber)
+        {
             return GeneratedStageCount <= 1
                 ? 0f
                 : Mathf.Clamp01((stageNumber - 1f) / (GeneratedStageCount - 1f));
+        }
+
+        private int GetPost50MinSolutionCount(LevelDifficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    return Mathf.Max(1, post50HardMinSolutionCount);
+                case LevelDifficulty.SuperHard:
+                    return Mathf.Max(1, post50SuperHardMinSolutionCount);
+                default:
+                    return Mathf.Max(1, post50NormalMinSolutionCount);
+            }
+        }
+
+        private int GetPost50MaxSolutionCount(LevelDifficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    return Mathf.Max(GetPost50MinSolutionCount(difficulty), post50HardMaxSolutionCount);
+                case LevelDifficulty.SuperHard:
+                    return Mathf.Max(GetPost50MinSolutionCount(difficulty), post50SuperHardMaxSolutionCount);
+                default:
+                    return Mathf.Max(GetPost50MinSolutionCount(difficulty), post50NormalMaxSolutionCount);
+            }
+        }
+
+        private int GetPost50RotaryCapacity(LevelDifficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    return Mathf.Clamp(post50HardRotaryCapacity, LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity);
+                case LevelDifficulty.SuperHard:
+                    return Mathf.Clamp(post50SuperHardRotaryCapacity, LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity);
+                default:
+                    return Mathf.Clamp(post50NormalRotaryCapacity, LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity);
+            }
         }
     }
 }

@@ -11,6 +11,8 @@ namespace BusPuzzle
         White = 6,
         Black = 7,
         Pink = 8,
-        SkyBlue = 9
+        SkyBlue = 9,
+        Lime = 10,
+        Brown = 11
     }
 }

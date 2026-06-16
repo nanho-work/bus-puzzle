@@ -288,7 +288,7 @@ namespace BusPuzzle
                 request.Profile,
                 LevelGenerator.BuildPassengerFlowPlan(request.Profile, buses, request.Seed),
                 buses,
-                LevelGenerator.GetRotaryCapacity(request.Difficulty),
+                request.RotaryCapacity,
                 request.RoadPresetId);
             return level;
         }

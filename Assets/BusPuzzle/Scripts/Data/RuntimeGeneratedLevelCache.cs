@@ -9,7 +9,7 @@ namespace BusPuzzle
 {
     public static class RuntimeGeneratedLevelCache
     {
-        private const int CacheVersion = 14;
+        private const int CacheVersion = 16;
         private const int CacheValidationNodeVisitLimit = 2048;
         private const string CacheDirectoryName = "generated-stage-cache";
 
@@ -106,6 +106,10 @@ namespace BusPuzzle
             Append(builder, "cache", CacheVersion);
             Append(builder, "stage", request.StageNumber);
             Append(builder, "stageCount", config.GeneratedStageCount);
+            Append(builder, "rampStart", config.DifficultyRampStartStage);
+            Append(builder, "rampReference", config.DifficultyRampReferenceStage);
+            Append(builder, "rampMax", config.DifficultyRampMaxStage);
+            Append(builder, "postRampMax", config.Post50RampMaxStage);
             Append(builder, "baseSeed", config.BaseSeed);
             Append(builder, "candidateAttempts", config.CandidateAttemptsPerStage);
             Append(builder, "runtimeCandidateAttempts", config.RuntimeCandidateAttemptsPerStage);
@@ -114,10 +118,19 @@ namespace BusPuzzle
             Append(builder, "seed", request.Seed);
             Append(builder, "difficulty", (int)request.Difficulty);
             Append(builder, "modifiers", (int)request.Modifiers);
+            Append(builder, "progress", request.Progress);
+            Append(builder, "post50", request.Post50Pressure);
             Append(builder, "road", (int)request.RoadPresetId);
             Append(builder, "layoutVariant", request.VehicleLayoutVariantIndex);
             Append(builder, "layoutPool", request.VehicleLayoutVariantPoolSize);
             Append(builder, "garages", request.GarageCount);
+            Append(builder, "garageQueueMin", request.MinGarageQueuedVehicles);
+            Append(builder, "garageQueueMax", request.MaxGarageQueuedVehicles);
+            Append(builder, "rotary", request.RotaryCapacity);
+            Append(builder, "mysteryEnabled", request.MysteryVehicleProfile.Enabled ? 1 : 0);
+            Append(builder, "mysteryMin", request.MysteryVehicleProfile.MinVehicles);
+            Append(builder, "mysteryMax", request.MysteryVehicleProfile.MaxVehicles);
+            Append(builder, "mysteryRatio", request.MysteryVehicleProfile.Ratio);
             Append(builder, "minSolutions", request.MinSolutionCount);
             Append(builder, "maxSolutions", request.MaxSolutionCount);
             Append(builder, "vehicles", profile.TargetVehicleCount);
@@ -132,8 +145,10 @@ namespace BusPuzzle
             Append(builder, "interference", passengerRule.InterferenceRatio);
             Append(builder, "preserve", passengerRule.PreserveSolutionRoute ? 1 : 0);
             Append(builder, "garageEnabled", garageRule.Enabled ? 1 : 0);
-            Append(builder, "garageQueueMin", garageRule.MinQueuedVehiclesPerGarage);
-            Append(builder, "garageQueueMax", garageRule.MaxQueuedVehiclesPerGarage);
+            Append(builder, "garageRuleQueueMin", garageRule.MinQueuedVehiclesPerGarage);
+            Append(builder, "garageRuleQueueMax", garageRule.MaxQueuedVehiclesPerGarage);
+            Append(builder, "garageRulePostQueueMin", garageRule.Post50MinQueuedVehiclesPerGarage);
+            Append(builder, "garageRulePostQueueMax", garageRule.Post50MaxQueuedVehiclesPerGarage);
             Append(builder, "modifierSystem", 1);
 
             return builder.ToString();
@@ -198,7 +213,7 @@ namespace BusPuzzle
                     difficultyProfile ?? request.Profile,
                     passengerFlowPlan ?? LevelGenerator.BuildPassengerFlowPlan(request.Profile, buses, garages, request.Seed),
                     buses ?? new List<BusDefinition>(),
-                    rotaryUnitCapacity > 0 ? rotaryUnitCapacity : LevelGenerator.GetRotaryCapacity(request.Difficulty),
+                    rotaryUnitCapacity > 0 ? rotaryUnitCapacity : request.RotaryCapacity,
                     roadPresetId,
                     passengerUnits,
                     garages);

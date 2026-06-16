@@ -28,7 +28,9 @@ namespace BusPuzzle
             PuzzleColor.White,
             PuzzleColor.Black,
             PuzzleColor.Pink,
-            PuzzleColor.SkyBlue
+            PuzzleColor.SkyBlue,
+            PuzzleColor.Lime,
+            PuzzleColor.Brown
         };
 
         public static LevelData CreateRuntimeLevel(
@@ -45,7 +47,10 @@ namespace BusPuzzle
             var modifiers = difficulty == LevelDifficulty.Hard
                 ? StageModifierFlags.MysteryVehicles
                 : StageModifierFlags.None;
-            buses = ApplyMysteryVehicleModifiers(buses, modifiers, profile, seed + 1699);
+            buses = ApplyMysteryVehicleModifiers(
+                buses,
+                CreateDefaultMysteryVehicleProfile(modifiers, profile),
+                seed + 1699);
             var flowPlan = BuildPassengerFlowPlan(profile, buses, seed);
             level.ConfigureWithPassengerFlowPlan(
                 levelName,
@@ -82,7 +87,7 @@ namespace BusPuzzle
                 vehicleGenerationAttempts,
                 useSolutionAnalyzer,
                 request.VehicleLayoutVariantIndex);
-            buses = ApplyMysteryVehicleModifiers(buses, request.Modifiers, request.Profile, seed + 1699);
+            buses = ApplyMysteryVehicleModifiers(buses, request.MysteryVehicleProfile, seed + 1699);
             var flowPlan = BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
 
             level.ConfigureWithPassengerFlowPlan(
@@ -90,7 +95,7 @@ namespace BusPuzzle
                 request.Profile,
                 flowPlan,
                 buses,
-                GetRotaryCapacity(request.Difficulty),
+                request.RotaryCapacity,
                 request.RoadPresetId,
                 null,
                 garages);
@@ -175,22 +180,14 @@ namespace BusPuzzle
 
         private static List<BusDefinition> ApplyMysteryVehicleModifiers(
             IReadOnlyList<BusDefinition> buses,
-            StageModifierFlags modifiers,
-            LevelDifficultyProfile profile,
+            MysteryVehicleGenerationProfile mysteryProfile,
             int seed)
         {
             var result = buses != null ? new List<BusDefinition>(buses) : new List<BusDefinition>();
-            var hasMystery = (modifiers & StageModifierFlags.MysteryVehicles) != 0;
-            var hasLightMystery = (modifiers & StageModifierFlags.LightMysteryVehicles) != 0;
-            if ((!hasMystery && !hasLightMystery) || result.Count == 0)
+            if (!mysteryProfile.Enabled || result.Count == 0)
             {
                 return result;
             }
-
-            var minVehicles = hasMystery ? MysteryMinVehicles : LightMysteryMinVehicles;
-            var maxVehicles = hasMystery ? MysteryMaxVehicles : LightMysteryMaxVehicles;
-            var earlyRatio = hasMystery ? MysteryEarlyRatio : LightMysteryEarlyRatio;
-            var lateRatio = hasMystery ? MysteryLateRatio : LightMysteryLateRatio;
 
             var active = new bool[result.Count];
             for (var index = 0; index < active.Length; index++)
@@ -214,15 +211,11 @@ namespace BusPuzzle
                 return result;
             }
 
-            var tension = profile != null
-                ? Mathf.Clamp01(profile.ParkingTension * 0.70f + profile.StationPressure * 0.30f)
-                : 0.50f;
-            var ratio = Mathf.Lerp(earlyRatio, lateRatio, tension);
-            var target = Mathf.RoundToInt(result.Count * ratio);
+            var target = Mathf.RoundToInt(result.Count * mysteryProfile.Ratio);
             target = Mathf.Clamp(
                 target,
-                Mathf.Min(minVehicles, candidates.Count),
-                Mathf.Min(maxVehicles, candidates.Count));
+                Mathf.Min(mysteryProfile.MinVehicles, candidates.Count),
+                Mathf.Min(mysteryProfile.MaxVehicles, candidates.Count));
 
             ShuffleIndices(candidates, new System.Random(seed ^ 0x5f3759df));
             var selected = new HashSet<int>();
@@ -237,6 +230,31 @@ namespace BusPuzzle
             }
 
             return result;
+        }
+
+        private static MysteryVehicleGenerationProfile CreateDefaultMysteryVehicleProfile(
+            StageModifierFlags modifiers,
+            LevelDifficultyProfile profile)
+        {
+            var hasMystery = (modifiers & StageModifierFlags.MysteryVehicles) != 0;
+            var hasLightMystery = (modifiers & StageModifierFlags.LightMysteryVehicles) != 0;
+            if (!hasMystery && !hasLightMystery)
+            {
+                return MysteryVehicleGenerationProfile.Disabled;
+            }
+
+            var tension = profile != null
+                ? Mathf.Clamp01(profile.ParkingTension * 0.70f + profile.StationPressure * 0.30f)
+                : 0.50f;
+            var minVehicles = hasMystery ? MysteryMinVehicles : LightMysteryMinVehicles;
+            var maxVehicles = hasMystery ? MysteryMaxVehicles : LightMysteryMaxVehicles;
+            var earlyRatio = hasMystery ? MysteryEarlyRatio : LightMysteryEarlyRatio;
+            var lateRatio = hasMystery ? MysteryLateRatio : LightMysteryLateRatio;
+            return new MysteryVehicleGenerationProfile(
+                true,
+                minVehicles,
+                maxVehicles,
+                Mathf.Lerp(earlyRatio, lateRatio, tension));
         }
 
         private static void ShuffleIndices(List<int> indices, System.Random random)
@@ -727,7 +745,7 @@ namespace BusPuzzle
             var vehicleCursor = 0;
             for (var garageIndex = 0; garageIndex < request.GarageCount; garageIndex++)
             {
-                if (!TryPlaceGarage(request, garageRule, random, colors, garages, ref vehicleCursor, out var garage))
+                if (!TryPlaceGarage(request, random, colors, garages, ref vehicleCursor, out var garage))
                 {
                     continue;
                 }
@@ -740,7 +758,6 @@ namespace BusPuzzle
 
         private static bool TryPlaceGarage(
             StageGenerationRequest request,
-            GarageGenerationRule garageRule,
             System.Random random,
             IReadOnlyList<PuzzleColor> colors,
             IReadOnlyList<GarageDefinition> placedGarages,
@@ -759,7 +776,7 @@ namespace BusPuzzle
                 }
 
                 var frontVehicle = CreateGarageVehicle(request, random, colors, localVehicleCursor++, exitDirection, frontCell);
-                var queuedCount = random.Next(garageRule.MinQueuedVehiclesPerGarage, garageRule.MaxQueuedVehiclesPerGarage + 1);
+                var queuedCount = random.Next(request.MinGarageQueuedVehicles, request.MaxGarageQueuedVehicles + 1);
                 var queuedVehicles = new List<BusDefinition>();
                 for (var queueIndex = 0; queueIndex < queuedCount; queueIndex++)
                 {

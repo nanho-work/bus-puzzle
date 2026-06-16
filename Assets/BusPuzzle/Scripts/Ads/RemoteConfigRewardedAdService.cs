@@ -5,6 +5,8 @@ namespace BusPuzzle
     internal sealed class RemoteConfigRewardedAdService : IRewardedAdService
     {
         private readonly IRewardedAdService inner;
+        private bool isInitialized;
+        private bool isShutdown;
 
         public RemoteConfigRewardedAdService(IRewardedAdService inner)
         {
@@ -13,12 +15,12 @@ namespace BusPuzzle
 
         public event Action AvailabilityChanged;
 
-        public bool IsReady => RemoteConfigService.AreRewardedAdsEnabled && inner != null && inner.IsReady;
+        public bool IsReady => !isShutdown && RemoteConfigService.AreRewardedAdsEnabled && inner != null && inner.IsReady;
         public string CurrentAdUnitId => inner != null ? inner.CurrentAdUnitId : string.Empty;
 
         public bool IsReadyFor(RewardedAdPlacement placement)
         {
-            return RemoteConfigService.AreRewardedAdsEnabled && inner != null && inner.IsReadyFor(placement);
+            return !isShutdown && RemoteConfigService.AreRewardedAdsEnabled && inner != null && inner.IsReadyFor(placement);
         }
 
         public string GetAdUnitId(RewardedAdPlacement placement)
@@ -28,6 +30,12 @@ namespace BusPuzzle
 
         public void Initialize()
         {
+            if (isInitialized || isShutdown)
+            {
+                return;
+            }
+
+            isInitialized = true;
             RemoteConfigService.ValuesUpdated += HandleRemoteConfigUpdated;
             if (inner != null)
             {
@@ -36,9 +44,31 @@ namespace BusPuzzle
             }
         }
 
+        public void Shutdown()
+        {
+            if (isShutdown)
+            {
+                return;
+            }
+
+            isShutdown = true;
+            if (isInitialized)
+            {
+                RemoteConfigService.ValuesUpdated -= HandleRemoteConfigUpdated;
+                if (inner != null)
+                {
+                    inner.AvailabilityChanged -= HandleInnerAvailabilityChanged;
+                }
+            }
+
+            inner?.Shutdown();
+            AvailabilityChanged = null;
+            isInitialized = false;
+        }
+
         public void Preload()
         {
-            if (RemoteConfigService.AreRewardedAdsEnabled)
+            if (!isShutdown && RemoteConfigService.AreRewardedAdsEnabled)
             {
                 inner?.Preload();
             }
@@ -46,7 +76,7 @@ namespace BusPuzzle
 
         public void Preload(RewardedAdPlacement placement)
         {
-            if (RemoteConfigService.AreRewardedAdsEnabled)
+            if (!isShutdown && RemoteConfigService.AreRewardedAdsEnabled)
             {
                 inner?.Preload(placement);
             }
@@ -79,10 +109,14 @@ namespace BusPuzzle
 
         private bool ShowIfEnabled(Action<RewardedAdResult> onCompleted, Func<bool> show)
         {
-            if (!RemoteConfigService.AreRewardedAdsEnabled)
+            if (isShutdown || !RemoteConfigService.AreRewardedAdsEnabled)
             {
                 onCompleted?.Invoke(RewardedAdResult.NotReady);
-                AvailabilityChanged?.Invoke();
+                if (!isShutdown)
+                {
+                    AvailabilityChanged?.Invoke();
+                }
+
                 return false;
             }
 
@@ -91,6 +125,11 @@ namespace BusPuzzle
 
         private void HandleRemoteConfigUpdated()
         {
+            if (isShutdown)
+            {
+                return;
+            }
+
             if (RemoteConfigService.AreRewardedAdsEnabled)
             {
                 inner?.Preload();
@@ -101,6 +140,11 @@ namespace BusPuzzle
 
         private void HandleInnerAvailabilityChanged()
         {
+            if (isShutdown)
+            {
+                return;
+            }
+
             AvailabilityChanged?.Invoke();
         }
     }

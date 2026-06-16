@@ -19,6 +19,8 @@ namespace BusPuzzle
         [SerializeField] private PassengerFlowPlan passengerFlowPlan = new PassengerFlowPlan();
         [SerializeField] private List<BusDefinition> buses = new List<BusDefinition>();
         [SerializeField] private List<GarageDefinition> garages = new List<GarageDefinition>();
+        [SerializeField, HideInInspector] private string generationSignature = string.Empty;
+        [SerializeField, HideInInspector] private int generationSolutionCount = -1;
 
         [NonSerialized] private List<PuzzleColor> resolvedPassengerUnitsCache;
         [NonSerialized] private List<BusDefinition> allVehiclesCache;
@@ -38,6 +40,7 @@ namespace BusPuzzle
         public IReadOnlyList<BusDefinition> AllVehicles => GetAllVehicles();
         public int PassengerUnitCount => PassengerUnits.Count;
         public int PassengerPeopleCount => PassengerUnits.Count * PassengerUnitLayout.PeoplePerUnit;
+        public int GenerationSolutionCount => generationSolutionCount;
 
         private static readonly IReadOnlyList<GarageDefinition> EmptyGarages = Array.Empty<GarageDefinition>();
 
@@ -111,6 +114,7 @@ namespace BusPuzzle
             buses = new List<BusDefinition>(busDefinitions);
             garages = garageDefinitions != null ? new List<GarageDefinition>(garageDefinitions) : new List<GarageDefinition>();
             passengerFlowPlan = new PassengerFlowPlan();
+            ClearGenerationMetadata();
             InvalidatePassengerCache();
         }
 
@@ -132,7 +136,26 @@ namespace BusPuzzle
             passengerFlowPlan = newPassengerFlowPlan ?? new PassengerFlowPlan();
             buses = new List<BusDefinition>(busDefinitions);
             garages = garageDefinitions != null ? new List<GarageDefinition>(garageDefinitions) : new List<GarageDefinition>();
+            ClearGenerationMetadata();
             InvalidatePassengerCache();
+        }
+
+        public bool HasGenerationSignature(string expectedSignature)
+        {
+            return !string.IsNullOrEmpty(expectedSignature) &&
+                string.Equals(generationSignature, expectedSignature, StringComparison.Ordinal);
+        }
+
+        public void SetGenerationMetadata(string newGenerationSignature, int solutionCount)
+        {
+            generationSignature = newGenerationSignature ?? string.Empty;
+            generationSolutionCount = Mathf.Max(0, solutionCount);
+        }
+
+        private void ClearGenerationMetadata()
+        {
+            generationSignature = string.Empty;
+            generationSolutionCount = -1;
         }
 
         private IReadOnlyList<PuzzleColor> GetResolvedPassengerUnits()

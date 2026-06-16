@@ -39,18 +39,11 @@ namespace BusPuzzle
             }
 
             var stageGenerationConfig = Resources.Load<StageGenerationConfig>(StageGenerationConfigResourcePath);
-            if (stageGenerationConfig != null && generatedSequence.Count > stageGenerationConfig.GeneratedStageCount)
+            if (stageGenerationConfig != null && generatedSequence.Count != stageGenerationConfig.GeneratedStageCount)
             {
                 throw new BuildFailedException(
-                    $"Generated level sequence contains {generatedSequence.Count} stages, which is more than StageGenerationConfig expects " +
-                    $"{stageGenerationConfig.GeneratedStageCount}. Rebuild generated stages or lower the generated sequence count.");
-            }
-
-            if (stageGenerationConfig != null && generatedSequence.Count < stageGenerationConfig.GeneratedStageCount)
-            {
-                Debug.LogWarning(
-                    $"Generated level sequence contains {generatedSequence.Count} verified stages, while StageGenerationConfig expects " +
-                    $"{stageGenerationConfig.GeneratedStageCount}. The release will use verified stages first and runtime-generate later stages.");
+                    $"Generated level sequence contains {generatedSequence.Count} prebuilt stages, while StageGenerationConfig expects " +
+                    $"{stageGenerationConfig.GeneratedStageCount}. Rebuild generated stages or update the prebuilt stage count.");
             }
 
             for (var index = 0; index < generatedSequence.Count; index++)

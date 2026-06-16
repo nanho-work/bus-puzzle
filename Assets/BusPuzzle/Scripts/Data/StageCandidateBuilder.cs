@@ -147,6 +147,17 @@ namespace BusPuzzle
             return TryBuildVerifiedStageCandidate(config, request, out var level, out _, out _) ? level : null;
         }
 
+        public static bool IsSolutionCountAcceptable(StageGenerationRequest request, StageSolutionAnalysis analysis)
+        {
+            if (!analysis.IsSolvable)
+            {
+                return false;
+            }
+
+            var solutionDistance = GetSolutionRangeDistance(analysis, request);
+            return solutionDistance == 0 || IsAcceptableReleaseFallback(solutionDistance);
+        }
+
         private static bool TryScoreRuntimeCandidate(
             StageGenerationConfig config,
             StageGenerationRequest request,

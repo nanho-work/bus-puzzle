@@ -86,6 +86,8 @@ namespace BusPuzzle
         private Text failStationUnlockButtonText;
         private Button failVipButton;
         private Text failVipButtonText;
+        private Button failMixButton;
+        private Text failMixButtonText;
         private Button failDepartButton;
         private Text failDepartButtonText;
         private Text failRetryButtonText;
@@ -530,7 +532,7 @@ namespace BusPuzzle
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
             HideDepartPrompt();
-            ShowFailPrompt(canUnlockStationSlot, canVipTeleport, canDepart);
+            ShowFailPrompt(canUnlockStationSlot, canVipTeleport, canMixShuffle, canDepart);
         }
 
         public void ShowExitPrompt()

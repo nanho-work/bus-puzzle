@@ -29,6 +29,7 @@ namespace BusPuzzle
         bool IsReadyFor(RewardedAdPlacement placement);
         string GetAdUnitId(RewardedAdPlacement placement);
         void Initialize();
+        void Shutdown();
         void Preload();
         void Preload(RewardedAdPlacement placement);
         bool ShowStationSlotUnlockAd(Action<RewardedAdResult> onCompleted);

@@ -80,6 +80,9 @@ namespace BusPuzzle.EditorTools
                         return;
                     }
 
+                    generatedLevel.SetGenerationMetadata(
+                        StageGenerationSignature.Create(config, request),
+                        analysis.SolutionCount);
                     savedLevels[stageNumber - 1] = SaveLevel($"Level_{stageNumber:000}", generatedLevel);
                     if (stageNumber % 5 == 0)
                     {
@@ -134,49 +137,34 @@ namespace BusPuzzle.EditorTools
                 return false;
             }
 
-            if (!MatchesGenerationRequest(level, request))
+            var expectedSignature = StageGenerationSignature.Create(config, request);
+            if (!level.HasGenerationSignature(expectedSignature))
             {
                 Debug.Log(
-                    $"Existing generated stage {request.StageNumber:000} does not match the current generation config and will be rebuilt.");
+                    $"Existing generated stage {request.StageNumber:000} has no matching generation signature and will be rebuilt.");
                 return false;
             }
 
-            var report = LevelValidator.Validate(level, false, GetValidationSolutionLimit(config, request));
-            if (!report.HasErrors)
+            var solutionLimit = GetValidationSolutionLimit(config, request);
+            var report = LevelValidator.Validate(level, false, solutionLimit);
+            var analysis = StageSolutionAnalyzer.Analyze(
+                level.Buses,
+                level.Garages,
+                solutionLimit,
+                config.ReleaseSolutionNodeVisitLimit);
+            if (!report.HasErrors && StageCandidateBuilder.IsSolutionCountAcceptable(request, analysis))
             {
+                level.SetGenerationMetadata(expectedSignature, analysis.SolutionCount);
                 level.hideFlags = HideFlags.None;
                 EditorUtility.SetDirty(level);
                 return true;
             }
 
             Debug.LogWarning(
-                $"Existing generated stage {request.StageNumber:000} failed validation and will be rebuilt. " +
+                $"Existing generated stage {request.StageNumber:000} failed validation or solution range checks and will be rebuilt. " +
+                $"Solutions: {analysis.SolutionCount}, target range: {request.MinSolutionCount}-{request.MaxSolutionCount}. " +
                 report.ToConsoleMessage(level.LevelName));
             return false;
-        }
-
-        private static bool MatchesGenerationRequest(LevelData level, StageGenerationRequest request)
-        {
-            if (level == null || request.Profile == null)
-            {
-                return false;
-            }
-
-            var profile = level.DifficultyProfile;
-            if (profile == null)
-            {
-                return false;
-            }
-
-            return profile.Difficulty == request.Difficulty &&
-                profile.TargetVehicleCount == request.Profile.TargetVehicleCount &&
-                profile.TargetColorCount == request.Profile.TargetColorCount &&
-                Mathf.Abs(profile.ParkingTension - request.Profile.ParkingTension) < 0.001f &&
-                Mathf.Abs(profile.StationPressure - request.Profile.StationPressure) < 0.001f &&
-                profile.RequireSolutionRoute == request.Profile.RequireSolutionRoute &&
-                level.RoadPresetId == request.RoadPresetId &&
-                level.RotaryUnitCapacity == LevelGenerator.GetRotaryCapacity(request.Difficulty) &&
-                level.Garages.Count == request.GarageCount;
         }
 
         private static int GetValidationSolutionLimit(StageGenerationConfig config, StageGenerationRequest request)

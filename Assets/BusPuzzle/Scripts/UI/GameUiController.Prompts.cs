@@ -239,7 +239,7 @@ namespace BusPuzzle
                 Localization.Text("plus_slot"),
                 UiAdActionColor,
                 out failStationUnlockButtonText);
-            SetAnchors(failStationUnlockButton.GetComponent<RectTransform>(), new Vector2(0.03f, 0.12f), new Vector2(0.25f, 0.52f), Vector2.zero, Vector2.zero);
+            SetAnchors(failStationUnlockButton.GetComponent<RectTransform>(), new Vector2(0.02f, 0.12f), new Vector2(0.18f, 0.52f), Vector2.zero, Vector2.zero);
             AddPromptAdBadge(failStationUnlockButton);
             failStationUnlockButton.onClick.AddListener(() =>
             {
@@ -254,12 +254,27 @@ namespace BusPuzzle
                 Localization.Text("vip_title"),
                 UiGoldActionColor,
                 out failVipButtonText);
-            SetAnchors(failVipButton.GetComponent<RectTransform>(), new Vector2(0.27f, 0.12f), new Vector2(0.49f, 0.52f), Vector2.zero, Vector2.zero);
+            SetAnchors(failVipButton.GetComponent<RectTransform>(), new Vector2(0.215f, 0.12f), new Vector2(0.375f, 0.52f), Vector2.zero, Vector2.zero);
             AddPromptAdBadge(failVipButton);
             failVipButton.onClick.AddListener(() =>
             {
                 BeginFailRecoveryPrompt();
                 VipTeleportRequested?.Invoke();
+            });
+
+            failMixButton = CreatePromptIconButton(
+                "Fail Mix Button",
+                modal,
+                MixBoosterIconResource,
+                Localization.Text("mix_title"),
+                UiBoosterBlueColor,
+                out failMixButtonText);
+            SetAnchors(failMixButton.GetComponent<RectTransform>(), new Vector2(0.41f, 0.12f), new Vector2(0.57f, 0.52f), Vector2.zero, Vector2.zero);
+            AddPromptAdBadge(failMixButton);
+            failMixButton.onClick.AddListener(() =>
+            {
+                BeginFailRecoveryPrompt();
+                MixShuffleRequested?.Invoke();
             });
 
             failDepartButton = CreatePromptIconButton(
@@ -269,7 +284,7 @@ namespace BusPuzzle
                 Localization.Text("depart"),
                 UiBoosterDepartColor,
                 out failDepartButtonText);
-            SetAnchors(failDepartButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0.12f), new Vector2(0.73f, 0.52f), Vector2.zero, Vector2.zero);
+            SetAnchors(failDepartButton.GetComponent<RectTransform>(), new Vector2(0.605f, 0.12f), new Vector2(0.765f, 0.52f), Vector2.zero, Vector2.zero);
             AddPromptAdBadge(failDepartButton);
             failDepartButton.onClick.AddListener(() =>
             {
@@ -284,7 +299,7 @@ namespace BusPuzzle
                 Localization.Text("retry"),
                 UiDangerActionColor,
                 out failRetryButtonText);
-            SetAnchors(retryButton.GetComponent<RectTransform>(), new Vector2(0.75f, 0.12f), new Vector2(0.97f, 0.52f), Vector2.zero, Vector2.zero);
+            SetAnchors(retryButton.GetComponent<RectTransform>(), new Vector2(0.80f, 0.12f), new Vector2(0.96f, 0.52f), Vector2.zero, Vector2.zero);
             retryButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
@@ -295,7 +310,7 @@ namespace BusPuzzle
             HideFailPrompt();
         }
 
-        private void ShowFailPrompt(bool canUnlockStationSlot, bool canVipTeleport, bool canDepart)
+        private void ShowFailPrompt(bool canUnlockStationSlot, bool canVipTeleport, bool canMixShuffle, bool canDepart)
         {
             if (failPrompt == null)
             {
@@ -303,7 +318,7 @@ namespace BusPuzzle
             }
 
             failPrompt.gameObject.SetActive(true);
-            ApplyFailRecoveryState(canUnlockStationSlot, canVipTeleport, canDepart);
+            ApplyFailRecoveryState(canUnlockStationSlot, canVipTeleport, canMixShuffle, canDepart);
         }
 
         private void HideFailPrompt()
@@ -314,17 +329,18 @@ namespace BusPuzzle
             }
         }
 
-        private void ApplyFailRecoveryState(bool canUnlockStationSlot, bool canVipTeleport, bool canDepart)
+        private void ApplyFailRecoveryState(bool canUnlockStationSlot, bool canVipTeleport, bool canMixShuffle, bool canDepart)
         {
             if (failHintText != null)
             {
-                failHintText.text = canUnlockStationSlot || canVipTeleport || canDepart
+                failHintText.text = canUnlockStationSlot || canVipTeleport || canMixShuffle || canDepart
                     ? Localization.Text("recover_or_retry")
                     : Localization.Text("retry_stage");
             }
 
             SetFailRecoveryButtonState(failStationUnlockButton, failStationUnlockButtonText, Localization.Text("plus_slot"), canUnlockStationSlot);
             SetFailRecoveryButtonState(failVipButton, failVipButtonText, Localization.Text("vip_title"), canVipTeleport);
+            SetFailRecoveryButtonState(failMixButton, failMixButtonText, Localization.Text("mix_title"), canMixShuffle);
             SetFailRecoveryButtonState(failDepartButton, failDepartButtonText, Localization.Text("depart"), canDepart);
         }
 

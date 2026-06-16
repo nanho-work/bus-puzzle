@@ -10,9 +10,9 @@ namespace BusPuzzle
         [SerializeField] private bool verifiedGeneratedSet;
 
         private StageGenerationConfig runtimeGenerationConfig;
-        private LevelData[] runtimeGeneratedLevels;
+        private Dictionary<int, LevelData> runtimeGeneratedLevels;
 
-        public int Count => runtimeGenerationConfig != null ? runtimeGenerationConfig.GeneratedStageCount : levels.Count;
+        public int Count => runtimeGenerationConfig != null ? int.MaxValue : levels.Count;
         public bool UsesRuntimeGeneration => runtimeGenerationConfig != null;
         public bool IsVerifiedGeneratedSet => runtimeGenerationConfig == null && verifiedGeneratedSet && levels != null && levels.Count > 0;
         public int RuntimePreloadAheadCount => runtimeGenerationConfig != null ? runtimeGenerationConfig.RuntimePreloadAheadCount : 0;
@@ -57,7 +57,7 @@ namespace BusPuzzle
         public void ConfigureRuntimeGeneration(StageGenerationConfig config, IEnumerable<LevelData> seedLevels = null)
         {
             runtimeGenerationConfig = config;
-            runtimeGeneratedLevels = new LevelData[config.GeneratedStageCount];
+            runtimeGeneratedLevels = new Dictionary<int, LevelData>();
             levels = seedLevels != null ? new List<LevelData>(seedLevels) : new List<LevelData>();
             verifiedGeneratedSet = false;
         }
@@ -72,13 +72,12 @@ namespace BusPuzzle
             return runtimeGenerationConfig == null ||
                 runtimeGeneratedLevels != null &&
                 index >= 0 &&
-                index < runtimeGeneratedLevels.Length &&
-                runtimeGeneratedLevels[index] != null;
+                runtimeGeneratedLevels.ContainsKey(index);
         }
 
         public bool PreloadLevel(int index)
         {
-            if (runtimeGenerationConfig == null || index < 0 || index >= Count || IsLevelCached(index))
+            if (runtimeGenerationConfig == null || index < 0 || IsLevelCached(index))
             {
                 return false;
             }
@@ -121,26 +120,26 @@ namespace BusPuzzle
 
         private LevelData GetRuntimeGeneratedLevel(int index)
         {
-            if (runtimeGeneratedLevels == null || runtimeGeneratedLevels.Length != runtimeGenerationConfig.GeneratedStageCount)
+            if (runtimeGeneratedLevels == null)
             {
-                runtimeGeneratedLevels = new LevelData[runtimeGenerationConfig.GeneratedStageCount];
+                runtimeGeneratedLevels = new Dictionary<int, LevelData>();
             }
 
-            var clampedIndex = Mathf.Clamp(index, 0, runtimeGeneratedLevels.Length - 1);
-            if (runtimeGeneratedLevels[clampedIndex] == null)
+            var runtimeLevelIndex = Mathf.Max(0, index);
+            if (!runtimeGeneratedLevels.TryGetValue(runtimeLevelIndex, out var level))
             {
-                var stageNumber = clampedIndex + 1;
+                var stageNumber = runtimeLevelIndex + 1;
                 var request = StageGenerationPlanner.CreateRequest(runtimeGenerationConfig, stageNumber);
-                if (!RuntimeGeneratedLevelCache.TryLoad(runtimeGenerationConfig, request, out var level))
+                if (!RuntimeGeneratedLevelCache.TryLoad(runtimeGenerationConfig, request, out level))
                 {
                     level = StageCandidateBuilder.BuildRuntimeStageCandidate(runtimeGenerationConfig, request);
                     RuntimeGeneratedLevelCache.Save(runtimeGenerationConfig, request, level);
                 }
 
-                runtimeGeneratedLevels[clampedIndex] = level;
+                runtimeGeneratedLevels[runtimeLevelIndex] = level;
             }
 
-            return runtimeGeneratedLevels[clampedIndex];
+            return level;
         }
     }
 }

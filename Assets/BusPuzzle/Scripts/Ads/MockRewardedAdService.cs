@@ -6,6 +6,7 @@ namespace BusPuzzle
     internal sealed class MockRewardedAdService : IRewardedAdService
     {
         private readonly AdMobSettings settings;
+        private bool isShutdown;
 
         public MockRewardedAdService(AdMobSettings settings)
         {
@@ -19,7 +20,7 @@ namespace BusPuzzle
             get
             {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                return true;
+                return !isShutdown;
 #else
                 return false;
 #endif
@@ -40,18 +41,35 @@ namespace BusPuzzle
 
         public void Initialize()
         {
+            if (isShutdown)
+            {
+                return;
+            }
+
             Debug.Log($"Rewarded ads are running in mock mode. Active unit: {CurrentAdUnitId}");
             AvailabilityChanged?.Invoke();
         }
 
+        public void Shutdown()
+        {
+            isShutdown = true;
+            AvailabilityChanged = null;
+        }
+
         public void Preload()
         {
-            AvailabilityChanged?.Invoke();
+            if (!isShutdown)
+            {
+                AvailabilityChanged?.Invoke();
+            }
         }
 
         public void Preload(RewardedAdPlacement placement)
         {
-            AvailabilityChanged?.Invoke();
+            if (!isShutdown)
+            {
+                AvailabilityChanged?.Invoke();
+            }
         }
 
         public bool ShowStationSlotUnlockAd(Action<RewardedAdResult> onCompleted)
@@ -83,8 +101,12 @@ namespace BusPuzzle
         {
             if (!IsReady)
             {
-                Debug.LogError("Rewarded ad SDK is not enabled in this build.");
-                onCompleted?.Invoke(RewardedAdResult.Failed);
+                if (!isShutdown)
+                {
+                    Debug.LogError("Rewarded ad SDK is not enabled in this build.");
+                }
+
+                onCompleted?.Invoke(isShutdown ? RewardedAdResult.NotReady : RewardedAdResult.Failed);
                 return false;
             }
 

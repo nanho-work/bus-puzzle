@@ -15,6 +15,7 @@ namespace BusPuzzle
         private RewardedAd showingAd;
         private Action<RewardedAdResult> pendingCompletion;
         private bool isInitialized;
+        private bool isShutdown;
         private volatile bool rewardEarned;
 
         public AdMobRewardedAdService(AdMobSettings settings)
@@ -24,12 +25,12 @@ namespace BusPuzzle
 
         public event Action AvailabilityChanged;
 
-        public bool IsReady => IsReadyFor(RewardedAdPlacement.StationSlotUnlock);
+        public bool IsReady => !isShutdown && IsReadyFor(RewardedAdPlacement.StationSlotUnlock);
         public string CurrentAdUnitId => GetAdUnitId(RewardedAdPlacement.StationSlotUnlock);
 
         public bool IsReadyFor(RewardedAdPlacement placement)
         {
-            return rewardedAds.TryGetValue(placement, out var ad) && ad != null && ad.CanShowAd();
+            return !isShutdown && rewardedAds.TryGetValue(placement, out var ad) && ad != null && ad.CanShowAd();
         }
 
         public string GetAdUnitId(RewardedAdPlacement placement)
@@ -39,18 +40,56 @@ namespace BusPuzzle
 
         public void Initialize()
         {
+            if (isInitialized || isShutdown)
+            {
+                return;
+            }
+
             IosTrackingAuthorization.RequestIfNeeded(() => MobileAds.Initialize(_ =>
             {
                 MobileAdsEventExecutor.ExecuteInUpdate(() =>
                 {
+                    if (isShutdown)
+                    {
+                        return;
+                    }
+
                     isInitialized = true;
                     Preload();
                 });
             }));
         }
 
+        public void Shutdown()
+        {
+            if (isShutdown)
+            {
+                return;
+            }
+
+            isShutdown = true;
+            isInitialized = false;
+            pendingCompletion = null;
+            rewardEarned = false;
+            loadingPlacements.Clear();
+
+            foreach (var ad in rewardedAds.Values)
+            {
+                ad?.Destroy();
+            }
+
+            rewardedAds.Clear();
+            DestroyShowingAd();
+            AvailabilityChanged = null;
+        }
+
         public void Preload()
         {
+            if (isShutdown)
+            {
+                return;
+            }
+
             Preload(RewardedAdPlacement.StationSlotUnlock);
             Preload(RewardedAdPlacement.VipBusTeleport);
             Preload(RewardedAdPlacement.BusColorShuffle);
@@ -60,7 +99,7 @@ namespace BusPuzzle
 
         public void Preload(RewardedAdPlacement placement)
         {
-            if (!isInitialized || loadingPlacements.Contains(placement) || IsReadyFor(placement))
+            if (isShutdown || !isInitialized || loadingPlacements.Contains(placement) || IsReadyFor(placement))
             {
                 return;
             }
@@ -80,6 +119,12 @@ namespace BusPuzzle
             {
                 MobileAdsEventExecutor.ExecuteInUpdate(() =>
                 {
+                    if (isShutdown)
+                    {
+                        ad?.Destroy();
+                        return;
+                    }
+
                     loadingPlacements.Remove(placement);
 
                     if (error != null || ad == null)
@@ -123,6 +168,12 @@ namespace BusPuzzle
 
         private bool ShowRewardedAd(RewardedAdPlacement placement, Action<RewardedAdResult> onCompleted)
         {
+            if (isShutdown)
+            {
+                onCompleted?.Invoke(RewardedAdResult.NotReady);
+                return false;
+            }
+
             if (showingAd != null || !IsReadyFor(placement))
             {
                 onCompleted?.Invoke(RewardedAdResult.NotReady);
@@ -163,6 +214,14 @@ namespace BusPuzzle
 
         private void CompletePendingReward(RewardedAdResult result)
         {
+            if (isShutdown)
+            {
+                pendingCompletion = null;
+                rewardEarned = false;
+                DestroyShowingAd();
+                return;
+            }
+
             var callback = pendingCompletion;
             pendingCompletion = null;
             rewardEarned = false;

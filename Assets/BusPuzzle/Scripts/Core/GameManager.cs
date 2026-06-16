@@ -136,32 +136,32 @@ namespace BusPuzzle
             StopStagePreload();
             RemoteConfigService.ValuesUpdated -= ApplyRemoteConfigState;
 
-            if (uiController == null)
+            if (uiController != null)
             {
-                return;
+                uiController.RestartRequested -= RestartLevel;
+                uiController.NextLevelRequested -= LoadNextLevel;
+                uiController.ClearRewardDoubleRequested -= RequestClearRewardDoubleAd;
+                uiController.ExitConfirmed -= QuitApplication;
+                uiController.StationUnlockRequested -= ShowStationUnlockPrompt;
+                uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
+                uiController.VipTeleportRequested -= HandleVipTeleportRequested;
+                uiController.VipTeleportGoldConfirmed -= RequestVipBusTeleportGold;
+                uiController.VipTeleportConfirmed -= RequestVipBusTeleportAd;
+                uiController.MixShuffleRequested -= HandleMixShuffleRequested;
+                uiController.MixShuffleGoldConfirmed -= RequestMixShuffleGold;
+                uiController.MixShuffleConfirmed -= RequestMixShuffleAd;
+                uiController.DepartRequested -= HandleDepartRequested;
+                uiController.DepartGoldConfirmed -= RequestDepartGold;
+                uiController.DepartConfirmed -= RequestDepartAd;
+                uiController.RecoveryPromptCancelled -= HandleRecoveryPromptCancelled;
+                uiController.RemoteConfigActionRequested -= HandleRemoteConfigActionRequested;
             }
-
-            uiController.RestartRequested -= RestartLevel;
-            uiController.NextLevelRequested -= LoadNextLevel;
-            uiController.ClearRewardDoubleRequested -= RequestClearRewardDoubleAd;
-            uiController.ExitConfirmed -= QuitApplication;
-            uiController.StationUnlockRequested -= ShowStationUnlockPrompt;
-            uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
-            uiController.VipTeleportRequested -= HandleVipTeleportRequested;
-            uiController.VipTeleportGoldConfirmed -= RequestVipBusTeleportGold;
-            uiController.VipTeleportConfirmed -= RequestVipBusTeleportAd;
-            uiController.MixShuffleRequested -= HandleMixShuffleRequested;
-            uiController.MixShuffleGoldConfirmed -= RequestMixShuffleGold;
-            uiController.MixShuffleConfirmed -= RequestMixShuffleAd;
-            uiController.DepartRequested -= HandleDepartRequested;
-            uiController.DepartGoldConfirmed -= RequestDepartGold;
-            uiController.DepartConfirmed -= RequestDepartAd;
-            uiController.RecoveryPromptCancelled -= HandleRecoveryPromptCancelled;
-            uiController.RemoteConfigActionRequested -= HandleRemoteConfigActionRequested;
 
             if (rewardedAdService != null)
             {
                 rewardedAdService.AvailabilityChanged -= UpdateRewardedAdUi;
+                rewardedAdService.Shutdown();
+                rewardedAdService = null;
             }
         }
 
@@ -380,25 +380,21 @@ namespace BusPuzzle
                 return false;
             }
 
-            if (config == null || sequence.Count == config.GeneratedStageCount)
+            if (config == null)
             {
                 resolvedSequence = sequence;
                 return true;
             }
 
-            if (sequence.Count < config.GeneratedStageCount)
+            if (sequence.Count != config.GeneratedStageCount)
             {
                 Debug.LogWarning(
-                    $"{sourceName} contains {sequence.Count} verified stages, while StageGenerationConfig expects " +
+                    $"{sourceName} contains {sequence.Count} verified prebuilt stages, while StageGenerationConfig expects " +
                     $"{config.GeneratedStageCount}. Existing stages will be used first, and later stages will be generated at runtime.");
-                resolvedSequence = LevelSequence.CreateRuntimeGenerated(config, sequence.StaticLevels);
-                return true;
             }
 
-            Debug.LogWarning(
-                $"{sourceName} contains {sequence.Count} stages, which is more than StageGenerationConfig expects " +
-                $"({config.GeneratedStageCount}). Using runtime generated stages from StageGenerationConfig.");
-            return false;
+            resolvedSequence = LevelSequence.CreateRuntimeGenerated(config, sequence.StaticLevels);
+            return true;
         }
 
         private void ConfigureControllers()

@@ -143,7 +143,7 @@ namespace BusPuzzle
     [CreateAssetMenu(menuName = "Bus Puzzle/Stage Generation Config", fileName = "StageGenerationConfig")]
     public sealed class StageGenerationConfig : ScriptableObject
     {
-        [SerializeField, Range(1, 500)] private int generatedStageCount = 100;
+        [SerializeField, Range(1, 500)] private int generatedStageCount = 50;
         [SerializeField] private int baseSeed = 10000;
         [SerializeField, Range(1, 300)] private int candidateAttemptsPerStage = 36;
         [SerializeField, Range(1, 80)] private int releaseVehicleGenerationAttempts = 8;

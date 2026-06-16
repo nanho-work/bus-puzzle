@@ -9,6 +9,15 @@ namespace BusPuzzle
         private const float StartupSplashHoldSeconds = 1.65f;
         private const float StartupSplashFadeSeconds = 0.45f;
 
+        private static bool ShouldShowRuntimeStartupSplash()
+        {
+#if UNITY_IOS || UNITY_ANDROID
+            return false;
+#else
+            return true;
+#endif
+        }
+
         private void BuildStartupSplashOverlay()
         {
             var splashSprite = LoadResourceSprite(StartupSplashResource);

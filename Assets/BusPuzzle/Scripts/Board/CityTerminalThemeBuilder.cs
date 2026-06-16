@@ -28,7 +28,7 @@ namespace BusPuzzle
             CreateQueueFloorSkin(CreateSection(root, "3 Queue Floor Skin"), layout, settings, materials);
             CreateQueueOuterLineSkin(CreateSection(root, "4 Queue Outer Line Skin"), layout, settings, materials);
             CreateRotaryCenterSkin(CreateSection(root, "5 Rotary Center Skin"), settings, materials);
-            CreateQueueSurroundings(CreateSection(root, "6 Queue Surroundings"), materials);
+            CreateQueueSurroundings(CreateSection(root, "6 Queue Surroundings"), settings, materials);
             CreateRotarySideMargins(CreateSection(root, "7 Rotary Side Margins"), settings, materials);
         }
 
@@ -38,8 +38,8 @@ namespace BusPuzzle
                 PuzzlePalette.CreateSolidMaterial("City Terminal Pavement", PavementColor),
                 PuzzlePalette.CreateSolidMaterial("City Terminal Paver A", PaverColorA),
                 PuzzlePalette.CreateSolidMaterial("City Terminal Paver B", PaverColorB),
-                PuzzlePalette.CreateSolidMaterial("City Terminal Safety Yellow", SafetyYellow),
-                PuzzlePalette.CreateSolidMaterial("City Terminal White Line", LineWhite),
+                PuzzlePalette.CreateTransparentMaterial("City Terminal Safety Yellow", new Color(SafetyYellow.r, SafetyYellow.g, SafetyYellow.b, 0.36f)),
+                PuzzlePalette.CreateTransparentMaterial("City Terminal White Line", new Color(LineWhite.r, LineWhite.g, LineWhite.b, 0.52f)),
                 PuzzlePalette.CreateSolidMaterial("City Terminal Pole", PoleColor),
                 PuzzlePalette.CreateTransparentMaterial("City Terminal Lamp Glow", new Color(1.00f, 0.88f, 0.48f, 0.18f)),
                 PuzzlePalette.CreateSolidMaterial("City Terminal Lamp Bulb", LightColor),
@@ -72,9 +72,10 @@ namespace BusPuzzle
                 new Vector2(5.24f, 0.26f),
                 materials.Pavement);
 
-            CreatePaverStrip(root, materials.PaverA, materials.PaverB, -2.48f, BoardLayoutConfig.GridCenterZ, 14, 0.31f);
-            CreatePaverStrip(root, materials.PaverB, materials.PaverA, 2.48f, BoardLayoutConfig.GridCenterZ, 14, 0.31f);
-            CreateYardMarkings(root, materials.Safety, materials.WhiteLine);
+            var paverCount = Mathf.CeilToInt(BoardLayoutConfig.ParkingYardWorldDepth / 0.31f);
+            CreatePaverStrip(root, materials.PaverA, materials.PaverB, -2.48f, BoardLayoutConfig.ParkingYardCenterZ, paverCount, 0.31f);
+            CreatePaverStrip(root, materials.PaverB, materials.PaverA, 2.48f, BoardLayoutConfig.ParkingYardCenterZ, paverCount, 0.31f);
+            CreateYardMarkings(root, materials.WhiteLine);
         }
 
         private static void CreateStationSkin(Transform root)
@@ -84,56 +85,49 @@ namespace BusPuzzle
             root.gameObject.SetActive(true);
         }
 
-        private static void CreateYardMarkings(Transform root, Material safety, Material whiteLine)
+        private static void CreateYardMarkings(Transform root, Material whiteLine)
         {
-            var gridCenter = new Vector3(0f, 0f, BoardLayoutConfig.GridCenterZ);
-            var yardTopZ = BoardLayoutConfig.GridTopZ + BoardLayoutConfig.CellSize * 0.52f;
+            var gridCenter = new Vector3(0f, 0f, BoardLayoutConfig.ParkingYardCenterZ);
+            var yardTopZ = BoardLayoutConfig.ParkingYardTopZ + BoardLayoutConfig.CellSize * 0.52f;
             var yardBottomZ = BoardLayoutConfig.GridBottomZ - BoardLayoutConfig.CellSize * 0.52f;
 
             BoardGeometry.CreateFlatRect(
                 "Parking Yard Top Curb",
                 root,
                 new Vector3(0f, -0.021f, yardTopZ),
-                new Vector2(BoardLayoutConfig.GridWorldWidth + 0.44f, 0.032f),
+                new Vector2(BoardLayoutConfig.GridWorldWidth + 0.38f, 0.024f),
                 whiteLine);
 
             BoardGeometry.CreateFlatRect(
                 "Parking Yard Bottom Curb",
                 root,
                 new Vector3(0f, -0.021f, yardBottomZ),
-                new Vector2(BoardLayoutConfig.GridWorldWidth + 0.44f, 0.032f),
+                new Vector2(BoardLayoutConfig.GridWorldWidth + 0.38f, 0.024f),
                 whiteLine);
 
             BoardGeometry.CreateFlatRect(
                 "Parking Yard Left Curb",
                 root,
                 new Vector3(BoardLayoutConfig.GridLeftX - BoardLayoutConfig.CellSize * 0.55f, -0.021f, gridCenter.z),
-                new Vector2(0.032f, BoardLayoutConfig.GridWorldDepth + 0.44f),
+                new Vector2(0.024f, BoardLayoutConfig.ParkingYardWorldDepth + 0.38f),
                 whiteLine);
 
             BoardGeometry.CreateFlatRect(
                 "Parking Yard Right Curb",
                 root,
                 new Vector3(BoardLayoutConfig.GridRightX + BoardLayoutConfig.CellSize * 0.55f, -0.021f, gridCenter.z),
-                new Vector2(0.032f, BoardLayoutConfig.GridWorldDepth + 0.44f),
+                new Vector2(0.024f, BoardLayoutConfig.ParkingYardWorldDepth + 0.38f),
                 whiteLine);
 
-            CreateCrosswalk(root, new Vector3(-1.88f, -0.018f, BoardLayoutConfig.GridTopZ + 0.22f), 0.52f, 0.26f, whiteLine);
-            CreateCrosswalk(root, new Vector3(1.92f, -0.018f, BoardLayoutConfig.GridTopZ + 0.22f), 0.52f, 0.26f, whiteLine);
-
-            BoardGeometry.CreateFlatRect(
-                "Bus Only Yard Label Back",
-                root,
-                new Vector3(0f, -0.017f, BoardLayoutConfig.GridBottomZ - 0.13f),
-                new Vector2(1.02f, 0.13f),
-                safety);
+            CreateCrosswalk(root, new Vector3(-1.88f, -0.018f, BoardLayoutConfig.ParkingYardTopZ + 0.22f), 0.46f, 0.22f, whiteLine);
+            CreateCrosswalk(root, new Vector3(1.92f, -0.018f, BoardLayoutConfig.ParkingYardTopZ + 0.22f), 0.46f, 0.22f, whiteLine);
 
             CreateGroundLabel(
                 root,
                 "Bus Only Yard Label",
                 new Vector3(0f, 0.002f, BoardLayoutConfig.GridBottomZ - 0.13f),
                 "BUS ONLY",
-                TerminalBlue,
+                new Color(TerminalBlue.r, TerminalBlue.g, TerminalBlue.b, 0.58f),
                 0.034f,
                 Quaternion.identity);
         }
@@ -175,10 +169,12 @@ namespace BusPuzzle
 
         private static void CreateQueueSurroundings(
             Transform root,
+            RotaryRoadBuildSettings settings,
             ThemeMaterials materials)
         {
-            CreateLamp(root, new Vector3(-2.42f, 0f, 2.66f), 0.36f, materials.Pole, materials.LampGlow, materials.LampBulb);
-            CreateLamp(root, new Vector3(2.42f, 0f, 2.66f), 0.36f, materials.Pole, materials.LampGlow, materials.LampBulb);
+            var z = settings.RotaryCenterZ - 0.04f;
+            CreateLamp(root, new Vector3(-2.42f, 0f, z), 0.36f, materials.Pole, materials.LampGlow, materials.LampBulb);
+            CreateLamp(root, new Vector3(2.42f, 0f, z), 0.36f, materials.Pole, materials.LampGlow, materials.LampBulb);
         }
 
         private static void CreateRotarySideMargins(
@@ -358,7 +354,7 @@ namespace BusPuzzle
 
         private static void CreateCrosswalk(Transform root, Vector3 center, float width, float depth, Material material)
         {
-            const int stripes = 5;
+            const int stripes = 4;
             for (var index = 0; index < stripes; index++)
             {
                 var x = Mathf.Lerp(-width * 0.40f, width * 0.40f, index / (stripes - 1f));

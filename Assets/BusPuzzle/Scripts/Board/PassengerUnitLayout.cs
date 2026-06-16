@@ -4,7 +4,7 @@ namespace BusPuzzle
 {
     internal static class PassengerUnitLayout
     {
-        public const bool UseAssetPassengerPrefabs = false;
+        public const bool UseAssetPassengerPrefabs = true;
         public const int PeoplePerUnit = 4;
 
         private const float BaseVisualScale = 2.8f;
@@ -14,8 +14,9 @@ namespace BusPuzzle
         private const float BaseRotaryUnitSpacing = 0.108f;
         private const float BaseFeederQueueSpacingMultiplier = 1.17f;
 
-        public const float VisualScale = 1.2f;
-        public const float LayoutScale = VisualScale / BaseVisualScale;
+        public const float VisualScale = 2.0f;
+        public const float LayoutVisualScale = 1.3f;
+        public const float LayoutScale = LayoutVisualScale / BaseVisualScale;
         public const float FootprintScale = BaseFootprintScale * LayoutScale;
         public const float PersonRadius = 0.065f * FootprintScale;
         public const float RailClearance = BaseRailClearance * LayoutScale;
@@ -71,11 +72,17 @@ namespace BusPuzzle
 
         public static PassengerRoadProfile CreateRoadProfile(RoadPresetDefinition preset)
         {
+            return CreateRoadProfile(preset, 1f);
+        }
+
+        public static PassengerRoadProfile CreateRoadProfile(RoadPresetDefinition preset, float roadScale)
+        {
+            roadScale = Mathf.Max(0.10f, roadScale);
             return PassengerRoadProfile.Create(
-                PersonLocalZOffsets,
-                PersonRadius,
-                RailClearance,
-                preset.RoadShoulder * LayoutScale);
+                PersonLocalZOffsets * roadScale,
+                PersonRadius * roadScale,
+                RailClearance * roadScale,
+                preset.RoadShoulder * LayoutScale * roadScale);
         }
     }
 }

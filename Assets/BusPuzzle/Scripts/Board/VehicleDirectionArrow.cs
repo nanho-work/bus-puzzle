@@ -8,20 +8,29 @@ namespace BusPuzzle
         private const float ArrowLengthScale = 0.30f;
         private const float ArrowShaftWidthScale = 0.090f;
         private const float ArrowHeadLengthRatio = 0.42f;
-        private const float OutlineScale = 1.14f;
-        private const float MarkerFrontOffsetScale = 0f;
-        private const float MarkerLiftScale = 0.045f;
+        private const float OutlineScale = 1.07f;
+        private const float MarkerLiftScale = 0.014f;
 
-        public static GameObject Create(Transform parent, float visualWidth, float visualLength, float visualHeight, float visualCenterZ, float cellSize)
+        public static GameObject Create(
+            BusSize size,
+            Transform parent,
+            float visualWidth,
+            float visualLength,
+            float roofHeight,
+            float visualCenterZ,
+            float cellSize)
         {
-            var arrowMaterial = PuzzlePalette.CreateTransparentMaterial("White Direction Arrow", new UnityEngine.Color(1f, 1f, 1f, 0.64f));
-            var outlineMaterial = PuzzlePalette.CreateTransparentMaterial("Direction Arrow Outline", new UnityEngine.Color(0.04f, 0.06f, 0.08f, 0.32f));
+            var arrowMaterial = PuzzlePalette.CreateSolidMaterial("White Direction Arrow", Color.white);
+            var outlineMaterial = PuzzlePalette.CreateSolidMaterial("Direction Arrow Outline", new Color(0.03f, 0.035f, 0.045f));
             ConfigureMarkerMaterial(arrowMaterial);
             ConfigureMarkerMaterial(outlineMaterial);
 
             var arrow = new GameObject("Direction Arrow Icon");
             arrow.transform.SetParent(parent, false);
-            arrow.transform.localPosition = new Vector3(0f, visualHeight + cellSize * MarkerLiftScale, visualCenterZ + visualLength * MarkerFrontOffsetScale);
+            arrow.transform.localPosition = new Vector3(
+                0f,
+                roofHeight + cellSize * MarkerLiftScale,
+                visualCenterZ + GetSizeCenterOffset(size, visualLength));
             arrow.transform.localRotation = Quaternion.identity;
 
             CreateArrowLayer(
@@ -30,7 +39,7 @@ namespace BusPuzzle
                 visualWidth * ArrowWidthScale * OutlineScale,
                 visualLength * ArrowLengthScale * OutlineScale,
                 visualWidth * ArrowShaftWidthScale * OutlineScale,
-                -cellSize * 0.003f,
+                -cellSize * 0.004f,
                 outlineMaterial);
 
             CreateArrowLayer(
@@ -43,6 +52,19 @@ namespace BusPuzzle
                 arrowMaterial);
 
             return arrow;
+        }
+
+        private static float GetSizeCenterOffset(BusSize size, float visualLength)
+        {
+            switch (size)
+            {
+                case BusSize.Small:
+                    return -visualLength * 0.17f;
+                case BusSize.Medium:
+                    return -visualLength * 0.075f;
+                default:
+                    return 0f;
+            }
         }
 
         private static void CreateArrowLayer(string name, Transform parent, float width, float length, float shaftWidth, float localHeight, Material material)

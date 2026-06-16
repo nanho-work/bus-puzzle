@@ -453,7 +453,7 @@ namespace BusPuzzle
             gameState = GameState.Playing;
             ClearPendingFailureRecoveryState();
 
-            boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses);
+            boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses, currentLevelIndex + 1);
             RevealReadyConcealedBuses();
             ReframeBoardCamera(true);
             UpdateCounters();

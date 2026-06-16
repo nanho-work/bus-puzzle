@@ -55,17 +55,27 @@ public static class IosLaunchScreenPostprocessor
         PlistElementArray deviceFamilies = root.CreateArray("UIDeviceFamily");
         deviceFamilies.AddInteger(1);
 
+        root.SetString("CFBundleShortVersionString", PlayerSettings.bundleVersion);
+        root.SetString("CFBundleVersion", PlayerSettings.iOS.buildNumber);
         root.SetString("UILaunchStoryboardName", "LaunchScreen-iPhone");
         root.SetString("UILaunchStoryboardName~iphone", "LaunchScreen-iPhone");
         root.SetString("UILaunchStoryboardName~ipod", "LaunchScreen-iPhone");
         root.SetString("UILaunchStoryboardName~ipad", "LaunchScreen-iPad");
         root.SetString("NSUserTrackingUsageDescription", "Bus Pop uses this permission to show relevant ads and measure ad performance.");
+        root.SetBoolean("UIRequiresFullScreen", true);
 
-        PlistElementArray orientations = root.CreateArray("UISupportedInterfaceOrientations");
-        orientations.AddString("UIInterfaceOrientationPortrait");
+        SetPortraitOrientations(root, "UISupportedInterfaceOrientations");
+        SetPortraitOrientations(root, "UISupportedInterfaceOrientations~iphone");
+        SetPortraitOrientations(root, "UISupportedInterfaceOrientations~ipad");
 
         plist.WriteToFile(plistPath);
         Debug.Log("iOS launch screen images and portrait orientation were patched for Bus Pop.");
+    }
+
+    private static void SetPortraitOrientations(PlistElementDict root, string key)
+    {
+        PlistElementArray orientations = root.CreateArray(key);
+        orientations.AddString("UIInterfaceOrientationPortrait");
     }
 
     private static void PatchXcodeProject(string buildPath)
@@ -83,6 +93,9 @@ public static class IosLaunchScreenPostprocessor
         string mainTargetGuid = project.GetUnityMainTargetGuid();
         string frameworkTargetGuid = project.GetUnityFrameworkTargetGuid();
         project.SetBuildProperty(mainTargetGuid, "TARGETED_DEVICE_FAMILY", "1");
+        project.SetBuildProperty(mainTargetGuid, "MARKETING_VERSION", PlayerSettings.bundleVersion);
+        project.SetBuildProperty(mainTargetGuid, "CURRENT_PROJECT_VERSION", PlayerSettings.iOS.buildNumber);
+        project.SetBuildProperty(frameworkTargetGuid, "CURRENT_PROJECT_VERSION", PlayerSettings.iOS.buildNumber);
         project.AddFrameworkToProject(frameworkTargetGuid, "AppTrackingTransparency.framework", false);
 
         project.WriteToFile(projectPath);

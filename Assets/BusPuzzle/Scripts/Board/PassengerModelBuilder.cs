@@ -159,6 +159,10 @@ namespace BusPuzzle
             var rightFeet = new Transform[offsets.Length];
             var leftArms = new Transform[offsets.Length];
             var rightArms = new Transform[offsets.Length];
+            var bodyMaterial = PuzzlePalette.CreateMaterial(color, "Passenger Asset Body");
+            var legMaterial = PuzzlePalette.CreateSolidMaterial(
+                "Passenger Asset Legs",
+                PuzzlePalette.Darken(PuzzlePalette.ToColor(color), 0.18f));
             var hatMaterial = PuzzlePalette.CreateMaterial(color, "Passenger Hat");
             var useNekoWalkRig = false;
 
@@ -177,11 +181,11 @@ namespace BusPuzzle
                 var instance = Object.Instantiate(prefab, personRoot, false);
                 instance.name = "NPC Passenger";
                 instance.transform.localPosition = Vector3.zero;
-                instance.transform.localRotation = Quaternion.identity;
+                instance.transform.localRotation = GetAssetPassengerPrefabRotation(prefab);
                 instance.transform.localScale = Vector3.one;
 
                 DisableRuntimeComponents(instance);
-                ConfigureNpcRenderers(instance, color, hatMaterial);
+                ConfigureNpcRenderers(instance, color, bodyMaterial, legMaterial, hatMaterial);
                 NormalizeNpcBounds(personRoot, instance.transform);
                 leftLegs[index] = FindNpcUpperLeg(instance.transform, true);
                 rightLegs[index] = FindNpcUpperLeg(instance.transform, false);
@@ -343,7 +347,19 @@ namespace BusPuzzle
             }
         }
 
-        private static void ConfigureNpcRenderers(GameObject instance, PuzzleColor color, Material hatMaterial)
+        private static Quaternion GetAssetPassengerPrefabRotation(GameObject prefab)
+        {
+            return prefab != null && prefab.name == "PassengerUnit"
+                ? Quaternion.Euler(-90f, 180f, 0f)
+                : Quaternion.identity;
+        }
+
+        private static void ConfigureNpcRenderers(
+            GameObject instance,
+            PuzzleColor color,
+            Material bodyMaterial,
+            Material legMaterial,
+            Material hatMaterial)
         {
             var renderers = instance.GetComponentsInChildren<Renderer>(true);
             for (var index = 0; index < renderers.Length; index++)
@@ -360,6 +376,18 @@ namespace BusPuzzle
                 if (hatMaterial != null && IsHatRenderer(renderer))
                 {
                     renderer.sharedMaterial = hatMaterial;
+                    continue;
+                }
+
+                if (legMaterial != null && IsPassengerLegRenderer(renderer))
+                {
+                    renderer.sharedMaterial = legMaterial;
+                    continue;
+                }
+
+                if (bodyMaterial != null && IsPassengerColorRenderer(renderer))
+                {
+                    renderer.sharedMaterial = bodyMaterial;
                 }
             }
         }
@@ -590,6 +618,53 @@ namespace BusPuzzle
                 }
 
                 current = current.parent;
+            }
+
+            return false;
+        }
+
+        private static bool IsPassengerLegRenderer(Renderer renderer)
+        {
+            return HasRendererToken(renderer, "Leg") ||
+                HasRendererToken(renderer, "Foot") ||
+                HasRendererToken(renderer, "PassengerLeg");
+        }
+
+        private static bool IsPassengerColorRenderer(Renderer renderer)
+        {
+            return HasRendererToken(renderer, "Body") ||
+                HasRendererToken(renderer, "Head") ||
+                HasRendererToken(renderer, "Arm") ||
+                HasRendererToken(renderer, "Hand") ||
+                HasRendererToken(renderer, "Shade");
+        }
+
+        private static bool HasRendererToken(Renderer renderer, string token)
+        {
+            if (renderer == null || string.IsNullOrEmpty(token))
+            {
+                return false;
+            }
+
+            var current = renderer.transform;
+            while (current != null)
+            {
+                if (current.name.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+
+                current = current.parent;
+            }
+
+            var materials = renderer.sharedMaterials;
+            for (var index = 0; index < materials.Length; index++)
+            {
+                if (materials[index] != null &&
+                    materials[index].name.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
             }
 
             return false;

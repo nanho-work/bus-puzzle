@@ -12,13 +12,20 @@ namespace BusPuzzle
         private const string StorePassEnv = "BUSPOP_ANDROID_STORE_PASS";
         private const string KeyPassEnv = "BUSPOP_ANDROID_KEY_PASS";
         private const string OutputDirectory = "Build/Android";
+        private const string RootUploadOutputPath = "buspop.aab";
         private const string KeystorePath = "Build/Signing/buspop-upload-key.jks";
         private const string KeyAlias = "buspop-upload";
 
+        [MenuItem("Bus Puzzle/Release/Build Android AAB")]
+        private static void BuildReleaseAabFromMenu()
+        {
+            BuildReleaseAab();
+        }
+
         public static void BuildReleaseAab()
         {
-            var storePass = ReadRequiredEnvironmentVariable(StorePassEnv);
-            var keyPass = ReadRequiredEnvironmentVariable(KeyPassEnv);
+            var storePass = ReadSigningCredential(StorePassEnv, PlayerSettings.Android.keystorePass, "Android keystore password");
+            var keyPass = ReadSigningCredential(KeyPassEnv, PlayerSettings.Android.keyaliasPass, "Android key alias password");
             if (!File.Exists(KeystorePath))
             {
                 throw new FileNotFoundException("Android upload keystore is missing.", KeystorePath);
@@ -51,7 +58,9 @@ namespace BusPuzzle
                     $"Android release AAB build failed: {summary.result}, errors {summary.totalErrors}");
             }
 
+            File.Copy(outputPath, RootUploadOutputPath, true);
             UnityEngine.Debug.Log($"Android release AAB built: {outputPath} ({summary.totalSize} bytes)");
+            UnityEngine.Debug.Log($"Android release AAB copied: {RootUploadOutputPath}");
         }
 
         private static string GetOutputPath()
@@ -85,15 +94,21 @@ namespace BusPuzzle
             return enabledScenes;
         }
 
-        private static string ReadRequiredEnvironmentVariable(string name)
+        private static string ReadSigningCredential(string environmentVariableName, string playerSettingsValue, string label)
         {
-            var value = Environment.GetEnvironmentVariable(name);
-            if (string.IsNullOrEmpty(value))
+            var value = Environment.GetEnvironmentVariable(environmentVariableName);
+            if (!string.IsNullOrEmpty(value))
             {
-                throw new BuildFailedException($"Missing required environment variable: {name}");
+                return value;
             }
 
-            return value;
+            if (!string.IsNullOrEmpty(playerSettingsValue))
+            {
+                return playerSettingsValue;
+            }
+
+            throw new BuildFailedException(
+                $"Missing {label}. Set {environmentVariableName} or enter the password in Unity Player Settings.");
         }
     }
 }

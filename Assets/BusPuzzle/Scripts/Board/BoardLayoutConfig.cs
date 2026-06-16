@@ -12,14 +12,18 @@ namespace BusPuzzle
 
         public const float CellSize = 0.33f;
         public const float GridBottomZ = -4.17f;
-        public const float StationZ = 0.94f;
         public const float StationSlotSpacing = 0.52f;
         public const float StationSlotWidth = 0.44f;
         public const float StationSlotDepth = 0.90f;
+        public const float UpperParkingExtensionZ = StationSlotDepth;
+        public const float ParkingGridContentOffsetZ = UpperParkingExtensionZ * 0.5f;
+        private const float BaseStationZ = 0.94f;
+        private const float BaseRotaryCenterZ = 2.70f;
+        public const float StationZ = BaseStationZ + UpperParkingExtensionZ;
         public const float StationYawDegrees = 7f;
         public const float StationCounterBelowSlotOffset = 0.12f;
         public const float StationCounterY = 0.12f;
-        public const float RotaryCenterZ = 2.70f;
+        public const float RotaryCenterZ = BaseRotaryCenterZ + UpperParkingExtensionZ;
 
         public const float VehicleBaseVisualWidthCells = 0.72f;
         public const float VehicleBaseVisualHeightCells = 0.90f;
@@ -36,8 +40,12 @@ namespace BusPuzzle
         public static int TotalStationSlots => FreeStationSlots + ActiveStationSlots + LockedStationSlots;
         public static float GridWorldWidth => GridColumns * CellSize;
         public static float GridWorldDepth => GridRows * CellSize;
-        public static float GridCenterZ => GridBottomZ + (GridRows - 1) * CellSize * 0.5f;
-        public static float GridTopZ => GridBottomZ + (GridRows - 1) * CellSize;
+        public static float PlayableGridBottomZ => GridBottomZ + ParkingGridContentOffsetZ;
+        public static float GridCenterZ => PlayableGridBottomZ + (GridRows - 1) * CellSize * 0.5f;
+        public static float GridTopZ => PlayableGridBottomZ + (GridRows - 1) * CellSize;
+        public static float ParkingYardWorldDepth => GridWorldDepth + UpperParkingExtensionZ;
+        public static float ParkingYardCenterZ => GridBottomZ + (GridRows - 1) * CellSize * 0.5f + UpperParkingExtensionZ * 0.5f;
+        public static float ParkingYardTopZ => GridBottomZ + (GridRows - 1) * CellSize + UpperParkingExtensionZ;
         public static float GridLeftX => (0 - (GridColumns - 1) * 0.5f) * CellSize;
         public static float GridRightX => (GridColumns - 1 - (GridColumns - 1) * 0.5f) * CellSize;
         public static Quaternion StationRotation => Quaternion.Euler(0f, StationYawDegrees, 0f);
@@ -52,7 +60,7 @@ namespace BusPuzzle
         public static Vector3 GridToWorld(Vector2Int cell)
         {
             var x = (cell.x - (GridColumns - 1) * 0.5f) * CellSize;
-            var z = GridBottomZ + cell.y * CellSize;
+            var z = PlayableGridBottomZ + cell.y * CellSize;
             return new Vector3(x, 0f, z);
         }
 

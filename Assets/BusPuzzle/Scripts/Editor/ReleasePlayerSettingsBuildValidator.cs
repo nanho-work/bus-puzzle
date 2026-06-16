@@ -16,6 +16,7 @@ namespace BusPuzzle
         private const string RemoteConfigServicePath = "Assets/BusPuzzle/Scripts/Core/RemoteConfigService.cs";
         private const string AppIconPath = "Assets/BusPuzzle/Resources/UI/Boosters/Bus_Pop(en)_icon.png";
         private const string AppIconGuid = "e9c693834f7d74611a1844930e77f5c5";
+        private const string LaunchSplashGuid = "565bacfc2790148a0839296908e74309";
         private const string ProductName = "Bus Pop";
         private const string CompanyName = "Koofy Lab";
         private const string BundleIdentifier = "com.koofylab.buspop";
@@ -63,7 +64,8 @@ namespace BusPuzzle
 
             if (target == BuildTarget.Android)
             {
-                RequireContains(settings, "androidSplashScreen: {fileID: 0}", "Android native splash image must stay disabled; Bus Pop uses the in-game startup splash for stable portrait launch.");
+                RequireContains(settings, "AndroidSplashScreenScale: 1", "Android native splash image must scale to fill so no Unity runtime splash is needed.");
+                RequireContains(settings, $"androidSplashScreen: {{fileID: 2800000, guid: {LaunchSplashGuid}, type: 3}}", "Android native splash image must use the Bus Pop launch image.");
 
                 if (ReadYamlField(settings, "AndroidTargetArchitectures") != "3")
                 {

@@ -264,6 +264,62 @@ namespace BusPuzzle
                         0.14f,
                         12);
 
+                case RotaryRoadPresetId.SnakeTest:
+                    return new RoadPresetDefinition(
+                        RotaryRoadPresetId.SnakeTest,
+                        40,
+                        0.0465f,
+                        new Vector2(0f, -1.10f),
+                        new Vector2(0.70f, -1.02f),
+                        new Vector2(0.80f, 0.78f),
+                        new Vector2(-0.80f, 0.78f),
+                        new Vector2(-0.70f, -1.02f),
+                        new Vector2(1.18f, -0.54f),
+                        new Vector2(0f, 1.18f),
+                        new Vector2(-1.18f, -0.54f),
+                        18,
+                        54,
+                        64,
+                        0.026f,
+                        0f,
+                        0.61f,
+                        0.35f,
+                        0.14f,
+                        12);
+
+                case RotaryRoadPresetId.HeartTest:
+                    return CreateShapePreset(RotaryRoadPresetId.HeartTest, 40, 0.66f, 0.34f);
+
+                case RotaryRoadPresetId.SmallCircleTest:
+                    return CreateShapePreset(RotaryRoadPresetId.SmallCircleTest, 32, 0.66f, 0.34f);
+
+                case RotaryRoadPresetId.LargeCircleTest:
+                    return CreateShapePreset(RotaryRoadPresetId.LargeCircleTest, 40, 0.66f, 0.34f);
+
+                case RotaryRoadPresetId.OvalTest:
+                    return CreateShapePreset(RotaryRoadPresetId.OvalTest, 40, 0.66f, 0.34f);
+
+                case RotaryRoadPresetId.RoundedSquareTest:
+                    return CreateShapePreset(RotaryRoadPresetId.RoundedSquareTest, 40, 0.66f, 0.34f);
+
+                case RotaryRoadPresetId.CloverTest:
+                    return CreateShapePreset(RotaryRoadPresetId.CloverTest, 40, 0.63f, 0.37f);
+
+                case RotaryRoadPresetId.DropTest:
+                    return CreateShapePreset(RotaryRoadPresetId.DropTest, 40, 0.66f, 0.34f);
+
+                case RotaryRoadPresetId.CloudTest:
+                    return CreateShapePreset(RotaryRoadPresetId.CloudTest, 40, 0.64f, 0.36f);
+
+                case RotaryRoadPresetId.LoopTest:
+                    return CreateShapePreset(RotaryRoadPresetId.LoopTest, 40, 0.64f, 0.36f);
+
+                case RotaryRoadPresetId.ArrowTest:
+                    return CreateShapePreset(RotaryRoadPresetId.ArrowTest, 40, 0.62f, 0.38f);
+
+                case RotaryRoadPresetId.RibbonTest:
+                    return CreateShapePreset(RotaryRoadPresetId.RibbonTest, 40, 0.64f, 0.36f);
+
                 default:
                     return new RoadPresetDefinition(
                         RotaryRoadPresetId.Large,
@@ -291,6 +347,16 @@ namespace BusPuzzle
 
         public static RotaryPath CreatePath(RoadPresetDefinition preset, float targetPathLength)
         {
+            if (preset.Id == RotaryRoadPresetId.SnakeTest)
+            {
+                return CreateSnakeTestPath(targetPathLength);
+            }
+
+            if (TryCreateShapePath(preset.Id, targetPathLength, out var shapePath))
+            {
+                return shapePath;
+            }
+
             var basePoints = new List<Vector2> { preset.Start };
             AddLinePoints(basePoints, preset.Start, preset.RightBottom, preset.BottomSegments);
             AddQuadraticPoints(basePoints, preset.RightBottom, preset.RightControl, preset.RightTop, preset.SideSegments);
@@ -299,6 +365,282 @@ namespace BusPuzzle
             AddLinePoints(basePoints, preset.LeftBottom, preset.Start, preset.BottomSegments);
             basePoints.RemoveAt(basePoints.Count - 1);
 
+            return CreateScaledPath(basePoints, targetPathLength);
+        }
+
+        private static RoadPresetDefinition CreateShapePreset(
+            RotaryRoadPresetId id,
+            int maxCapacityUnits,
+            float leftFeederProgress,
+            float rightFeederProgress)
+        {
+            return new RoadPresetDefinition(
+                id,
+                maxCapacityUnits,
+                0.0465f,
+                new Vector2(0f, -1.00f),
+                new Vector2(0.68f, -0.82f),
+                new Vector2(0.88f, 0.68f),
+                new Vector2(-0.88f, 0.68f),
+                new Vector2(-0.68f, -0.82f),
+                new Vector2(1.24f, -0.20f),
+                new Vector2(0f, 1.10f),
+                new Vector2(-1.24f, -0.20f),
+                18,
+                56,
+                58,
+                0.026f,
+                0f,
+                leftFeederProgress,
+                rightFeederProgress,
+                0.14f,
+                12);
+        }
+
+        private static bool TryCreateShapePath(RotaryRoadPresetId id, float targetPathLength, out RotaryPath path)
+        {
+            switch (id)
+            {
+                case RotaryRoadPresetId.HeartTest:
+                    path = CreateHeartTestPath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.SmallCircleTest:
+                case RotaryRoadPresetId.LargeCircleTest:
+                    path = CreateCirclePath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.OvalTest:
+                    path = CreateOvalPath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.RoundedSquareTest:
+                    path = CreateRoundedSquarePath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.CloverTest:
+                    path = CreateCloverPath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.DropTest:
+                    path = CreateDropPath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.CloudTest:
+                    path = CreateCloudPath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.LoopTest:
+                    path = CreateLoopPath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.ArrowTest:
+                    path = CreateArrowPath(targetPathLength);
+                    return true;
+                case RotaryRoadPresetId.RibbonTest:
+                    path = CreateRibbonPath(targetPathLength);
+                    return true;
+                default:
+                    path = null;
+                    return false;
+            }
+        }
+
+        private static RotaryPath CreateSnakeTestPath(float targetPathLength)
+        {
+            var basePoints = new List<Vector2>
+            {
+                new Vector2(0.00f, -1.10f),
+                new Vector2(0.95f, -0.90f),
+                new Vector2(0.95f, -0.45f),
+                new Vector2(-0.95f, -0.20f),
+                new Vector2(-0.95f, 0.30f),
+                new Vector2(0.95f, 0.55f),
+                new Vector2(0.95f, 1.00f),
+                new Vector2(0.00f, 1.15f),
+                new Vector2(-1.20f, 1.05f),
+                new Vector2(-1.20f, -1.05f)
+            };
+
+            return CreateScaledPath(basePoints, targetPathLength);
+        }
+
+        private static RotaryPath CreateHeartTestPath(float targetPathLength)
+        {
+            var basePoints = new List<Vector2>
+            {
+                new Vector2(0.00f, -1.18f),
+                new Vector2(0.48f, -0.90f),
+                new Vector2(0.92f, -0.46f),
+                new Vector2(1.12f, 0.14f),
+                new Vector2(1.02f, 0.58f),
+                new Vector2(0.76f, 0.84f),
+                new Vector2(0.48f, 0.92f),
+                new Vector2(0.24f, 0.82f),
+                new Vector2(0.08f, 0.72f),
+                new Vector2(0.00f, 0.70f),
+                new Vector2(-0.08f, 0.72f),
+                new Vector2(-0.24f, 0.82f),
+                new Vector2(-0.48f, 0.92f),
+                new Vector2(-0.76f, 0.84f),
+                new Vector2(-1.02f, 0.58f),
+                new Vector2(-1.12f, 0.14f),
+                new Vector2(-0.92f, -0.46f),
+                new Vector2(-0.48f, -0.90f)
+            };
+
+            return CreateScaledPath(basePoints, targetPathLength);
+        }
+
+        private static RotaryPath CreateCirclePath(float targetPathLength)
+        {
+            return CreateScaledPath(CreateRadialPoints(48, angle => 1f), targetPathLength);
+        }
+
+        private static RotaryPath CreateOvalPath(float targetPathLength)
+        {
+            return CreateParametricPath(56, angle => new Vector2(Mathf.Sin(angle) * 1.30f, -Mathf.Cos(angle) * 0.88f), targetPathLength);
+        }
+
+        private static RotaryPath CreateRoundedSquarePath(float targetPathLength)
+        {
+            var basePoints = new List<Vector2>
+            {
+                new Vector2(0.00f, -1.04f),
+                new Vector2(0.72f, -1.02f),
+                new Vector2(1.04f, -0.72f),
+                new Vector2(1.04f, 0.54f),
+                new Vector2(0.72f, 0.86f),
+                new Vector2(0.00f, 0.92f),
+                new Vector2(-0.72f, 0.86f),
+                new Vector2(-1.04f, 0.54f),
+                new Vector2(-1.04f, -0.72f),
+                new Vector2(-0.72f, -1.02f)
+            };
+
+            return CreateScaledPath(basePoints, targetPathLength);
+        }
+
+        private static RotaryPath CreateCloverPath(float targetPathLength)
+        {
+            return CreateParametricPath(
+                72,
+                angle =>
+                {
+                    var radius = 0.90f + 0.22f * Mathf.Cos(4f * angle);
+                    return new Vector2(Mathf.Sin(angle) * radius, -Mathf.Cos(angle) * radius);
+                },
+                targetPathLength);
+        }
+
+        private static RotaryPath CreateDropPath(float targetPathLength)
+        {
+            var basePoints = new List<Vector2>
+            {
+                new Vector2(0.00f, -1.18f),
+                new Vector2(0.42f, -0.88f),
+                new Vector2(0.86f, -0.30f),
+                new Vector2(0.82f, 0.34f),
+                new Vector2(0.46f, 0.82f),
+                new Vector2(0.00f, 1.02f),
+                new Vector2(-0.46f, 0.82f),
+                new Vector2(-0.82f, 0.34f),
+                new Vector2(-0.86f, -0.30f),
+                new Vector2(-0.42f, -0.88f)
+            };
+
+            return CreateScaledPath(basePoints, targetPathLength);
+        }
+
+        private static RotaryPath CreateCloudPath(float targetPathLength)
+        {
+            return CreateParametricPath(
+                72,
+                angle =>
+                {
+                    var radius =
+                        0.96f +
+                        0.12f * Mathf.Cos(5f * angle) +
+                        0.05f * Mathf.Cos(2f * angle + 0.40f);
+                    return new Vector2(Mathf.Sin(angle) * radius * 1.06f, -Mathf.Cos(angle) * radius * 0.92f);
+                },
+                targetPathLength);
+        }
+
+        private static RotaryPath CreateLoopPath(float targetPathLength)
+        {
+            return CreateParametricPath(
+                72,
+                angle =>
+                {
+                    var x = Mathf.Sin(angle) * (1.02f + 0.16f * Mathf.Cos(2f * angle));
+                    var y = -Mathf.Cos(angle) * (0.92f - 0.18f * Mathf.Cos(2f * angle));
+                    return new Vector2(x, y);
+                },
+                targetPathLength);
+        }
+
+        private static RotaryPath CreateArrowPath(float targetPathLength)
+        {
+            var basePoints = new List<Vector2>
+            {
+                new Vector2(0.00f, -1.15f),
+                new Vector2(0.72f, -0.82f),
+                new Vector2(0.72f, -0.16f),
+                new Vector2(1.08f, -0.16f),
+                new Vector2(0.00f, 1.06f),
+                new Vector2(-1.08f, -0.16f),
+                new Vector2(-0.72f, -0.16f),
+                new Vector2(-0.72f, -0.82f)
+            };
+
+            return CreateScaledPath(basePoints, targetPathLength);
+        }
+
+        private static RotaryPath CreateRibbonPath(float targetPathLength)
+        {
+            var basePoints = new List<Vector2>
+            {
+                new Vector2(0.00f, -1.06f),
+                new Vector2(0.62f, -0.88f),
+                new Vector2(1.06f, -0.40f),
+                new Vector2(0.88f, 0.18f),
+                new Vector2(0.36f, 0.38f),
+                new Vector2(0.96f, 0.68f),
+                new Vector2(0.78f, 1.06f),
+                new Vector2(0.18f, 0.92f),
+                new Vector2(0.00f, 0.56f),
+                new Vector2(-0.18f, 0.92f),
+                new Vector2(-0.78f, 1.06f),
+                new Vector2(-0.96f, 0.68f),
+                new Vector2(-0.36f, 0.38f),
+                new Vector2(-0.88f, 0.18f),
+                new Vector2(-1.06f, -0.40f),
+                new Vector2(-0.62f, -0.88f)
+            };
+
+            return CreateScaledPath(basePoints, targetPathLength);
+        }
+
+        private static List<Vector2> CreateRadialPoints(int sampleCount, System.Func<float, float> radiusAtAngle)
+        {
+            var points = new List<Vector2>(sampleCount);
+            for (var index = 0; index < sampleCount; index++)
+            {
+                var angle = index / (float)sampleCount * Mathf.PI * 2f;
+                var radius = Mathf.Max(0.05f, radiusAtAngle(angle));
+                points.Add(new Vector2(Mathf.Sin(angle) * radius, -Mathf.Cos(angle) * radius));
+            }
+
+            return points;
+        }
+
+        private static RotaryPath CreateParametricPath(int sampleCount, System.Func<float, Vector2> pointAtAngle, float targetPathLength)
+        {
+            var points = new List<Vector2>(sampleCount);
+            for (var index = 0; index < sampleCount; index++)
+            {
+                var angle = index / (float)sampleCount * Mathf.PI * 2f;
+                points.Add(pointAtAngle(angle));
+            }
+
+            return CreateScaledPath(points, targetPathLength);
+        }
+
+        private static RotaryPath CreateScaledPath(IReadOnlyList<Vector2> basePoints, float targetPathLength)
+        {
             var baseLength = CalculateClosedPathLength(basePoints);
             var scale = targetPathLength / Mathf.Max(0.01f, baseLength);
             var points = new Vector2[basePoints.Count];

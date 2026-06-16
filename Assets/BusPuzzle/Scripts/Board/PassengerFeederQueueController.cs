@@ -268,7 +268,7 @@ namespace BusPuzzle
             var feederDistance = passengerFlow.GetProgressDistance(GetFeederJoinProgress(side));
             predictionDuration = Mathf.Max(0f, predictionDuration);
 
-            for (var slot = 0; slot < rotaryLayout.CapacityUnits; slot++)
+            for (var slot = 0; slot < rotaryActiveTarget; slot++)
             {
                 if (IsRotarySlotOccupied(passengers, slot))
                 {

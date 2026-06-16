@@ -48,14 +48,14 @@ namespace BusPuzzle
         {
             this.rotaryLayout = rotaryLayout;
             this.settings = settings;
-            this.rotaryActiveTarget = rotaryActiveTarget;
-            passengerFlow.Configure(rotaryLayout);
+            this.rotaryActiveTarget = Mathf.Clamp(rotaryActiveTarget, 0, rotaryLayout.CapacityUnits);
+            passengerFlow.Configure(rotaryLayout, this.rotaryActiveTarget);
             boardingSelector = new PassengerBoardingSelector(passengerFlow, rotaryLayout, settings);
             feederQueue = new PassengerFeederQueueController(
                 rotaryLayout,
                 passengerFlow,
                 settings,
-                rotaryActiveTarget,
+                this.rotaryActiveTarget,
                 AssignPassengerTraffic,
                 SetPassengerTrafficPose);
         }
@@ -129,7 +129,7 @@ namespace BusPuzzle
 
         private void AssignPassengerTraffic(PassengerView passenger, int rotarySlotIndex)
         {
-            var clampedSlotIndex = Mathf.Clamp(rotarySlotIndex, 0, rotaryLayout.CapacityUnits - 1);
+            var clampedSlotIndex = Mathf.Clamp(rotarySlotIndex, 0, Mathf.Max(0, rotaryActiveTarget - 1));
             passengerFlow.AssignTraffic(passenger, clampedSlotIndex);
         }
 

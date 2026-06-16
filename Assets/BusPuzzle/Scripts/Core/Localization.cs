@@ -167,7 +167,8 @@ namespace BusPuzzle
                 if (string.IsNullOrEmpty(cachedLanguageCode))
                 {
                     var selectedLanguageCode = UserPreferences.LanguageCode;
-                    cachedLanguageCode = IsSupportedLanguageCode(selectedLanguageCode)
+                    cachedLanguageCode = !string.IsNullOrEmpty(selectedLanguageCode) &&
+                                         IsSupportedLanguageCode(selectedLanguageCode)
                         ? selectedLanguageCode
                         : NormalizeLanguage(Application.systemLanguage);
                 }

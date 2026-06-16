@@ -793,7 +793,65 @@ namespace BusPuzzle
 
         private void CreateArrow()
         {
-            directionArrow = VehicleDirectionArrow.Create(transform, BodyVisualWidth, BodyVisualLength, VisualHeight, BodyVisualCenterZ, cellSize);
+            var roofHeight = TryGetVisualBodyTopLocalY(out var visualBodyTopY) ? visualBodyTopY : VisualHeight;
+            directionArrow = VehicleDirectionArrow.Create(Size, transform, BodyVisualWidth, BodyVisualLength, roofHeight, BodyVisualCenterZ, cellSize);
+        }
+
+        private bool TryGetVisualBodyTopLocalY(out float topY)
+        {
+            topY = 0f;
+            if (visualBodyRoot == null)
+            {
+                return false;
+            }
+
+            var renderers = visualBodyRoot.GetComponentsInChildren<Renderer>(true);
+            var hasTop = false;
+            for (var index = 0; index < renderers.Length; index++)
+            {
+                var renderer = renderers[index];
+                var meshFilter = renderer.GetComponent<MeshFilter>();
+                if (meshFilter != null && meshFilter.sharedMesh != null)
+                {
+                    IncludeMeshBoundsTop(meshFilter, ref topY, ref hasTop);
+                    continue;
+                }
+
+                IncludeWorldBoundsTop(renderer.bounds, ref topY, ref hasTop);
+            }
+
+            return hasTop;
+        }
+
+        private void IncludeMeshBoundsTop(MeshFilter meshFilter, ref float topY, ref bool hasTop)
+        {
+            var localBounds = meshFilter.sharedMesh.bounds;
+            var min = localBounds.min;
+            var max = localBounds.max;
+            IncludeVisualBodyTopPoint(meshFilter.transform.TransformPoint(new Vector3(min.x, max.y, min.z)), ref topY, ref hasTop);
+            IncludeVisualBodyTopPoint(meshFilter.transform.TransformPoint(new Vector3(min.x, max.y, max.z)), ref topY, ref hasTop);
+            IncludeVisualBodyTopPoint(meshFilter.transform.TransformPoint(new Vector3(max.x, max.y, min.z)), ref topY, ref hasTop);
+            IncludeVisualBodyTopPoint(meshFilter.transform.TransformPoint(new Vector3(max.x, max.y, max.z)), ref topY, ref hasTop);
+        }
+
+        private void IncludeWorldBoundsTop(Bounds bounds, ref float topY, ref bool hasTop)
+        {
+            var min = bounds.min;
+            var max = bounds.max;
+            IncludeVisualBodyTopPoint(new Vector3(min.x, max.y, min.z), ref topY, ref hasTop);
+            IncludeVisualBodyTopPoint(new Vector3(min.x, max.y, max.z), ref topY, ref hasTop);
+            IncludeVisualBodyTopPoint(new Vector3(max.x, max.y, min.z), ref topY, ref hasTop);
+            IncludeVisualBodyTopPoint(new Vector3(max.x, max.y, max.z), ref topY, ref hasTop);
+        }
+
+        private void IncludeVisualBodyTopPoint(Vector3 worldPoint, ref float topY, ref bool hasTop)
+        {
+            var localY = transform.InverseTransformPoint(worldPoint).y;
+            if (!hasTop || localY > topY)
+            {
+                topY = localY;
+                hasTop = true;
+            }
         }
 
         private void CreateMysteryBadge()

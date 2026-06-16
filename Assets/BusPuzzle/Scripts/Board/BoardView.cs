@@ -18,6 +18,21 @@ namespace BusPuzzle
         private const float CameraVisibleFeederRows = 1.45f;
         private const float CameraFeederTopPadding = 0.12f;
 
+        private static readonly RotaryRoadPresetId[] ShapeTestPresetByStage =
+        {
+            RotaryRoadPresetId.SmallCircleTest,
+            RotaryRoadPresetId.LargeCircleTest,
+            RotaryRoadPresetId.OvalTest,
+            RotaryRoadPresetId.RoundedSquareTest,
+            RotaryRoadPresetId.HeartTest,
+            RotaryRoadPresetId.CloverTest,
+            RotaryRoadPresetId.DropTest,
+            RotaryRoadPresetId.CloudTest,
+            RotaryRoadPresetId.LoopTest,
+            RotaryRoadPresetId.ArrowTest,
+            RotaryRoadPresetId.RibbonTest
+        };
+
         private readonly StationSlotController stationSlots = new StationSlotController(
             BoardLayoutConfig.ActiveStationSlots,
             BoardLayoutConfig.ActiveStationSlots + BoardLayoutConfig.LockedStationSlots);
@@ -81,15 +96,19 @@ namespace BusPuzzle
             return new Bounds(center, size);
         }
 
-        public void BuildLevel(LevelData levelData, List<PassengerView> passengers, List<BusView> buses)
+        public void BuildLevel(LevelData levelData, List<PassengerView> passengers, List<BusView> buses, int stageNumber = 0)
         {
+            var roadPreset = GetRoadPresetForStage(levelData, stageNumber);
+            var rotaryUnitCapacity = GetRotaryUnitCapacityForStage(levelData, roadPreset);
+            var rotaryUnitSpacing = GetRotaryUnitSpacingForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber);
+            var roadProfile = PassengerUnitLayout.CreateRoadProfile(roadPreset, GetRoadScaleForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber));
             rotaryLayout = RotaryLayout.Create(
-                levelData.RoadPreset,
-                levelData.RotaryStartCapacity,
-                PassengerUnitLayout.RotaryUnitSpacing,
-                PassengerUnitLayout.CreateRoadProfile(levelData.RoadPreset));
+                roadPreset,
+                rotaryUnitCapacity,
+                rotaryUnitSpacing,
+                roadProfile);
             rotaryCenterZ = CalculateRotaryCenterZ(rotaryLayout);
-            rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count);
+            rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count, roadPreset);
             currentPassengerUnitCount = levelData.PassengerUnits.Count;
             passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
             vehicleTraffic = new VehicleTrafficEngine(CreateVehicleTrafficSettings());
@@ -479,8 +498,8 @@ namespace BusPuzzle
                 rotaryCenterZ,
                 BoardLayoutConfig.StationZ,
                 BoardLayoutConfig.GridWorldWidth,
-                BoardLayoutConfig.GridWorldDepth,
-                BoardLayoutConfig.GridCenterZ,
+                BoardLayoutConfig.ParkingYardWorldDepth,
+                BoardLayoutConfig.ParkingYardCenterZ,
                 rotaryLayout.PassengerPivotOffset);
         }
 
@@ -489,8 +508,8 @@ namespace BusPuzzle
             return new VehicleTrafficSettings(
                 BoardLayoutConfig.CellSize,
                 BoardLayoutConfig.GridWorldWidth,
-                BoardLayoutConfig.GridWorldDepth,
-                BoardLayoutConfig.GridTopZ,
+                BoardLayoutConfig.ParkingYardWorldDepth,
+                BoardLayoutConfig.ParkingYardTopZ,
                 BoardLayoutConfig.GridBottomZ,
                 BoardLayoutConfig.GridLeftX,
                 BoardLayoutConfig.GridRightX,
@@ -510,6 +529,187 @@ namespace BusPuzzle
                 BoardingGateProgressWindow,
                 BoardingReservationProgressWindow,
                 PassengerUnitLayout.PersonLocalZOffsets);
+        }
+
+        private static RoadPresetDefinition GetRoadPresetForStage(LevelData levelData, int stageNumber)
+        {
+            return TryGetShapePresetForStage(stageNumber, out var presetId)
+                ? RoadPresetLibrary.Get(presetId)
+                : levelData.RoadPreset;
+        }
+
+        private static int GetRotaryUnitCapacityForStage(LevelData levelData, RoadPresetDefinition roadPreset)
+        {
+            var capacity = levelData.RotaryStartCapacity;
+            var shapeMinimumCapacity = GetShapeTestMinimumCapacityUnits(roadPreset.Id);
+            if (shapeMinimumCapacity > 0)
+            {
+                capacity = Mathf.Max(capacity, shapeMinimumCapacity);
+            }
+
+            return Mathf.Clamp(capacity, LevelData.MinRotaryUnitCapacity, roadPreset.MaxCapacityUnits);
+        }
+
+        private static float GetRotaryUnitSpacingForStage(
+            LevelData levelData,
+            RoadPresetDefinition roadPreset,
+            int rotaryUnitCapacity,
+            int stageNumber)
+        {
+            var pressure = GetRotarySizePressure(levelData, rotaryUnitCapacity, stageNumber);
+            return PassengerUnitLayout.RotaryUnitSpacing * GetShapeTestPathScale(roadPreset.Id, pressure);
+        }
+
+        private static float GetRoadScaleForStage(
+            LevelData levelData,
+            RoadPresetDefinition roadPreset,
+            int rotaryUnitCapacity,
+            int stageNumber)
+        {
+            var pressure = GetRotarySizePressure(levelData, rotaryUnitCapacity, stageNumber);
+            return GetShapeTestRoadScale(roadPreset.Id, pressure);
+        }
+
+        private static bool TryGetShapePresetForStage(int stageNumber, out RotaryRoadPresetId presetId)
+        {
+            var index = stageNumber - 1;
+            if (index >= 0 && index < ShapeTestPresetByStage.Length)
+            {
+                presetId = ShapeTestPresetByStage[index];
+                return true;
+            }
+
+            presetId = RotaryRoadPresetId.Large;
+            return false;
+        }
+
+        private static int GetShapeTestMinimumCapacityUnits(RotaryRoadPresetId presetId)
+        {
+            switch (presetId)
+            {
+                case RotaryRoadPresetId.SmallCircleTest:
+                    return 24;
+                case RotaryRoadPresetId.DropTest:
+                    return 26;
+                case RotaryRoadPresetId.RoundedSquareTest:
+                case RotaryRoadPresetId.OvalTest:
+                    return 28;
+                case RotaryRoadPresetId.ArrowTest:
+                    return 30;
+                case RotaryRoadPresetId.LargeCircleTest:
+                    return 32;
+                case RotaryRoadPresetId.HeartTest:
+                case RotaryRoadPresetId.CloverTest:
+                case RotaryRoadPresetId.CloudTest:
+                case RotaryRoadPresetId.LoopTest:
+                case RotaryRoadPresetId.RibbonTest:
+                case RotaryRoadPresetId.SnakeTest:
+                    return 36;
+                default:
+                    return 0;
+            }
+        }
+
+        private static int GetShapeTestVisibleUnits(RotaryRoadPresetId presetId)
+        {
+            switch (presetId)
+            {
+                case RotaryRoadPresetId.SmallCircleTest:
+                    return 20;
+                case RotaryRoadPresetId.RoundedSquareTest:
+                case RotaryRoadPresetId.DropTest:
+                case RotaryRoadPresetId.ArrowTest:
+                    return 26;
+                case RotaryRoadPresetId.LargeCircleTest:
+                case RotaryRoadPresetId.OvalTest:
+                case RotaryRoadPresetId.HeartTest:
+                    return 28;
+                case RotaryRoadPresetId.CloverTest:
+                case RotaryRoadPresetId.CloudTest:
+                case RotaryRoadPresetId.LoopTest:
+                case RotaryRoadPresetId.RibbonTest:
+                    return 30;
+                default:
+                    return 0;
+            }
+        }
+
+        private static float GetRotarySizePressure(LevelData levelData, int rotaryUnitCapacity, int stageNumber)
+        {
+            var capacityPressure = Mathf.InverseLerp(20f, LevelData.MaxRotaryUnitCapacity, rotaryUnitCapacity);
+            var passengerPressure = Mathf.InverseLerp(20f, 48f, levelData != null ? levelData.PassengerUnitCount : rotaryUnitCapacity);
+            var stagePressure = stageNumber > 0 ? Mathf.InverseLerp(1f, 50f, stageNumber) : capacityPressure;
+            var difficultyPressure = GetDifficultySizePressure(levelData != null ? levelData.DifficultyProfile.Difficulty : LevelDifficulty.Normal);
+            return Mathf.Clamp01(capacityPressure * 0.58f + passengerPressure * 0.12f + difficultyPressure * 0.20f + stagePressure * 0.10f);
+        }
+
+        private static float GetDifficultySizePressure(LevelDifficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case LevelDifficulty.SuperHard:
+                    return 0.90f;
+                case LevelDifficulty.Hard:
+                    return 0.45f;
+                default:
+                    return 0f;
+            }
+        }
+
+        private static float GetShapeTestPathScale(RotaryRoadPresetId presetId, float pressure)
+        {
+            pressure = Mathf.Clamp01(pressure);
+            switch (presetId)
+            {
+                case RotaryRoadPresetId.SmallCircleTest:
+                    return Mathf.Lerp(0.98f, 1.08f, pressure);
+                case RotaryRoadPresetId.LargeCircleTest:
+                    return Mathf.Lerp(1.14f, 1.30f, pressure);
+                case RotaryRoadPresetId.OvalTest:
+                    return Mathf.Lerp(1.04f, 1.25f, pressure);
+                case RotaryRoadPresetId.RoundedSquareTest:
+                    return Mathf.Lerp(1.04f, 1.20f, pressure);
+                case RotaryRoadPresetId.DropTest:
+                    return Mathf.Lerp(1.02f, 1.22f, pressure);
+                case RotaryRoadPresetId.ArrowTest:
+                    return Mathf.Lerp(1.12f, 1.20f, pressure);
+                case RotaryRoadPresetId.HeartTest:
+                    return Mathf.Lerp(1.24f, 1.30f, pressure);
+                case RotaryRoadPresetId.CloverTest:
+                case RotaryRoadPresetId.CloudTest:
+                case RotaryRoadPresetId.LoopTest:
+                case RotaryRoadPresetId.RibbonTest:
+                    return Mathf.Lerp(1.20f, 1.25f, pressure);
+                default:
+                    return 1f;
+            }
+        }
+
+        private static float GetShapeTestRoadScale(RotaryRoadPresetId presetId, float pressure)
+        {
+            pressure = Mathf.Clamp01(pressure);
+            switch (presetId)
+            {
+                case RotaryRoadPresetId.SmallCircleTest:
+                    return Mathf.Lerp(1.04f, 1.10f, pressure);
+                case RotaryRoadPresetId.LargeCircleTest:
+                    return Mathf.Lerp(1.12f, 1.20f, pressure);
+                case RotaryRoadPresetId.OvalTest:
+                case RotaryRoadPresetId.RoundedSquareTest:
+                case RotaryRoadPresetId.DropTest:
+                    return Mathf.Lerp(1.08f, 1.20f, pressure);
+                case RotaryRoadPresetId.ArrowTest:
+                    return Mathf.Lerp(1.12f, 1.20f, pressure);
+                case RotaryRoadPresetId.HeartTest:
+                case RotaryRoadPresetId.LoopTest:
+                    return Mathf.Lerp(1.16f, 1.20f, pressure);
+                case RotaryRoadPresetId.CloverTest:
+                case RotaryRoadPresetId.CloudTest:
+                case RotaryRoadPresetId.RibbonTest:
+                    return Mathf.Lerp(1.18f, 1.22f, pressure);
+                default:
+                    return 1f;
+            }
         }
 
         private static float CalculateRotaryCenterZ(RotaryLayout layout)
@@ -562,7 +762,8 @@ namespace BusPuzzle
                 BoardLayoutConfig.GridColumns,
                 BoardLayoutConfig.GridRows,
                 BoardLayoutConfig.CellSize,
-                BoardLayoutConfig.GridBottomZ);
+                BoardLayoutConfig.GridBottomZ,
+                BoardLayoutConfig.UpperParkingExtensionZ);
         }
 
         private void CreateStationSlots()
@@ -655,9 +856,16 @@ namespace BusPuzzle
             }
         }
 
-        private int GetStartingRotaryUnitCount(int passengerUnitCount)
+        private int GetStartingRotaryUnitCount(int passengerUnitCount, RoadPresetDefinition roadPreset)
         {
-            return Mathf.Clamp(passengerUnitCount, 0, rotaryLayout.CapacityUnits);
+            var maxVisibleUnits = rotaryLayout.CapacityUnits;
+            var shapeVisibleUnits = GetShapeTestVisibleUnits(roadPreset.Id);
+            if (shapeVisibleUnits > 0)
+            {
+                maxVisibleUnits = Mathf.Min(maxVisibleUnits, shapeVisibleUnits);
+            }
+
+            return Mathf.Clamp(passengerUnitCount, 0, maxVisibleUnits);
         }
 
     }

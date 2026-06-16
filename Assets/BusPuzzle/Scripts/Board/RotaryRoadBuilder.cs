@@ -82,16 +82,24 @@ namespace BusPuzzle
         public static void CreatePassengerRotary(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
         {
             CreateRoad(parent, layout, settings);
-            BoardGeometry.CreatePathFill(
-                $"Rotary Island {layout.CapacityUnits}",
-                parent,
-                layout,
-                settings.RotaryCenterZ,
-                -0.058f,
-                layout.RoadInnerOffset - 0.060f,
-                PuzzlePalette.CreateSolidMaterial("Rotary Island", new Color(0.72f, 0.77f, 0.82f)));
 
-            CreateRotaryGarden(parent, layout, settings);
+            if (layout.Preset.Id != RotaryRoadPresetId.SnakeTest)
+            {
+                BoardGeometry.CreatePathFill(
+                    $"Rotary Island {layout.CapacityUnits}",
+                    parent,
+                    layout,
+                    settings.RotaryCenterZ,
+                    -0.058f,
+                    layout.RoadInnerOffset - 0.060f,
+                    PuzzlePalette.CreateSolidMaterial("Rotary Island", new Color(0.72f, 0.77f, 0.82f)));
+
+                if (!UsesMinimalRotaryCenter(layout.Preset.Id))
+                {
+                    CreateRotaryGarden(parent, layout, settings);
+                }
+            }
+
             CreateBoardingGate(parent, layout, settings);
         }
 
@@ -115,6 +123,27 @@ namespace BusPuzzle
             BoardGeometry.CreatePathBand("Inner Rotary Guardrail Shadow", parent, layout, settings.RotaryCenterZ, -0.049f, innerOffset - railWidth - 0.020f, innerOffset + 0.006f, railShadowMaterial);
             BoardGeometry.CreatePathBand("Inner Rotary Guardrail", parent, layout, settings.RotaryCenterZ, -0.025f, innerOffset - railWidth, innerOffset, railMaterial);
             BoardGeometry.CreatePathBand("Inner Rotary Guardrail Rim", parent, layout, settings.RotaryCenterZ, -0.014f, innerOffset - railWidth, innerOffset - railWidth + rimWidth, railRimMaterial);
+        }
+
+        private static bool UsesMinimalRotaryCenter(RotaryRoadPresetId presetId)
+        {
+            switch (presetId)
+            {
+                case RotaryRoadPresetId.HeartTest:
+                case RotaryRoadPresetId.SmallCircleTest:
+                case RotaryRoadPresetId.LargeCircleTest:
+                case RotaryRoadPresetId.OvalTest:
+                case RotaryRoadPresetId.RoundedSquareTest:
+                case RotaryRoadPresetId.CloverTest:
+                case RotaryRoadPresetId.DropTest:
+                case RotaryRoadPresetId.CloudTest:
+                case RotaryRoadPresetId.LoopTest:
+                case RotaryRoadPresetId.ArrowTest:
+                case RotaryRoadPresetId.RibbonTest:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static void CreateFeederLane(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, int side)

@@ -29,7 +29,7 @@ namespace BusPuzzle
         public const float VehicleBaseVisualHeightCells = 0.90f;
         public const float VehicleVisualWidthScale = 1.32f;
         public const float VehicleVisualHeightScale = 1.26f;
-        public const float VehicleBodyVisualWidthScale = 1.13f;
+        public const float VehicleBodyVisualWidthScale = 0.99f;
         public const float VehicleBodyVisualLengthScale = 1.03f;
         public const float VehicleVisualWidthCells = VehicleBaseVisualWidthCells * VehicleVisualWidthScale;
         public const float VehicleVisualHeightCells = VehicleBaseVisualHeightCells * VehicleVisualHeightScale;
@@ -108,6 +108,21 @@ namespace BusPuzzle
                 visualLength * VehicleFootprintLengthFactor * 0.5f);
         }
 
+        public static VehicleFootprint GetVehicleVisualFootprint(Vector3 rootPosition, Quaternion rotation, BusSize size, float cellSize)
+        {
+            var visualLength = BusSizeUtility.ToVisualLengthCells(size) * cellSize;
+            var visualCharacterLength = visualLength / Mathf.Max(1, BusSizeUtility.ToVisualCharacterUnits(size));
+            var visualCenterZ = (visualLength - visualCharacterLength) * 0.5f;
+            var visualCenter = rootPosition + rotation * new Vector3(0f, 0f, visualCenterZ);
+
+            return new VehicleFootprint(
+                visualCenter,
+                rotation * Vector3.right,
+                rotation * Vector3.forward,
+                VehicleVisualWidthCells * cellSize * VehicleBodyVisualWidthScale * 0.5f,
+                visualLength * VehicleBodyVisualLengthScale * 0.5f);
+        }
+
         public static VehicleFootprint GetVehicleFootprintCells(BusDefinition bus)
         {
             var rootPosition = new Vector3(
@@ -123,17 +138,7 @@ namespace BusPuzzle
                 bus.GridPosition.x + bus.PositionOffsetCells.x,
                 0f,
                 bus.GridPosition.y + bus.PositionOffsetCells.y);
-            var visualLength = BusSizeUtility.ToVisualLengthCells(bus.Size);
-            var visualCharacterLength = visualLength / Mathf.Max(1, BusSizeUtility.ToVisualCharacterUnits(bus.Size));
-            var visualCenterZ = (visualLength - visualCharacterLength) * 0.5f;
-            var visualCenter = rootPosition + bus.Rotation * new Vector3(0f, 0f, visualCenterZ);
-
-            return new VehicleFootprint(
-                visualCenter,
-                bus.Rotation * Vector3.right,
-                bus.Rotation * Vector3.forward,
-                VehicleVisualWidthCells * VehicleBodyVisualWidthScale * 0.5f,
-                visualLength * VehicleBodyVisualLengthScale * 0.5f);
+            return GetVehicleVisualFootprint(rootPosition, bus.Rotation, bus.Size, 1f);
         }
     }
 }

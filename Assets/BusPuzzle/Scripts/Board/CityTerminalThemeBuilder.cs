@@ -15,16 +15,17 @@ namespace BusPuzzle
         private static readonly Color TreeLeafColor = new Color(0.24f, 0.49f, 0.30f);
         private static readonly Color TrunkColor = new Color(0.39f, 0.25f, 0.14f);
         private static readonly Color QueueGuideColor = new Color(0.96f, 0.86f, 0.52f, 0.42f);
+        private const int PreviewStationSkinStageNumber = 14;
         private const float QueueGuideY = -0.011f;
 
-        public static void Create(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
+        public static void Create(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, int stageNumber = 0)
         {
             var root = new GameObject("City Terminal Theme").transform;
             root.SetParent(parent, false);
             var materials = CreateMaterials();
 
             CreateBusYardEdgeSkin(CreateSection(root, "1 Bus Yard Edge Skin"), materials);
-            CreateStationSkin(CreateSection(root, "2 Station Skin"));
+            CreateStationSkin(CreateSection(root, "2 Station Skin"), stageNumber);
             CreateQueueFloorSkin(CreateSection(root, "3 Queue Floor Skin"), layout, settings, materials);
             CreateQueueOuterLineSkin(CreateSection(root, "4 Queue Outer Line Skin"), layout, settings, materials);
             CreateRotaryCenterSkin(CreateSection(root, "5 Rotary Center Skin"), settings, materials);
@@ -78,11 +79,216 @@ namespace BusPuzzle
             CreateYardMarkings(root, materials.WhiteLine);
         }
 
-        private static void CreateStationSkin(Transform root)
+        private static void CreateStationSkin(Transform root, int stageNumber)
         {
-            // Station slots are gameplay UI. The theme package keeps this section as a hook
-            // so future themes can skin it without mixing station edits into other regions.
             root.gameObject.SetActive(true);
+            if (stageNumber == PreviewStationSkinStageNumber)
+            {
+                CreateStage14TerminalStationSkin(root);
+            }
+        }
+
+        private static void CreateStage14TerminalStationSkin(Transform root)
+        {
+            var rotation = Quaternion.identity;
+            var totalSlots = BoardLayoutConfig.TotalStationSlots;
+            var slotSpacing = BoardLayoutConfig.StationSlotSpacing;
+            var slotWidth = BoardLayoutConfig.StationSlotWidth;
+            var slotDepth = BoardLayoutConfig.StationSlotDepth;
+            var platformWidth = (totalSlots - 1) * slotSpacing + slotWidth + 0.40f;
+            var platformDepth = slotDepth + 0.20f;
+
+            var deckShadowMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Platform Shadow", new Color(0.12f, 0.16f, 0.22f, 0.16f));
+            var deckMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Deck", new Color(0.58f, 0.66f, 0.74f));
+            var deckTopMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Deck Top", new Color(0.72f, 0.80f, 0.88f, 0.44f));
+            var bayMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Bay", new Color(0.78f, 0.86f, 0.94f, 0.24f));
+            var bayTrimMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Bay Trim", new Color(0.96f, 0.99f, 1.00f, 0.54f));
+            var railMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Rail", new Color(0.78f, 0.85f, 0.92f));
+            var railPostMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Rail Post", new Color(0.63f, 0.71f, 0.80f));
+            var vipMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Gold", new Color(0.96f, 0.67f, 0.08f));
+            var vipInsetMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Inset", new Color(1.00f, 0.86f, 0.28f));
+            var lockedPanelMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Locked Panel", new Color(0.35f, 0.43f, 0.54f, 0.16f));
+            var ledMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Green LED", new Color(0.22f, 0.98f, 0.52f));
+            var whiteLineMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal White Paint", new Color(0.92f, 0.96f, 1.00f, 0.72f));
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Stage 14 Terminal Soft Shadow",
+                root,
+                StationLocalPoint(0f, -0.082f, BoardLayoutConfig.StationZ - 0.015f),
+                new Vector2(platformWidth + 0.06f, platformDepth + 0.05f),
+                0.085f,
+                deckShadowMaterial,
+                rotation);
+
+            CreateBox(
+                "Stage 14 Terminal Low Base",
+                root,
+                StationLocalPoint(0f, -0.074f, BoardLayoutConfig.StationZ),
+                new Vector3(platformWidth, 0.018f, platformDepth),
+                deckMaterial,
+                rotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Stage 14 Terminal Top Plate",
+                root,
+                StationLocalPoint(0f, -0.053f, BoardLayoutConfig.StationZ),
+                new Vector2(platformWidth - 0.12f, platformDepth - 0.10f),
+                0.075f,
+                deckTopMaterial,
+                rotation);
+
+            CreateBox(
+                "Stage 14 Terminal Front Curb",
+                root,
+                StationLocalPoint(0f, -0.022f, BoardLayoutConfig.StationZ - slotDepth * 0.55f),
+                new Vector3(platformWidth - 0.16f, 0.012f, 0.024f),
+                railMaterial,
+                rotation);
+
+            CreateBox(
+                "Stage 14 Terminal Back Rail",
+                root,
+                StationLocalPoint(0f, -0.018f, BoardLayoutConfig.StationZ + slotDepth * 0.55f),
+                new Vector3(platformWidth - 0.26f, 0.014f, 0.024f),
+                railMaterial,
+                rotation);
+
+            for (var index = 0; index < totalSlots; index++)
+            {
+                var x = (index - (totalSlots - 1) * 0.5f) * slotSpacing;
+                CreateTerminalBay(root, index, x, slotWidth, slotDepth, rotation, bayMaterial, bayTrimMaterial);
+                CreateBox(
+                    $"Stage 14 Terminal Rail Post {index + 1}",
+                    root,
+                    StationLocalPoint(x, -0.006f, BoardLayoutConfig.StationZ + slotDepth * 0.55f),
+                    new Vector3(0.020f, 0.028f, 0.020f),
+                    railPostMaterial,
+                    rotation);
+            }
+
+            CreateVipTerminalBay(root, BoardLayoutConfig.GetFreeStationPosition(), slotWidth, slotDepth, rotation, vipMaterial, vipInsetMaterial, whiteLineMaterial);
+
+            for (var index = 0; index < BoardLayoutConfig.LockedStationSlots; index++)
+            {
+                CreateLockedTerminalPanel(
+                    root,
+                    index,
+                    BoardLayoutConfig.GetStationPosition(BoardLayoutConfig.ActiveStationSlots + index),
+                    slotWidth,
+                    slotDepth,
+                    rotation,
+                    lockedPanelMaterial,
+                    ledMaterial);
+            }
+        }
+
+        private static void CreateTerminalBay(
+            Transform root,
+            int index,
+            float x,
+            float slotWidth,
+            float slotDepth,
+            Quaternion rotation,
+            Material bayMaterial,
+            Material bayTrimMaterial)
+        {
+            var position = StationLocalPoint(x, -0.061f, BoardLayoutConfig.StationZ);
+            BoardGeometry.CreateFlatRoundedRect(
+                $"Stage 14 Terminal Bay Floor {index + 1}",
+                root,
+                position,
+                new Vector2(slotWidth + 0.070f, slotDepth + 0.035f),
+                slotWidth * 0.16f,
+                bayTrimMaterial,
+                rotation);
+            BoardGeometry.CreateFlatRoundedRect(
+                $"Stage 14 Terminal Bay Recess {index + 1}",
+                root,
+                StationLocalPoint(x, -0.055f, BoardLayoutConfig.StationZ),
+                new Vector2(slotWidth - 0.035f, slotDepth - 0.060f),
+                slotWidth * 0.12f,
+                bayMaterial,
+                rotation);
+            BoardGeometry.CreateFlatRect(
+                $"Stage 14 Terminal Stop Line {index + 1}",
+                root,
+                StationLocalPoint(x, -0.049f, BoardLayoutConfig.StationZ - slotDepth * 0.35f),
+                new Vector2(slotWidth * 0.56f, 0.018f),
+                bayTrimMaterial,
+                rotation);
+        }
+
+        private static void CreateVipTerminalBay(
+            Transform root,
+            Vector3 position,
+            float slotWidth,
+            float slotDepth,
+            Quaternion rotation,
+            Material vipMaterial,
+            Material vipInsetMaterial,
+            Material whiteLineMaterial)
+        {
+            CreateBox(
+                "Stage 14 Terminal VIP Raised Plinth",
+                root,
+                new Vector3(position.x, -0.048f, position.z),
+                new Vector3(slotWidth + 0.090f, 0.035f, slotDepth + 0.055f),
+                vipMaterial,
+                rotation);
+            BoardGeometry.CreateFlatRoundedRect(
+                "Stage 14 Terminal VIP Inset",
+                root,
+                position + Vector3.up * -0.026f,
+                new Vector2(slotWidth - 0.040f, slotDepth - 0.070f),
+                slotWidth * 0.13f,
+                vipInsetMaterial,
+                rotation);
+            BoardGeometry.CreateFlatRect(
+                "Stage 14 Terminal VIP Front Stripe",
+                root,
+                position + Vector3.up * -0.017f - rotation * Vector3.forward * (slotDepth * 0.33f),
+                new Vector2(slotWidth * 0.54f, 0.018f),
+                whiteLineMaterial,
+                rotation);
+        }
+
+        private static void CreateLockedTerminalPanel(
+            Transform root,
+            int index,
+            Vector3 position,
+            float slotWidth,
+            float slotDepth,
+            Quaternion rotation,
+            Material panelMaterial,
+            Material ledMaterial)
+        {
+            BoardGeometry.CreateFlatRoundedRect(
+                $"Stage 14 Terminal Locked LED Panel {index + 1}",
+                root,
+                position + Vector3.up * -0.027f,
+                new Vector2(slotWidth - 0.070f, slotDepth - 0.105f),
+                slotWidth * 0.10f,
+                panelMaterial,
+                rotation);
+            CreateBox(
+                $"Stage 14 Terminal Locked LED Vertical {index + 1}",
+                root,
+                position + Vector3.up * 0.003f,
+                new Vector3(slotWidth * 0.090f, 0.018f, slotDepth * 0.26f),
+                ledMaterial,
+                rotation);
+            CreateBox(
+                $"Stage 14 Terminal Locked LED Horizontal {index + 1}",
+                root,
+                position + Vector3.up * 0.004f,
+                new Vector3(slotWidth * 0.43f, 0.018f, slotDepth * 0.060f),
+                ledMaterial,
+                rotation);
+        }
+
+        private static Vector3 StationLocalPoint(float localX, float y, float worldZ)
+        {
+            return new Vector3(localX, y, worldZ);
         }
 
         private static void CreateYardMarkings(Transform root, Material whiteLine)

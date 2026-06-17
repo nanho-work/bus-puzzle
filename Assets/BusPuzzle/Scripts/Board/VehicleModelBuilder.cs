@@ -10,6 +10,11 @@ namespace BusPuzzle
         private const float DetailLift = 0.006f;
         private const float PrefabFitScale = 1.00f;
         private const float PrefabHeightFitRelaxation = 1.22f;
+        private const float PrefabVisualWidthFactor = 1.00f;
+        private const float PrefabVisualHeightFactor = 0.82f;
+        private const float PrefabSmallLengthFactor = 1.03f;
+        private const float PrefabMediumLengthFactor = 0.93f;
+        private const float PrefabLargeLengthFactor = 0.83f;
         private static readonly int[] BoxTriangles =
         {
             0, 4, 5, 0, 5, 1,
@@ -139,13 +144,12 @@ namespace BusPuzzle
                 var changed = false;
                 for (var materialIndex = 0; materialIndex < sharedMaterials.Length; materialIndex++)
                 {
-                    if (!IsVehiclePaintMaterial(sharedMaterials[materialIndex]))
+                    var replacement = GetPrefabMaterial(sharedMaterials[materialIndex], materials);
+                    if (replacement != null && replacement != sharedMaterials[materialIndex])
                     {
-                        continue;
+                        sharedMaterials[materialIndex] = replacement;
+                        changed = true;
                     }
-
-                    sharedMaterials[materialIndex] = materials.Body;
-                    changed = true;
                 }
 
                 if (changed)
@@ -153,6 +157,37 @@ namespace BusPuzzle
                     renderer.sharedMaterials = sharedMaterials;
                 }
             }
+        }
+
+        private static Material GetPrefabMaterial(Material sourceMaterial, VehicleMaterials materials)
+        {
+            if (sourceMaterial == null)
+            {
+                return null;
+            }
+
+            var materialName = sourceMaterial.name;
+            if (ContainsMaterialName(materialName, "Rubber"))
+            {
+                return materials.Wheel;
+            }
+
+            if (ContainsMaterialName(materialName, "Window") || ContainsMaterialName(materialName, "Glass"))
+            {
+                return materials.Glass;
+            }
+
+            if (ContainsMaterialName(materialName, "Lamp") || ContainsMaterialName(materialName, "Light"))
+            {
+                return materials.HeadLight;
+            }
+
+            if (IsVehiclePaintMaterial(sourceMaterial))
+            {
+                return materials.Body;
+            }
+
+            return sourceMaterial;
         }
 
         private static void ApplyPrefabMysteryMaterials(GameObject instance, SilhouetteMaterials materials)
@@ -239,7 +274,7 @@ namespace BusPuzzle
             var heightScale = visualHeight / Mathf.Max(0.001f, bounds.size.y);
             var scale = Mathf.Min(widthScale, lengthScale, heightScale * PrefabHeightFitRelaxation) * PrefabFitScale;
             instance.localScale *= scale;
-            ApplyPrefabVisualSizeTuning(instance, size);
+            ApplyPrefabVisualSizeTuning(root, instance, size, visualWidth, visualHeight, visualLength);
 
             if (!TryCalculateLocalRendererBounds(root, out bounds))
             {
@@ -253,15 +288,45 @@ namespace BusPuzzle
                 visualCenterZ - bounds.center.z);
         }
 
-        private static void ApplyPrefabVisualSizeTuning(Transform instance, BusSize size)
+        private static void ApplyPrefabVisualSizeTuning(
+            Transform root,
+            Transform instance,
+            BusSize size,
+            float visualWidth,
+            float visualHeight,
+            float visualLength)
         {
-            var widthScale = size == BusSize.Large ? 1.04f : 1.06f;
-            var lengthScale = size == BusSize.Small ? 0.92f : size == BusSize.Medium ? 0.88f : 0.84f;
-            var heightScale = size == BusSize.Large ? 0.98f : 1.00f;
+            if (root == null || instance == null || !TryCalculateLocalRendererBounds(root, out var bounds))
+            {
+                return;
+            }
+
+            var targetWidth = visualWidth * PrefabVisualWidthFactor;
+            var targetHeight = visualHeight * PrefabVisualHeightFactor;
+            var targetLength = visualLength * GetPrefabVisualLengthFactor(size);
+            var widthScale = targetWidth / Mathf.Max(0.001f, bounds.size.x);
+            var heightScale = targetHeight / Mathf.Max(0.001f, bounds.size.y);
+            var lengthScale = targetLength / Mathf.Max(0.001f, bounds.size.z);
+            // Vehicle prefabs are rotated -90 degrees on import, so local X affects visual length and local Z affects visual width.
             instance.localScale = new Vector3(
-                instance.localScale.x * widthScale,
+                instance.localScale.x * lengthScale,
                 instance.localScale.y * heightScale,
-                instance.localScale.z * lengthScale);
+                instance.localScale.z * widthScale);
+        }
+
+        private static float GetPrefabVisualLengthFactor(BusSize size)
+        {
+            switch (size)
+            {
+                case BusSize.Small:
+                    return PrefabSmallLengthFactor;
+                case BusSize.Medium:
+                    return PrefabMediumLengthFactor;
+                case BusSize.Large:
+                    return PrefabLargeLengthFactor;
+                default:
+                    return PrefabSmallLengthFactor;
+            }
         }
 
         private static bool TryCalculateLocalRendererBounds(Transform root, out Bounds bounds)

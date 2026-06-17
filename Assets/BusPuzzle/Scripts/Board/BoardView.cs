@@ -35,6 +35,7 @@ namespace BusPuzzle
         private Coroutine tutorialStationHighlightRoutine;
         private GameObject tutorialStationHighlight;
         private int currentPassengerUnitCount;
+        private int currentStageNumber;
         private float rotaryCenterZ = BoardLayoutConfig.RotaryCenterZ;
         private bool vipStationSlotOccupied;
 
@@ -49,6 +50,8 @@ namespace BusPuzzle
         public bool CanUnlockStationSlot => stationSlots.CanUnlock;
 
         public bool CanReserveVipStationSlot => !vipStationSlotOccupied;
+
+        public Quaternion ActiveStationRotation => GetActiveStationRotation();
 
         public Bounds GetCameraContentBounds()
         {
@@ -84,6 +87,7 @@ namespace BusPuzzle
         public void BuildLevel(LevelData levelData, List<PassengerView> passengers, List<BusView> buses, int stageNumber = 0)
         {
             var roadPreset = GetRoadPresetForStage(levelData);
+            currentStageNumber = Mathf.Max(0, stageNumber);
             var rotaryUnitCapacity = GetRotaryUnitCapacityForStage(levelData, roadPreset);
             var rotaryUnitSpacing = GetRotaryUnitSpacingForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber);
             var roadProfile = PassengerUnitLayout.CreateRoadProfile(roadPreset, GetRoadScaleForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber));
@@ -103,7 +107,7 @@ namespace BusPuzzle
             garages.Clear();
             CreateRoots();
             CreateGround();
-            CreateTheme();
+            CreateTheme(stageNumber);
             CreatePassengerRotary();
             CreateGrid();
             CreateStationSlots();
@@ -295,8 +299,9 @@ namespace BusPuzzle
             var slotPosition = slotIndex == VipStationSlotIndex
                 ? BoardLayoutConfig.GetFreeStationPosition()
                 : BoardLayoutConfig.GetStationPosition(slotIndex);
+            var stationForward = GetActiveStationRotation() * Vector3.forward;
             return slotPosition -
-                BoardLayoutConfig.StationForward * (BoardLayoutConfig.StationSlotDepth * 0.5f + BoardLayoutConfig.StationCounterBelowSlotOffset) +
+                stationForward * (BoardLayoutConfig.StationSlotDepth * 0.5f + BoardLayoutConfig.StationCounterBelowSlotOffset) +
                 Vector3.up * BoardLayoutConfig.StationCounterY;
         }
 
@@ -396,11 +401,11 @@ namespace BusPuzzle
                     new Vector2(BoardLayoutConfig.StationSlotWidth + BoardLayoutConfig.CellSize * 0.08f, BoardLayoutConfig.StationSlotDepth + BoardLayoutConfig.CellSize * 0.08f),
                     BoardLayoutConfig.StationSlotWidth * 0.18f,
                     material,
-                    BoardLayoutConfig.StationRotation);
+                    GetActiveStationRotation());
             }
 
             tutorialStationHighlight.transform.position = position + Vector3.up * 0.036f;
-            tutorialStationHighlight.transform.rotation = BoardLayoutConfig.StationRotation;
+            tutorialStationHighlight.transform.rotation = GetActiveStationRotation();
             tutorialStationHighlight.transform.localScale = Vector3.one;
             tutorialStationHighlight.SetActive(true);
 
@@ -488,8 +493,11 @@ namespace BusPuzzle
                 rotaryLayout.PassengerPivotOffset);
         }
 
-        private static VehicleTrafficSettings CreateVehicleTrafficSettings()
+        private VehicleTrafficSettings CreateVehicleTrafficSettings()
         {
+            var stationRotation = GetActiveStationRotation();
+            var stationForward = stationRotation * Vector3.forward;
+            var stationRight = stationRotation * Vector3.right;
             return new VehicleTrafficSettings(
                 BoardLayoutConfig.CellSize,
                 BoardLayoutConfig.GridWorldWidth,
@@ -498,9 +506,9 @@ namespace BusPuzzle
                 BoardLayoutConfig.GridBottomZ,
                 BoardLayoutConfig.GridLeftX,
                 BoardLayoutConfig.GridRightX,
-                BoardLayoutConfig.StationRotation,
-                BoardLayoutConfig.StationForward,
-                BoardLayoutConfig.StationRight);
+                stationRotation,
+                stationForward,
+                stationRight);
         }
 
         private PassengerTrafficSettings CreatePassengerTrafficSettings()
@@ -715,9 +723,9 @@ namespace BusPuzzle
             RotaryRoadBuilder.CreateGround(transform, rotaryLayout, CreateRotaryRoadBuildSettings());
         }
 
-        private void CreateTheme()
+        private void CreateTheme(int stageNumber)
         {
-            CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings());
+            CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings(), stageNumber);
         }
 
         private void CreatePassengerRotary()
@@ -738,6 +746,7 @@ namespace BusPuzzle
 
         private void CreateStationSlots()
         {
+            var stationRotation = GetActiveStationRotation();
             StationSlotBuilder.Create(
                 stationRoot,
                 BoardLayoutConfig.FreeStationSlots,
@@ -748,10 +757,18 @@ namespace BusPuzzle
                 BoardLayoutConfig.StationSlotWidth,
                 BoardLayoutConfig.StationSlotDepth,
                 BoardLayoutConfig.CellSize,
-                BoardLayoutConfig.StationRotation,
+                stationRotation,
                 BoardLayoutConfig.GetFreeStationPosition,
                 BoardLayoutConfig.GetStationPosition,
-                GetLockedStationPosition);
+                GetLockedStationPosition,
+                currentStageNumber == 14);
+        }
+
+        private Quaternion GetActiveStationRotation()
+        {
+            return currentStageNumber == 14
+                ? Quaternion.identity
+                : BoardLayoutConfig.StationRotation;
         }
 
         private static float GetMaxAbsFeederX(params FeederRoadPath[] paths)

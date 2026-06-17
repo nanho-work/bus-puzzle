@@ -527,7 +527,7 @@ namespace BusPuzzle
 
         private static bool IsNearBoardEdge(BusDefinition vehicle)
         {
-            var footprint = BoardLayoutConfig.GetVehicleFootprintCells(vehicle);
+            var footprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(vehicle);
             const float boundaryPadding = 0.18f;
             return footprint.ProjectMin(Vector2.right) < -boundaryPadding ||
                 footprint.ProjectMax(Vector2.right) > BoardLayoutConfig.GridColumns - 1f + boundaryPadding ||

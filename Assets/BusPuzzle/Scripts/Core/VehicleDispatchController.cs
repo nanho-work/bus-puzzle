@@ -133,7 +133,7 @@ namespace BusPuzzle
             var counterPosition = boardView.GetStationCounterPosition(stationSlotIndex);
             bus.TeleportToStation(
                 stationPosition,
-                BoardLayoutConfig.StationRotation,
+                boardView.ActiveStationRotation,
                 stationSlotIndex,
                 counterPosition,
                 () =>

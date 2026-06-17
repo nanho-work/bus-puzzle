@@ -429,7 +429,7 @@ namespace BusPuzzle
 
         private static void ValidateVehicleFootprintBounds(LevelValidationReport report, BusDefinition bus, int index)
         {
-            var footprint = GetDefinitionFootprint(bus);
+            var footprint = GetDefinitionVisualFootprint(bus);
             var minX = footprint.ProjectMin(Vector2.right);
             var maxX = footprint.ProjectMax(Vector2.right);
             var minY = footprint.ProjectMin(Vector2.up);

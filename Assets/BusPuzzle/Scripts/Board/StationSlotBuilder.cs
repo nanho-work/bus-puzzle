@@ -24,28 +24,37 @@ namespace BusPuzzle
             Quaternion stationRotation,
             Func<Vector3> getFreeStationPosition,
             Func<int, Vector3> getStationPosition,
-            Func<int, Vector3> getLockedStationPosition)
+            Func<int, Vector3> getLockedStationPosition,
+            bool useTerminalSkin = false)
         {
             var platformMaterial = PuzzlePalette.CreateSolidMaterial("Station Platform", new Color(0.36f, 0.41f, 0.52f));
-            var platformRoadMaterial = PuzzlePalette.CreateSolidMaterial("Station Bay Road", new Color(0.44f, 0.49f, 0.59f));
-            var dividerMaterial = PuzzlePalette.CreateTransparentMaterial("Station Bay Divider", new Color(0.82f, 0.88f, 0.96f, 0.24f));
-            var slotShadowMaterial = PuzzlePalette.CreateTransparentMaterial("Station Slot Shadow", new Color(0.10f, 0.13f, 0.18f, 0.22f));
-            var slotOutlineMaterial = PuzzlePalette.CreateTransparentMaterial("Station Slot Line", new Color(0.90f, 0.95f, 1.00f, 0.66f));
-            var lockedMaterial = PuzzlePalette.CreateSolidMaterial("Locked Ad Slot", new Color(0.39f, 0.44f, 0.54f));
+            var platformRoadMaterial = useTerminalSkin
+                ? PuzzlePalette.CreateTransparentMaterial("Station Bay Road Terminal", new Color(0.74f, 0.82f, 0.91f, 0.12f))
+                : PuzzlePalette.CreateSolidMaterial("Station Bay Road", new Color(0.44f, 0.49f, 0.59f));
+            var dividerMaterial = PuzzlePalette.CreateTransparentMaterial("Station Bay Divider", new Color(0.82f, 0.88f, 0.96f, useTerminalSkin ? 0.12f : 0.24f));
+            var slotShadowMaterial = PuzzlePalette.CreateTransparentMaterial("Station Slot Shadow", new Color(0.10f, 0.13f, 0.18f, useTerminalSkin ? 0.035f : 0.22f));
+            var slotOutlineMaterial = PuzzlePalette.CreateTransparentMaterial("Station Slot Line", new Color(0.90f, 0.95f, 1.00f, useTerminalSkin ? 0.42f : 0.66f));
+            var lockedMaterial = useTerminalSkin
+                ? PuzzlePalette.CreateTransparentMaterial("Locked Ad Slot Terminal", new Color(0.35f, 0.43f, 0.54f, 0.16f))
+                : PuzzlePalette.CreateSolidMaterial("Locked Ad Slot", new Color(0.39f, 0.44f, 0.54f));
             var totalStationSlots = freeSlotCount + activeSlotCount + lockedSlotCount;
             var platformWidth = (totalStationSlots - 1) * slotSpacing + slotWidth + PlatformBaseExtraWidth;
             var platformDepth = slotDepth + PlatformBaseExtraDepth;
 
-            BoardGeometry.CreateFlatRoundedRect(
-                "Station Platform Base",
-                stationRoot,
-                new Vector3(0f, -0.070f, stationZ),
-                new Vector2(platformWidth, platformDepth),
-                0.09f,
-                platformMaterial);
+            if (!useTerminalSkin)
+            {
+                BoardGeometry.CreateFlatRoundedRect(
+                    "Station Platform Base",
+                    stationRoot,
+                    new Vector3(0f, -0.070f, stationZ),
+                    new Vector2(platformWidth, platformDepth),
+                    0.09f,
+                    platformMaterial);
 
-            CreateBayDividers(stationRoot, totalStationSlots, slotSpacing, slotDepth, stationZ, stationRotation, dividerMaterial);
-            CreateVipStationSlot(stationRoot, getFreeStationPosition(), slotWidth, slotDepth, cellSize, stationRotation);
+                CreateBayDividers(stationRoot, totalStationSlots, slotSpacing, slotDepth, stationZ, stationRotation, dividerMaterial);
+            }
+
+            CreateVipStationSlot(stationRoot, getFreeStationPosition(), slotWidth, slotDepth, cellSize, stationRotation, useTerminalSkin);
 
             for (var index = 0; index < activeSlotCount; index++)
             {
@@ -140,11 +149,18 @@ namespace BusPuzzle
             float slotWidth,
             float slotDepth,
             float cellSize,
-            Quaternion stationRotation)
+            Quaternion stationRotation,
+            bool useTerminalSkin)
         {
             const float VipVisualInset = 0.018f;
             var vipSlotWidth = slotWidth - VipVisualInset;
             var vipSlotDepth = slotDepth - VipVisualInset;
+            if (useTerminalSkin)
+            {
+                CreateTerminalVipStationSlot(root, position, vipSlotWidth, vipSlotDepth, cellSize, stationRotation);
+                return;
+            }
+
             var vipAuraMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Warm Aura", new Color(1.00f, 0.86f, 0.20f, 0.13f));
             var vipGlowMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Gold Glow", new Color(1.00f, 0.78f, 0.18f, 0.24f));
             var vipEdgeMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Station Soft Gold Edge", new Color(1.00f, 0.84f, 0.22f, 0.48f));
@@ -275,6 +291,73 @@ namespace BusPuzzle
                 stationRotation,
                 FontStyle.Bold,
                 58,
+                VipLabelYawDegrees);
+        }
+
+        private static void CreateTerminalVipStationSlot(
+            Transform root,
+            Vector3 position,
+            float vipSlotWidth,
+            float vipSlotDepth,
+            float cellSize,
+            Quaternion stationRotation)
+        {
+            var vipBaseMaterial = PuzzlePalette.CreateSolidMaterial("Vip Terminal Badge Base", new Color(0.96f, 0.67f, 0.08f));
+            var vipInsetMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Terminal Badge Inset", new Color(1.00f, 0.91f, 0.42f, 0.58f));
+            var vipLineMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Terminal Badge Line", new Color(1.00f, 0.98f, 0.78f, 0.54f));
+            var vipLabelColor = new Color(1.00f, 0.72f, 0.00f);
+            var vipLabelShadowColor = new Color(0.42f, 0.25f, 0.00f, 0.52f);
+            var vipLabelSize = Mathf.Max(cellSize * 0.112f, vipSlotWidth * 0.122f);
+            const float VipLabelYawDegrees = 90f;
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Terminal Badge Base",
+                root,
+                position + Vector3.down * 0.019f,
+                new Vector2(vipSlotWidth - BayInset * 0.24f, vipSlotDepth - BayInset * 0.24f),
+                vipSlotWidth * 0.14f,
+                vipBaseMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Terminal Badge Inset",
+                root,
+                position + Vector3.down * 0.012f,
+                new Vector2(vipSlotWidth - BayInset * 0.90f, vipSlotDepth - BayInset * 0.90f),
+                vipSlotWidth * 0.11f,
+                vipInsetMaterial,
+                stationRotation);
+
+            BoardGeometry.CreateFlatRect(
+                "Vip Terminal Badge Light Streak",
+                root,
+                position + Vector3.up * 0.004f + stationRotation * new Vector3(vipSlotWidth * 0.10f, 0f, -vipSlotDepth * 0.18f),
+                new Vector2(vipSlotWidth * 0.34f, 0.014f),
+                vipLineMaterial,
+                stationRotation * Quaternion.Euler(0f, -20f, 0f));
+
+            CreateStationLabel(
+                root,
+                "Vip Terminal Label Shadow",
+                position + stationRotation * new Vector3(0.007f, 0f, -0.009f),
+                "VIP",
+                vipLabelShadowColor,
+                vipLabelSize,
+                stationRotation,
+                FontStyle.Bold,
+                56,
+                VipLabelYawDegrees);
+
+            CreateStationLabel(
+                root,
+                "Vip Terminal Label",
+                position,
+                "VIP",
+                vipLabelColor,
+                vipLabelSize,
+                stationRotation,
+                FontStyle.Bold,
+                56,
                 VipLabelYawDegrees);
         }
 

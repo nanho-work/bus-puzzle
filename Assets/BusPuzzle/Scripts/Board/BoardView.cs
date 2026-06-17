@@ -18,21 +18,6 @@ namespace BusPuzzle
         private const float CameraVisibleFeederRows = 1.45f;
         private const float CameraFeederTopPadding = 0.12f;
 
-        private static readonly RotaryRoadPresetId[] ShapeTestPresetByStage =
-        {
-            RotaryRoadPresetId.SmallCircleTest,
-            RotaryRoadPresetId.LargeCircleTest,
-            RotaryRoadPresetId.OvalTest,
-            RotaryRoadPresetId.RoundedSquareTest,
-            RotaryRoadPresetId.HeartTest,
-            RotaryRoadPresetId.CloverTest,
-            RotaryRoadPresetId.DropTest,
-            RotaryRoadPresetId.CloudTest,
-            RotaryRoadPresetId.LoopTest,
-            RotaryRoadPresetId.ArrowTest,
-            RotaryRoadPresetId.RibbonTest
-        };
-
         private readonly StationSlotController stationSlots = new StationSlotController(
             BoardLayoutConfig.ActiveStationSlots,
             BoardLayoutConfig.ActiveStationSlots + BoardLayoutConfig.LockedStationSlots);
@@ -98,7 +83,7 @@ namespace BusPuzzle
 
         public void BuildLevel(LevelData levelData, List<PassengerView> passengers, List<BusView> buses, int stageNumber = 0)
         {
-            var roadPreset = GetRoadPresetForStage(levelData, stageNumber);
+            var roadPreset = GetRoadPresetForStage(levelData);
             var rotaryUnitCapacity = GetRotaryUnitCapacityForStage(levelData, roadPreset);
             var rotaryUnitSpacing = GetRotaryUnitSpacingForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber);
             var roadProfile = PassengerUnitLayout.CreateRoadProfile(roadPreset, GetRoadScaleForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber));
@@ -531,11 +516,9 @@ namespace BusPuzzle
                 PassengerUnitLayout.PersonLocalZOffsets);
         }
 
-        private static RoadPresetDefinition GetRoadPresetForStage(LevelData levelData, int stageNumber)
+        private static RoadPresetDefinition GetRoadPresetForStage(LevelData levelData)
         {
-            return TryGetShapePresetForStage(stageNumber, out var presetId)
-                ? RoadPresetLibrary.Get(presetId)
-                : levelData.RoadPreset;
+            return levelData.RoadPreset;
         }
 
         private static int GetRotaryUnitCapacityForStage(LevelData levelData, RoadPresetDefinition roadPreset)
@@ -568,19 +551,6 @@ namespace BusPuzzle
         {
             var pressure = GetRotarySizePressure(levelData, rotaryUnitCapacity, stageNumber);
             return GetShapeTestRoadScale(roadPreset.Id, pressure);
-        }
-
-        private static bool TryGetShapePresetForStage(int stageNumber, out RotaryRoadPresetId presetId)
-        {
-            var index = stageNumber - 1;
-            if (index >= 0 && index < ShapeTestPresetByStage.Length)
-            {
-                presetId = ShapeTestPresetByStage[index];
-                return true;
-            }
-
-            presetId = RotaryRoadPresetId.Large;
-            return false;
         }
 
         private static int GetShapeTestMinimumCapacityUnits(RotaryRoadPresetId presetId)

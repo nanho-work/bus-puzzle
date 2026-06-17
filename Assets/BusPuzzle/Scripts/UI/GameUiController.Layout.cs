@@ -115,6 +115,11 @@ namespace BusPuzzle
 
             var screenSize = new Vector2Int(Screen.width, Screen.height);
             var safeArea = Screen.safeArea;
+            if (externalBottomSafeAreaInsetPixels > 0f)
+            {
+                safeArea.yMin = Mathf.Min(safeArea.yMax - 1f, safeArea.yMin + externalBottomSafeAreaInsetPixels);
+            }
+
             if (!force && lastScreenSize == screenSize && lastSafeArea == safeArea)
             {
                 return;

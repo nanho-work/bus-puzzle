@@ -11,6 +11,7 @@ namespace BusPuzzle
         private const float NpcTargetHeight = 0.405f;
         private const float NpcTargetWidth = 0.115f;
         private const float NpcTargetDepth = 0.105f;
+        private const float BodyOnlyScaleMultiplier = 1.2f;
 
         private static GameObject passengerModelPrefab;
         private static bool passengerModelPrefabLoaded;
@@ -187,6 +188,7 @@ namespace BusPuzzle
                 DisableRuntimeComponents(instance);
                 ConfigureNpcRenderers(instance, color, bodyMaterial, legMaterial, hatMaterial);
                 NormalizeNpcBounds(personRoot, instance.transform);
+                ApplyNpcBodyOnlyScale(instance.transform);
                 leftLegs[index] = FindNpcUpperLeg(instance.transform, true);
                 rightLegs[index] = FindNpcUpperLeg(instance.transform, false);
                 leftLowerLegs[index] = FindNpcLowerLeg(instance.transform, true);
@@ -670,6 +672,68 @@ namespace BusPuzzle
             return false;
         }
 
+        private static void ApplyNpcBodyOnlyScale(Transform root)
+        {
+            if (root == null || Mathf.Approximately(BodyOnlyScaleMultiplier, 1f))
+            {
+                return;
+            }
+
+            var children = root.GetComponentsInChildren<Transform>(true);
+            for (var index = 0; index < children.Length; index++)
+            {
+                var child = children[index];
+                if (child == null ||
+                    child == root ||
+                    !IsNpcBodyScaleTarget(child) ||
+                    HasNpcBodyScaleAncestor(child, root))
+                {
+                    continue;
+                }
+
+                child.localScale *= BodyOnlyScaleMultiplier;
+            }
+        }
+
+        private static bool HasNpcBodyScaleAncestor(Transform transform, Transform stopAt)
+        {
+            var current = transform != null ? transform.parent : null;
+            while (current != null && current != stopAt)
+            {
+                if (IsNpcBodyScaleTarget(current))
+                {
+                    return true;
+                }
+
+                current = current.parent;
+            }
+
+            return false;
+        }
+
+        private static bool IsNpcBodyScaleTarget(Transform transform)
+        {
+            if (transform == null)
+            {
+                return false;
+            }
+
+            return HasNameToken(transform, "Body") ||
+                HasNameToken(transform, "Arm") ||
+                HasNameToken(transform, "Hand") ||
+                HasNameToken(transform, "Leg") ||
+                HasNameToken(transform, "Foot") ||
+                HasNameToken(transform, "thigh") ||
+                HasNameToken(transform, "shin");
+        }
+
+        private static bool HasNameToken(Transform transform, string token)
+        {
+            return transform != null &&
+                !string.IsNullOrEmpty(token) &&
+                transform.name.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static void NormalizeNpcBounds(Transform personRoot, Transform instance)
         {
             if (!TryCalculateLocalRendererBounds(personRoot, out var bounds))
@@ -782,7 +846,9 @@ namespace BusPuzzle
             var body = VisualPrimitiveFactory.Create(PrimitiveType.Capsule, "Body");
             body.transform.SetParent(personRoot, false);
             body.transform.localPosition = new Vector3(0f, 0.176f * PassengerUnitLayout.VisualScale, 0f);
-            body.transform.localScale = new Vector3(0.0592f, 0.074f, 0.0592f) * PassengerUnitLayout.VisualScale;
+            body.transform.localScale = new Vector3(0.0592f, 0.074f, 0.0592f) *
+                PassengerUnitLayout.VisualScale *
+                BodyOnlyScaleMultiplier;
             body.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
 
             var head = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, "Head");
@@ -831,7 +897,9 @@ namespace BusPuzzle
             var leg = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Leg Mesh");
             leg.transform.SetParent(legRoot, false);
             leg.transform.localPosition = new Vector3(0f, -0.054f * PassengerUnitLayout.VisualScale, 0f);
-            leg.transform.localScale = new Vector3(0.020f, 0.108f, 0.022f) * PassengerUnitLayout.VisualScale;
+            leg.transform.localScale = new Vector3(0.020f, 0.108f, 0.022f) *
+                PassengerUnitLayout.VisualScale *
+                BodyOnlyScaleMultiplier;
             leg.GetComponent<Renderer>().sharedMaterial = material;
 
             footRoot = new GameObject($"{name} Foot").transform;
@@ -841,7 +909,9 @@ namespace BusPuzzle
             var foot = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Foot Mesh");
             foot.transform.SetParent(footRoot, false);
             foot.transform.localPosition = Vector3.zero;
-            foot.transform.localScale = new Vector3(0.028f, 0.012f, 0.052f) * PassengerUnitLayout.VisualScale;
+            foot.transform.localScale = new Vector3(0.028f, 0.012f, 0.052f) *
+                PassengerUnitLayout.VisualScale *
+                BodyOnlyScaleMultiplier;
             foot.GetComponent<Renderer>().sharedMaterial = material;
             return legRoot;
         }
@@ -861,13 +931,16 @@ namespace BusPuzzle
             var arm = VisualPrimitiveFactory.Create(PrimitiveType.Cube, "Arm Mesh");
             arm.transform.SetParent(armRoot, false);
             arm.transform.localPosition = new Vector3(side * 0.008f, -0.056f, 0.018f) * PassengerUnitLayout.VisualScale;
-            arm.transform.localScale = new Vector3(0.016f, 0.104f, 0.018f) * PassengerUnitLayout.VisualScale;
+            arm.transform.localScale = new Vector3(0.016f, 0.104f, 0.018f) *
+                PassengerUnitLayout.VisualScale *
+                BodyOnlyScaleMultiplier;
             arm.GetComponent<Renderer>().sharedMaterial = armMaterial;
 
             var hand = VisualPrimitiveFactory.Create(PrimitiveType.Sphere, "Hand");
             hand.transform.SetParent(armRoot, false);
             hand.transform.localPosition = new Vector3(side * 0.010f, -0.116f, 0.026f) * PassengerUnitLayout.VisualScale;
-            hand.transform.localScale = Vector3.one * (0.020f * PassengerUnitLayout.VisualScale);
+            hand.transform.localScale = Vector3.one *
+                (0.020f * PassengerUnitLayout.VisualScale * BodyOnlyScaleMultiplier);
             hand.GetComponent<Renderer>().sharedMaterial = handMaterial;
             return armRoot;
         }

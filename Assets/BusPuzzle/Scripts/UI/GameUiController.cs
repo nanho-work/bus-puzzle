@@ -45,6 +45,7 @@ namespace BusPuzzle
         private RectTransform safeAreaRoot;
         private Rect lastSafeArea;
         private Vector2Int lastScreenSize;
+        private float externalBottomSafeAreaInsetPixels;
         private Text levelText;
         private Text goldText;
         private Text statusText;
@@ -177,6 +178,18 @@ namespace BusPuzzle
         {
             UpdateSafeArea();
             UpdateTutorialOverlay();
+        }
+
+        public void SetExternalBottomSafeAreaInsetPixels(float insetPixels)
+        {
+            var clampedInset = Mathf.Max(0f, insetPixels);
+            if (Mathf.Abs(externalBottomSafeAreaInsetPixels - clampedInset) < 0.5f)
+            {
+                return;
+            }
+
+            externalBottomSafeAreaInsetPixels = clampedInset;
+            UpdateSafeArea(true);
         }
 
         public void SetLevel(int levelNumber, int totalLevels)
@@ -474,7 +487,7 @@ namespace BusPuzzle
                 return;
             }
 
-            var hasReward = baseGoldReward > 0;
+            var hasReward = baseGoldReward > 0 && RemoteConfigService.AreRewardedAdsEnabled;
             clearRewardDoubleButton.gameObject.SetActive(hasReward);
             if (nextButton != null)
             {

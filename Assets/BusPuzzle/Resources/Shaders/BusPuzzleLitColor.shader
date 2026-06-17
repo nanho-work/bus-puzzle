@@ -46,13 +46,16 @@ Shader "BusPuzzle/Lit Color"
             fixed4 frag(v2f i) : SV_Target
             {
                 half3 normalWorld = normalize(i.normalWorld);
-                half3 lightDir = normalize(half3(-0.35, 0.78, -0.48));
-                half diffuse = saturate(dot(normalWorld, lightDir));
-                half topLift = saturate(normalWorld.y) * 0.18;
-                half shade = 0.64 + diffuse * 0.34 + topLift;
-                half sheen = pow(saturate(dot(normalWorld, normalize(half3(-0.62, 0.70, 0.34)))), 12.0) * _Smoothness * 0.14;
+                half3 keyDir = normalize(half3(-0.24, 0.82, -0.52));
+                half3 fillDir = normalize(half3(0.42, 0.55, 0.28));
+                half key = saturate(dot(normalWorld, keyDir));
+                half fill = saturate(dot(normalWorld, fillDir)) * 0.10;
+                half topLift = saturate(normalWorld.y) * 0.14;
+                half shade = 0.58 + key * 0.42 + fill + topLift;
+                half sheen = pow(saturate(dot(normalWorld, keyDir)), 10.0) * _Smoothness * 0.18;
+                half rim = pow(1.0 - saturate(dot(normalWorld, half3(0, 1, 0))), 3.0) * _Smoothness * 0.035;
                 fixed4 color = _Color;
-                color.rgb = saturate(color.rgb * shade + sheen);
+                color.rgb = saturate(color.rgb * shade + sheen + rim);
                 return color;
             }
             ENDCG

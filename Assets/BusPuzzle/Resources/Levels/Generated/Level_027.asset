@@ -27,7 +27,7 @@ MonoBehaviour:
     parkingTension: 0.66704345
     stationPressure: 0.6550079
     requireSolutionRoute: 1
-  roadPresetId: 3
+  roadPresetId: 11
   roadPresetAsset: {fileID: 0}
   rotaryUnitCapacity: 25
   passengerUnits: 
@@ -405,5 +405,5 @@ MonoBehaviour:
     gridPosition: {x: 7, y: 5}
     startsConcealed: 0
   garages: []
-  generationSignature: signature=3;stage=27;seed=37243;difficulty=1;modifiers=0;progress=0.7593;post50=0;road=3;layoutVariant=152;layoutPool=200;garages=0;garageQueueMin=1;garageQueueMax=4;rotary=25;mysteryEnabled=0;mysteryMin=0;mysteryMax=0;mysteryRatio=0;minSolutions=10;maxSolutions=70;vehicles=41;colors=8;parking=0.667;station=0.655;route=1;flowMin=0.25;flowMax=0.5;groupMin=2;groupMax=7;interference=0.38;preserve=1;garageEnabled=1;garageRuleQueueMin=1;garageRuleQueueMax=4;garageRulePostQueueMin=2;garageRulePostQueueMax=6;stageCount=50;rampStart=11;rampReference=30;rampMax=50;postRampMax=100;baseSeed=10000;releaseVehicleAttempts=8;solutionLimit=256;
+  generationSignature: signature=3;stage=27;seed=37243;difficulty=1;modifiers=0;progress=0.7593;post50=0;road=11;layoutVariant=152;layoutPool=200;garages=0;garageQueueMin=1;garageQueueMax=4;rotary=25;mysteryEnabled=0;mysteryMin=0;mysteryMax=0;mysteryRatio=0;minSolutions=10;maxSolutions=70;vehicles=41;colors=8;parking=0.667;station=0.655;route=1;flowMin=0.25;flowMax=0.5;groupMin=2;groupMax=7;interference=0.38;preserve=1;garageEnabled=1;garageRuleQueueMin=1;garageRuleQueueMax=4;garageRulePostQueueMin=2;garageRulePostQueueMax=6;stageCount=50;rampStart=11;rampReference=30;rampMax=50;postRampMax=100;baseSeed=10000;releaseVehicleAttempts=8;solutionLimit=256;
   generationSolutionCount: 71

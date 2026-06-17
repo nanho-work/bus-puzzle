@@ -6,6 +6,7 @@ namespace BusPuzzle
     {
         private readonly IRewardedAdService inner;
         private bool isInitialized;
+        private bool isInnerInitialized;
         private bool isShutdown;
 
         public RemoteConfigRewardedAdService(IRewardedAdService inner)
@@ -37,11 +38,6 @@ namespace BusPuzzle
 
             isInitialized = true;
             RemoteConfigService.ValuesUpdated += HandleRemoteConfigUpdated;
-            if (inner != null)
-            {
-                inner.AvailabilityChanged += HandleInnerAvailabilityChanged;
-                inner.Initialize();
-            }
         }
 
         public void Shutdown()
@@ -55,7 +51,7 @@ namespace BusPuzzle
             if (isInitialized)
             {
                 RemoteConfigService.ValuesUpdated -= HandleRemoteConfigUpdated;
-                if (inner != null)
+                if (isInnerInitialized && inner != null)
                 {
                     inner.AvailabilityChanged -= HandleInnerAvailabilityChanged;
                 }
@@ -63,6 +59,7 @@ namespace BusPuzzle
 
             inner?.Shutdown();
             AvailabilityChanged = null;
+            isInnerInitialized = false;
             isInitialized = false;
         }
 
@@ -70,6 +67,7 @@ namespace BusPuzzle
         {
             if (!isShutdown && RemoteConfigService.AreRewardedAdsEnabled)
             {
+                TryInitializeInner();
                 inner?.Preload();
             }
         }
@@ -78,6 +76,7 @@ namespace BusPuzzle
         {
             if (!isShutdown && RemoteConfigService.AreRewardedAdsEnabled)
             {
+                TryInitializeInner();
                 inner?.Preload(placement);
             }
         }
@@ -132,10 +131,23 @@ namespace BusPuzzle
 
             if (RemoteConfigService.AreRewardedAdsEnabled)
             {
+                TryInitializeInner();
                 inner?.Preload();
             }
 
             AvailabilityChanged?.Invoke();
+        }
+
+        private void TryInitializeInner()
+        {
+            if (isShutdown || isInnerInitialized || inner == null || !RemoteConfigService.AreRewardedAdsEnabled)
+            {
+                return;
+            }
+
+            inner.AvailabilityChanged += HandleInnerAvailabilityChanged;
+            inner.Initialize();
+            isInnerInitialized = true;
         }
 
         private void HandleInnerAvailabilityChanged()

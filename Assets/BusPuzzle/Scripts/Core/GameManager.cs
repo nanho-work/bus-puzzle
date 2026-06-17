@@ -70,6 +70,8 @@ namespace BusPuzzle
         private BoardingFlowController boardingFlowController;
         private Coroutine stagePreloadRoutine;
         private IRewardedAdService rewardedAdService;
+        private IBannerAdService bannerAdService;
+        private float bannerReservedHeightPixels;
         private bool isStationUnlockAdInProgress;
         private bool isVipAdInProgress;
         private bool isMixShuffleAdInProgress;
@@ -162,6 +164,12 @@ namespace BusPuzzle
                 rewardedAdService.AvailabilityChanged -= UpdateRewardedAdUi;
                 rewardedAdService.Shutdown();
                 rewardedAdService = null;
+            }
+
+            if (bannerAdService != null)
+            {
+                bannerAdService.Shutdown();
+                bannerAdService = null;
             }
         }
 
@@ -310,6 +318,9 @@ namespace BusPuzzle
             rewardedAdService.AvailabilityChanged += UpdateRewardedAdUi;
             rewardedAdService.Initialize();
 
+            bannerAdService = BannerAdServiceFactory.Create(AdMobSettings.Load());
+            bannerAdService.Initialize();
+
             gameCamera = gameCamera != null ? gameCamera : Camera.main;
             if (gameCamera == null)
             {
@@ -318,10 +329,7 @@ namespace BusPuzzle
 
             MobilePerformanceProfile.ApplyCamera(gameCamera);
 
-            if (FindFirstObjectByType<Light>() == null)
-            {
-                CreateDefaultLight();
-            }
+            ConfigureSceneLighting();
         }
 
         private LevelSequence ResolveLevelSequence()
@@ -431,6 +439,7 @@ namespace BusPuzzle
             currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
             UserProgress.SaveLastStageIndex(currentLevelIndex, levelSequence.Count);
             currentLevel = levelSequence.GetLevel(currentLevelIndex);
+            UpdateBannerAdState(false);
             var shouldValidateExitSequence = levelSequence == null ||
                 !levelSequence.UsesRuntimeGeneration &&
                 !levelSequence.IsVerifiedGeneratedSet;
@@ -480,7 +489,8 @@ namespace BusPuzzle
             }
 
             var screenSize = new Vector2Int(Screen.width, Screen.height);
-            var safeArea = Screen.safeArea;
+            UpdateBannerReservedArea(false);
+            var safeArea = GetGameplaySafeArea();
             var aspect = gameCamera.aspect > 0.01f ? gameCamera.aspect : screenSize.x / (float)screenSize.y;
             if (!force &&
                 lastCameraFrameScreenSize == screenSize &&
@@ -497,6 +507,44 @@ namespace BusPuzzle
             MobilePerformanceProfile.ApplyCamera(gameCamera);
             MobilePerformanceProfile.ApplyRenderScaleForCurrentScreen();
             BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds(), safeArea, screenSize);
+        }
+
+        private void UpdateBannerAdState(bool reframeCamera = true)
+        {
+            var stageNumber = Mathf.Max(1, currentLevelIndex + 1);
+            bannerAdService?.SetStage(stageNumber);
+            UpdateBannerReservedArea(reframeCamera);
+        }
+
+        private void UpdateBannerReservedArea(bool reframeCamera)
+        {
+            var stageNumber = Mathf.Max(1, currentLevelIndex + 1);
+            var reservedHeight = bannerAdService != null && bannerAdService.ShouldReserveSpace(stageNumber)
+                ? BannerAdLayout.GetReservedHeightPixels()
+                : 0f;
+            uiController?.SetExternalBottomSafeAreaInsetPixels(reservedHeight);
+
+            if (Mathf.Abs(bannerReservedHeightPixels - reservedHeight) < 0.5f)
+            {
+                return;
+            }
+
+            bannerReservedHeightPixels = reservedHeight;
+            if (reframeCamera)
+            {
+                ReframeBoardCamera(true);
+            }
+        }
+
+        private Rect GetGameplaySafeArea()
+        {
+            var safeArea = Screen.safeArea;
+            if (bannerReservedHeightPixels > 0f)
+            {
+                safeArea.yMin = Mathf.Min(safeArea.yMax - 1f, safeArea.yMin + bannerReservedHeightPixels);
+            }
+
+            return safeArea;
         }
 
         private void RestartLevel()
@@ -552,6 +600,7 @@ namespace BusPuzzle
             }
 
             UpdateRewardedAdUi();
+            UpdateBannerAdState();
         }
 
         private void HandleRemoteConfigActionRequested()
@@ -2133,6 +2182,8 @@ namespace BusPuzzle
         private bool HasPotentialDepartTarget()
         {
             if (boardView == null ||
+                boardingFlowController == null ||
+                buses == null ||
                 departBoostRoutine != null ||
                 boardingFlowController.HasBusBoardingPassengers() ||
                 HasMovingBus())
@@ -2164,6 +2215,8 @@ namespace BusPuzzle
         {
             assignments = null;
             if (boardView == null ||
+                boardingFlowController == null ||
+                buses == null ||
                 departBoostRoutine != null ||
                 boardingFlowController.IsRunning ||
                 boardingFlowController.HasPendingReservations ||
@@ -2691,7 +2744,8 @@ namespace BusPuzzle
                 boardView.LockedStationSlots,
                 gameState == GameState.Playing &&
                     !IsAnyRewardedAdInProgress &&
-                    boardView.CanUnlockStationSlot,
+                    boardView.CanUnlockStationSlot &&
+                    RemoteConfigService.AreRewardedAdsEnabled,
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
                 isStationUnlockAdInProgress);
         }
@@ -2846,14 +2900,45 @@ namespace BusPuzzle
             return camera;
         }
 
-        private static void CreateDefaultLight()
+        private static void ConfigureSceneLighting()
+        {
+            var keyLight = FindFirstObjectByType<Light>();
+            if (keyLight == null)
+            {
+                keyLight = CreateDefaultLight();
+            }
+
+            ConfigureKeyLight(keyLight);
+            RenderSettings.sun = keyLight;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.66f, 0.73f, 0.82f);
+            RenderSettings.ambientEquatorColor = new Color(0.45f, 0.51f, 0.59f);
+            RenderSettings.ambientGroundColor = new Color(0.30f, 0.34f, 0.40f);
+            RenderSettings.ambientIntensity = 0.86f;
+            RenderSettings.subtractiveShadowColor = new Color(0.36f, 0.42f, 0.50f);
+        }
+
+        private static Light CreateDefaultLight()
         {
             var lightObject = new GameObject("Directional Light", typeof(Light));
-            lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-
             var light = lightObject.GetComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 0.95f;
+            return light;
+        }
+
+        private static void ConfigureKeyLight(Light light)
+        {
+            if (light == null)
+            {
+                return;
+            }
+
+            var lightTravelDirection = new Vector3(0.24f, -0.82f, 0.52f).normalized;
+            light.transform.rotation = Quaternion.LookRotation(lightTravelDirection, Vector3.up);
+            light.type = LightType.Directional;
+            light.color = new Color(1.00f, 0.96f, 0.88f);
+            light.intensity = 1.12f;
+            light.shadows = LightShadows.None;
         }
     }
 }

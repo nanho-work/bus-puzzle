@@ -1,6 +1,7 @@
 #if BUS_PUZZLE_ADMOB
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using GoogleMobileAds.Api;
 using GoogleMobileAds.Common;
 using UnityEngine;
@@ -17,6 +18,7 @@ namespace BusPuzzle
         private bool isInitialized;
         private bool isShutdown;
         private volatile bool rewardEarned;
+        private int showAttemptId;
 
         public AdMobRewardedAdService(AdMobSettings settings)
         {
@@ -45,19 +47,16 @@ namespace BusPuzzle
                 return;
             }
 
-            IosTrackingAuthorization.RequestIfNeeded(() => MobileAds.Initialize(_ =>
+            AdMobSdkInitializer.Initialize(() =>
             {
-                MobileAdsEventExecutor.ExecuteInUpdate(() =>
+                if (isShutdown)
                 {
-                    if (isShutdown)
-                    {
-                        return;
-                    }
+                    return;
+                }
 
-                    isInitialized = true;
-                    Preload();
-                });
-            }));
+                isInitialized = true;
+                Preload();
+            });
         }
 
         public void Shutdown()
@@ -71,6 +70,7 @@ namespace BusPuzzle
             isInitialized = false;
             pendingCompletion = null;
             rewardEarned = false;
+            showAttemptId++;
             loadingPlacements.Clear();
 
             foreach (var ad in rewardedAds.Values)
@@ -190,8 +190,39 @@ namespace BusPuzzle
             showingAd = adToShow;
             AvailabilityChanged?.Invoke();
 
-            adToShow.Show(_ => rewardEarned = true);
+            var attemptId = ++showAttemptId;
+            WatchShowTimeout(attemptId, placement);
+            try
+            {
+                adToShow.Show(_ => rewardEarned = true);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Rewarded ad failed to show for {placement}: {exception}");
+                CompletePendingReward(RewardedAdResult.Failed);
+                return false;
+            }
+
             return true;
+        }
+
+        private async void WatchShowTimeout(int attemptId, RewardedAdPlacement placement)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(15));
+
+            MobileAdsEventExecutor.ExecuteInUpdate(() =>
+            {
+                if (isShutdown ||
+                    showingAd == null ||
+                    pendingCompletion == null ||
+                    attemptId != showAttemptId)
+                {
+                    return;
+                }
+
+                Debug.LogWarning($"Rewarded ad show timed out for {placement}.");
+                CompletePendingReward(RewardedAdResult.Failed);
+            });
         }
 
         private void RegisterCallbacks(RewardedAd ad)
@@ -225,6 +256,7 @@ namespace BusPuzzle
             var callback = pendingCompletion;
             pendingCompletion = null;
             rewardEarned = false;
+            showAttemptId++;
 
             DestroyShowingAd();
             Preload();

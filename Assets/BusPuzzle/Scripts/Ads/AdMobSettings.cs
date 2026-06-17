@@ -8,6 +8,8 @@ namespace BusPuzzle
         public const string TestPublisherId = "ca-app-pub-3940256099942544";
         public const string AndroidTestAppId = "ca-app-pub-3940256099942544~3347511713";
         public const string IosTestAppId = "ca-app-pub-3940256099942544~1458002511";
+        public const string AndroidBannerTestAdUnitId = "ca-app-pub-3940256099942544/6300978111";
+        public const string IosBannerTestAdUnitId = "ca-app-pub-3940256099942544/2934735716";
         public const string AndroidRewardedTestAdUnitId = "ca-app-pub-3940256099942544/5224354917";
         public const string IosRewardedTestAdUnitId = "ca-app-pub-3940256099942544/1712485313";
         public const string StationSlotUnlockRewardType = "station_slot_unlock";
@@ -19,6 +21,8 @@ namespace BusPuzzle
         [SerializeField] private bool useProductionAdsInRelease = true;
         [SerializeField] private string androidAppId = "ca-app-pub-5773331970563455~5379288524";
         [SerializeField] private string iosAppId = "ca-app-pub-5773331970563455~7947262028";
+        [SerializeField] private string androidBannerProductionAdUnitId = "ca-app-pub-5773331970563455/5432398451";
+        [SerializeField] private string iosBannerProductionAdUnitId = "ca-app-pub-5773331970563455/6945919971";
         [SerializeField] private string androidRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/3872285640";
         [SerializeField] private string iosRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/7771471978";
         [SerializeField] private string androidVipRewardedProductionAdUnitId = "ca-app-pub-5773331970563455/3872285640";
@@ -31,6 +35,8 @@ namespace BusPuzzle
         public bool UseProductionAdsInRelease => useProductionAdsInRelease;
         public string AndroidAppId => androidAppId;
         public string IosAppId => iosAppId;
+        public string AndroidBannerProductionAdUnitId => androidBannerProductionAdUnitId;
+        public string IosBannerProductionAdUnitId => iosBannerProductionAdUnitId;
         public string AndroidRewardedProductionAdUnitId => androidRewardedProductionAdUnitId;
         public string IosRewardedProductionAdUnitId => iosRewardedProductionAdUnitId;
         public string AndroidVipRewardedProductionAdUnitId => androidVipRewardedProductionAdUnitId;
@@ -58,6 +64,11 @@ namespace BusPuzzle
             return GetRewardedAdUnitId(RewardedAdPlacement.StationSlotUnlock);
         }
 
+        public string GetBannerAdUnitId()
+        {
+            return ShouldUseProductionAds() ? GetProductionBannerAdUnitId() : GetTestBannerAdUnitId();
+        }
+
         public string GetRewardedAdUnitId(RewardedAdPlacement placement)
         {
             if (ShouldUseProductionAds())
@@ -82,6 +93,17 @@ namespace BusPuzzle
         public string GetProductionRewardedAdUnitId()
         {
             return GetProductionRewardedAdUnitId(RewardedAdPlacement.StationSlotUnlock);
+        }
+
+        public string GetProductionBannerAdUnitId()
+        {
+#if UNITY_ANDROID
+            return androidBannerProductionAdUnitId;
+#elif UNITY_IOS
+            return iosBannerProductionAdUnitId;
+#else
+            return string.Empty;
+#endif
         }
 
         public string GetProductionRewardedAdUnitId(RewardedAdPlacement placement)
@@ -132,6 +154,15 @@ namespace BusPuzzle
         public string GetTestRewardedAdUnitId()
         {
             return GetTestRewardedAdUnitId(RewardedAdPlacement.StationSlotUnlock);
+        }
+
+        public string GetTestBannerAdUnitId()
+        {
+#if UNITY_IOS
+            return IosBannerTestAdUnitId;
+#else
+            return AndroidBannerTestAdUnitId;
+#endif
         }
 
         public string GetTestRewardedAdUnitId(RewardedAdPlacement placement)

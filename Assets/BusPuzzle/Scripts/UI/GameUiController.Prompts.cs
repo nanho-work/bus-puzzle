@@ -593,6 +593,8 @@ namespace BusPuzzle
             bool adReady,
             bool adInProgress)
         {
+            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+
             if (vipTeleportPromptText != null)
             {
                 var remainingUses = Mathf.Max(0, maxUses - usedCount);
@@ -616,10 +618,12 @@ namespace BusPuzzle
             if (vipTeleportGoldConfirmButton != null)
             {
                 vipTeleportGoldConfirmButton.interactable = canSpendGold && !adInProgress && usedCount < maxUses;
+                SetRecoveryGoldButtonLayout(vipTeleportGoldConfirmButton, adsEnabled);
             }
 
             if (vipTeleportConfirmButton != null)
             {
+                vipTeleportConfirmButton.gameObject.SetActive(adsEnabled);
                 vipTeleportConfirmButton.interactable = adReady && !adInProgress && usedCount < maxUses;
             }
         }
@@ -631,6 +635,8 @@ namespace BusPuzzle
             bool adReady,
             bool adInProgress)
         {
+            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+
             if (mixShufflePromptText != null)
             {
                 mixShufflePromptText.text = canSpendGold
@@ -653,10 +659,12 @@ namespace BusPuzzle
             if (mixShuffleGoldConfirmButton != null)
             {
                 mixShuffleGoldConfirmButton.interactable = canSpendGold && !adInProgress;
+                SetRecoveryGoldButtonLayout(mixShuffleGoldConfirmButton, adsEnabled);
             }
 
             if (mixShuffleConfirmButton != null)
             {
+                mixShuffleConfirmButton.gameObject.SetActive(adsEnabled);
                 mixShuffleConfirmButton.interactable = adReady && !adInProgress;
             }
         }
@@ -668,6 +676,8 @@ namespace BusPuzzle
             bool adReady,
             bool adInProgress)
         {
+            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+
             if (departPromptText != null)
             {
                 departPromptText.text = canSpendGold
@@ -690,12 +700,29 @@ namespace BusPuzzle
             if (departGoldConfirmButton != null)
             {
                 departGoldConfirmButton.interactable = canSpendGold && !adInProgress;
+                SetRecoveryGoldButtonLayout(departGoldConfirmButton, adsEnabled);
             }
 
             if (departConfirmButton != null)
             {
+                departConfirmButton.gameObject.SetActive(adsEnabled);
                 departConfirmButton.interactable = adReady && !adInProgress;
             }
+        }
+
+        private static void SetRecoveryGoldButtonLayout(Button button, bool adsEnabled)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            SetAnchors(
+                button.GetComponent<RectTransform>(),
+                adsEnabled ? new Vector2(0.09f, 0f) : new Vector2(0.18f, 0f),
+                adsEnabled ? new Vector2(0.49f, 0.42f) : new Vector2(0.82f, 0.42f),
+                adsEnabled ? new Vector2(6f, 16f) : new Vector2(0f, 16f),
+                adsEnabled ? new Vector2(-6f, -12f) : new Vector2(0f, -12f));
         }
 
         private static string GetRewardedAdButtonLabel(bool adReady, bool adInProgress)

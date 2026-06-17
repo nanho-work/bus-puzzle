@@ -34,6 +34,7 @@ namespace BusPuzzle
             }
 
             var appId = GetPlatformAppId(settings, report.summary.platform);
+            var bannerId = GetPlatformProductionBannerAdUnitId(settings, report.summary.platform);
             var stationRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.StationSlotUnlock);
             var vipRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.VipBusTeleport);
             var shuffleRewardedId = GetPlatformProductionRewardedAdUnitId(settings, report.summary.platform, RewardedAdPlacement.BusColorShuffle);
@@ -50,10 +51,11 @@ namespace BusPuzzle
             }
 
             ValidateGoogleMobileAdsSettings(report.summary.platform, appId);
-            ValidateProductionRewardedAdUnitId(report.summary.platform, "station slot unlock", stationRewardedId);
-            ValidateProductionRewardedAdUnitId(report.summary.platform, "VIP bus teleport", vipRewardedId);
-            ValidateProductionRewardedAdUnitId(report.summary.platform, "bus color shuffle", shuffleRewardedId);
-            ValidateProductionRewardedAdUnitId(report.summary.platform, "depart boost", departRewardedId);
+            ValidateProductionAdUnitId(report.summary.platform, "footer banner", bannerId);
+            ValidateProductionAdUnitId(report.summary.platform, "station slot unlock", stationRewardedId);
+            ValidateProductionAdUnitId(report.summary.platform, "VIP bus teleport", vipRewardedId);
+            ValidateProductionAdUnitId(report.summary.platform, "bus color shuffle", shuffleRewardedId);
+            ValidateProductionAdUnitId(report.summary.platform, "depart boost", departRewardedId);
 
             if (!HasAdMobCompilerDefine(report.summary.platform))
             {
@@ -73,11 +75,13 @@ namespace BusPuzzle
 
             Debug.Log(
                 "AdMob settings loaded. " +
-                $"Android app: {settings.AndroidAppId}, Android station rewarded: {settings.AndroidRewardedProductionAdUnitId}, " +
+                $"Android app: {settings.AndroidAppId}, Android banner: {settings.AndroidBannerProductionAdUnitId}, " +
+                $"Android station rewarded: {settings.AndroidRewardedProductionAdUnitId}, " +
                 $"Android VIP rewarded: {settings.AndroidVipRewardedProductionAdUnitId}, " +
                 $"Android shuffle rewarded: {settings.AndroidShuffleRewardedProductionAdUnitId}, " +
                 $"Android depart rewarded: {settings.AndroidDepartRewardedProductionAdUnitId}, " +
-                $"iOS app: {settings.IosAppId}, iOS station rewarded: {settings.IosRewardedProductionAdUnitId}, " +
+                $"iOS app: {settings.IosAppId}, iOS banner: {settings.IosBannerProductionAdUnitId}, " +
+                $"iOS station rewarded: {settings.IosRewardedProductionAdUnitId}, " +
                 $"iOS VIP rewarded: {settings.IosVipRewardedProductionAdUnitId}, " +
                 $"iOS shuffle rewarded: {settings.IosShuffleRewardedProductionAdUnitId}, " +
                 $"iOS depart rewarded: {settings.IosDepartRewardedProductionAdUnitId}");
@@ -96,6 +100,13 @@ namespace BusPuzzle
         private static string GetPlatformAppId(AdMobSettings settings, BuildTarget target)
         {
             return target == BuildTarget.iOS ? settings.IosAppId : settings.AndroidAppId;
+        }
+
+        private static string GetPlatformProductionBannerAdUnitId(AdMobSettings settings, BuildTarget target)
+        {
+            return target == BuildTarget.iOS
+                ? settings.IosBannerProductionAdUnitId
+                : settings.AndroidBannerProductionAdUnitId;
         }
 
         private static string GetPlatformProductionRewardedAdUnitId(
@@ -129,16 +140,16 @@ namespace BusPuzzle
                 : settings.AndroidRewardedProductionAdUnitId;
         }
 
-        private static void ValidateProductionRewardedAdUnitId(BuildTarget target, string label, string adUnitId)
+        private static void ValidateProductionAdUnitId(BuildTarget target, string label, string adUnitId)
         {
             if (!AdMobSettings.LooksLikeAdUnitId(adUnitId))
             {
-                throw new BuildFailedException($"Rewarded ad unit ID is missing or invalid for {target} {label}: {adUnitId}");
+                throw new BuildFailedException($"Ad unit ID is missing or invalid for {target} {label}: {adUnitId}");
             }
 
             if (AdMobSettings.IsGoogleTestAdUnitId(adUnitId))
             {
-                throw new BuildFailedException($"Release build is still configured with Google's rewarded test ad unit ID for {label}.");
+                throw new BuildFailedException($"Release build is still configured with Google's test ad unit ID for {label}.");
             }
         }
 

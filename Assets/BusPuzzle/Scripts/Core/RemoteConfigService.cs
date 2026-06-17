@@ -9,13 +9,24 @@ namespace BusPuzzle
 {
     internal static class RemoteConfigService
     {
-        private const int CurrentAndroidVersionCode = 5;
-        private const int CurrentIosBuildNumber = 5;
+        private const int CurrentAndroidVersionCode = 6;
+        private const int CurrentIosBuildNumber = 6;
         private const string AndroidUpdateUrlFallback = "https://play.google.com/store/apps/details?id=com.koofylab.buspop";
         private const string MaintenanceMessageKoFallback = "잠시 후 다시 이용해 주세요.";
         private const string MaintenanceMessageEnFallback = "Please try again soon.";
         private const string UpdateMessageKoFallback = "새 버전으로 업데이트한 후 이용해 주세요.";
         private const string UpdateMessageEnFallback = "Please update to the latest version.";
+        private const string AdsEnabledKey = "ads_enabled";
+        private const string RewardedAdsEnabledKey = "rewarded_ads_enabled";
+        private const string AndroidAdsEnabledKey = "android_ads_enabled";
+        private const string AndroidRewardedAdsEnabledKey = "android_rewarded_ads_enabled";
+        private const string IosAdsEnabledKey = "ios_ads_enabled";
+        private const string IosRewardedAdsEnabledKey = "ios_rewarded_ads_enabled";
+        private const string BannerAdsEnabledKey = "banner_ads_enabled";
+        private const string AndroidBannerAdsEnabledKey = "android_banner_ads_enabled";
+        private const string IosBannerAdsEnabledKey = "ios_banner_ads_enabled";
+        private const string BannerStartStageKey = "banner_start_stage";
+        private const int DefaultBannerStartStage = 10;
 
         private static bool isInitialized;
         private static bool isFetching;
@@ -27,8 +38,10 @@ namespace BusPuzzle
         public static bool ForceUpdateEnabled { get; private set; }
         public static int AndroidMinSupportedVersionCode { get; private set; } = CurrentAndroidVersionCode;
         public static int IosMinSupportedBuildNumber { get; private set; } = CurrentIosBuildNumber;
-        public static bool AdsEnabled { get; private set; } = true;
-        public static bool RewardedAdsEnabled { get; private set; } = true;
+        public static bool AdsEnabled { get; private set; } = DefaultPlatformAdsEnabled;
+        public static bool RewardedAdsEnabled { get; private set; } = DefaultPlatformRewardedAdsEnabled;
+        public static bool BannerAdsEnabled { get; private set; } = DefaultPlatformBannerAdsEnabled;
+        public static int BannerStartStage { get; private set; } = DefaultBannerStartStage;
         public static string MaintenanceMessageKo { get; private set; } = MaintenanceMessageKoFallback;
         public static string MaintenanceMessageEn { get; private set; } = MaintenanceMessageEnFallback;
         public static string UpdateMessageKo { get; private set; } = UpdateMessageKoFallback;
@@ -39,6 +52,7 @@ namespace BusPuzzle
         public static bool IsReady => isInitialized && !isFetching;
         public static string FetchStatus => fetchStatus;
         public static bool AreRewardedAdsEnabled => AdsEnabled && RewardedAdsEnabled;
+        public static bool AreBannerAdsEnabled => AdsEnabled && BannerAdsEnabled;
 
         public static bool IsCurrentBuildUnsupported
         {
@@ -98,8 +112,16 @@ namespace BusPuzzle
                 { "force_update_enabled", false },
                 { "android_min_supported_version_code", CurrentAndroidVersionCode },
                 { "ios_min_supported_build_number", CurrentIosBuildNumber },
-                { "ads_enabled", true },
-                { "rewarded_ads_enabled", true },
+                { AdsEnabledKey, true },
+                { RewardedAdsEnabledKey, true },
+                { AndroidAdsEnabledKey, true },
+                { AndroidRewardedAdsEnabledKey, true },
+                { IosAdsEnabledKey, false },
+                { IosRewardedAdsEnabledKey, false },
+                { BannerAdsEnabledKey, true },
+                { AndroidBannerAdsEnabledKey, true },
+                { IosBannerAdsEnabledKey, false },
+                { BannerStartStageKey, DefaultBannerStartStage },
                 { "maintenance_message_ko", MaintenanceMessageKoFallback },
                 { "maintenance_message_en", MaintenanceMessageEnFallback },
                 { "force_update_message_ko", UpdateMessageKoFallback },
@@ -153,8 +175,13 @@ namespace BusPuzzle
             ForceUpdateEnabled = config.GetValue("force_update_enabled").BooleanValue;
             AndroidMinSupportedVersionCode = GetIntValue(config, "android_min_supported_version_code", CurrentAndroidVersionCode);
             IosMinSupportedBuildNumber = GetIntValue(config, "ios_min_supported_build_number", CurrentIosBuildNumber);
-            AdsEnabled = config.GetValue("ads_enabled").BooleanValue;
-            RewardedAdsEnabled = config.GetValue("rewarded_ads_enabled").BooleanValue;
+            AdsEnabled = config.GetValue(AdsEnabledKey).BooleanValue &&
+                GetPlatformBoolValue(config, AndroidAdsEnabledKey, IosAdsEnabledKey, DefaultPlatformAdsEnabled);
+            RewardedAdsEnabled = config.GetValue(RewardedAdsEnabledKey).BooleanValue &&
+                GetPlatformBoolValue(config, AndroidRewardedAdsEnabledKey, IosRewardedAdsEnabledKey, DefaultPlatformRewardedAdsEnabled);
+            BannerAdsEnabled = config.GetValue(BannerAdsEnabledKey).BooleanValue &&
+                GetPlatformBoolValue(config, AndroidBannerAdsEnabledKey, IosBannerAdsEnabledKey, DefaultPlatformBannerAdsEnabled);
+            BannerStartStage = Mathf.Max(1, GetIntValue(config, BannerStartStageKey, DefaultBannerStartStage));
             MaintenanceMessageKo = GetStringValue(config, "maintenance_message_ko", MaintenanceMessageKoFallback);
             MaintenanceMessageEn = GetStringValue(config, "maintenance_message_en", MaintenanceMessageEnFallback);
             UpdateMessageKo = GetStringValue(config, "force_update_message_ko", UpdateMessageKoFallback);
@@ -189,6 +216,57 @@ namespace BusPuzzle
         public static string GetUpdateMessage()
         {
             return IsKoreanLanguage() ? UpdateMessageKo : UpdateMessageEn;
+        }
+
+        private static bool DefaultPlatformAdsEnabled
+        {
+            get
+            {
+#if UNITY_IOS && !UNITY_EDITOR
+                return false;
+#else
+                return true;
+#endif
+            }
+        }
+
+        private static bool DefaultPlatformRewardedAdsEnabled
+        {
+            get
+            {
+#if UNITY_IOS && !UNITY_EDITOR
+                return false;
+#else
+                return true;
+#endif
+            }
+        }
+
+        private static bool DefaultPlatformBannerAdsEnabled
+        {
+            get
+            {
+#if UNITY_IOS && !UNITY_EDITOR
+                return false;
+#else
+                return true;
+#endif
+            }
+        }
+
+        private static bool GetPlatformBoolValue(
+            FirebaseRemoteConfig config,
+            string androidKey,
+            string iosKey,
+            bool fallback)
+        {
+#if UNITY_ANDROID
+            return config.GetValue(androidKey).BooleanValue;
+#elif UNITY_IOS
+            return config.GetValue(iosKey).BooleanValue;
+#else
+            return fallback;
+#endif
         }
 
         public static string GetUpdateUrl()

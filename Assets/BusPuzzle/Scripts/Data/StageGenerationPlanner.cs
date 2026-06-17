@@ -65,6 +65,15 @@ namespace BusPuzzle
     {
         private static readonly RotaryRoadPresetId[] RoadPresetPattern =
         {
+            RotaryRoadPresetId.SmallCircleTest,
+            RotaryRoadPresetId.LargeCircleTest,
+            RotaryRoadPresetId.OvalTest,
+            RotaryRoadPresetId.RoundedSquareTest,
+            RotaryRoadPresetId.HeartTest,
+            RotaryRoadPresetId.CloverTest,
+            RotaryRoadPresetId.DropTest,
+            RotaryRoadPresetId.CloudTest,
+            RotaryRoadPresetId.RibbonTest,
             RotaryRoadPresetId.CompactOval,
             RotaryRoadPresetId.WideTerminal,
             RotaryRoadPresetId.TallTerminal,

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -118,13 +119,13 @@ namespace BusPuzzle
         {
             ApplyStartupOrientation();
             MobilePerformanceProfile.Apply();
-            PlayerIdentityService.Initialize();
-            LeaderboardService.Initialize();
+            InitializeOptionalService("Firebase anonymous auth", PlayerIdentityService.Initialize);
+            InitializeOptionalService("Leaderboard", LeaderboardService.Initialize);
 
             EnsureSceneDependencies();
             RemoteConfigService.ValuesUpdated += ApplyRemoteConfigState;
             uiController.RemoteConfigActionRequested += HandleRemoteConfigActionRequested;
-            RemoteConfigService.Initialize();
+            InitializeOptionalService("Remote Config", RemoteConfigService.Initialize);
             ConfigureControllers();
             BackgroundMusicPlayer.ApplyPreferences();
             var initialLevelIndex = startingLevelIndex > 0
@@ -132,6 +133,18 @@ namespace BusPuzzle
                 : UserProgress.GetLastStageIndex(levelSequence.Count);
             LoadLevel(initialLevelIndex);
             ApplyRemoteConfigState();
+        }
+
+        private static void InitializeOptionalService(string serviceName, Action initialize)
+        {
+            try
+            {
+                initialize?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"{serviceName} initialization failed: {exception.Message}");
+            }
         }
 
         private void OnDestroy()

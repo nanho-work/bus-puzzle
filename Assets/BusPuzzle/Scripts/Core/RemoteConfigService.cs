@@ -9,7 +9,7 @@ namespace BusPuzzle
 {
     internal static class RemoteConfigService
     {
-        private const int CurrentAndroidVersionCode = 8;
+        private const int CurrentAndroidVersionCode = 9;
         private const int CurrentIosBuildNumber = 6;
         private const string AndroidUpdateUrlFallback = "https://play.google.com/store/apps/details?id=com.koofylab.buspop";
         private const string MaintenanceMessageKoFallback = "잠시 후 다시 이용해 주세요.";
@@ -83,7 +83,7 @@ namespace BusPuzzle
             isFetching = true;
             fetchStatus = "Checking dependencies";
 
-            FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+            FirebaseDependencyService.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
             {
                 if (task.IsFaulted || task.IsCanceled || task.Result != DependencyStatus.Available)
                 {

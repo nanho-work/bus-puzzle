@@ -33,7 +33,7 @@ namespace BusPuzzle
             }
 
             isInitializing = true;
-            FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+            FirebaseDependencyService.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
             {
                 if (task.IsCanceled || task.IsFaulted || task.Result != DependencyStatus.Available)
                 {

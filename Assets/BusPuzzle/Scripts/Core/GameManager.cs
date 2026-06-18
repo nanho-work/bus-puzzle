@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -135,13 +134,13 @@ namespace BusPuzzle
             ApplyRemoteConfigState();
         }
 
-        private static void InitializeOptionalService(string serviceName, Action initialize)
+        private static void InitializeOptionalService(string serviceName, System.Action initialize)
         {
             try
             {
                 initialize?.Invoke();
             }
-            catch (Exception exception)
+            catch (System.Exception exception)
             {
                 Debug.LogWarning($"{serviceName} initialization failed: {exception.Message}");
             }

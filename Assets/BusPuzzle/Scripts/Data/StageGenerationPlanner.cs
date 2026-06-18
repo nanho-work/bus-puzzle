@@ -63,7 +63,8 @@ namespace BusPuzzle
 
     public static class StageGenerationPlanner
     {
-        // Keep the pattern length stable while avoiding sharp concave shapes whose road offsets can overlap.
+        // Keep the pattern length stable while avoiding experimental shapes whose road offsets can overlap.
+        // Snake/Clover/Cloud/Loop/Arrow/Ribbon presets remain available for validation passes before rotation.
         private static readonly RotaryRoadPresetId[] RoadPresetPattern =
         {
             RotaryRoadPresetId.SmallCircleTest,

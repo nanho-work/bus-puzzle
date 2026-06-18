@@ -18,12 +18,15 @@ namespace BusPuzzle
             SetAnchors(titlePlate, new Vector2(0.17f, 0.88f), new Vector2(0.83f, 1.14f), Vector2.zero, Vector2.zero);
 
             var closeButton = CreatePromptCloseButton("Leaderboard Close Button", modal);
-            closeButton.onClick.AddListener(() => HideLeaderboardPrompt(true));
+            closeButton.onClick.AddListener(() => HideLeaderboardPrompt(false));
 
-            leaderboardStatusText = CreateText("Leaderboard Status", modal, TextAnchor.MiddleCenter, 25, FontStyle.Normal);
+            var personalRecordPanel = CreateRoundedPanel("Leaderboard Personal Record Panel", modal, new Color(0.12f, 0.32f, 0.40f, 0.72f));
+            SetAnchors(personalRecordPanel, new Vector2(0.08f, 0.76f), new Vector2(0.92f, 0.84f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
+
+            leaderboardStatusText = CreateText("Leaderboard Status", personalRecordPanel, TextAnchor.MiddleCenter, 25, FontStyle.Normal);
             ApplySettingsTextWeight(leaderboardStatusText);
             leaderboardStatusText.color = new Color(0.86f, 0.94f, 1f, 0.96f);
-            SetAnchors(leaderboardStatusText.rectTransform, new Vector2(0.08f, 0.76f), new Vector2(0.92f, 0.84f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
+            SetAnchors(leaderboardStatusText.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
 
             var viewport = CreateRoundedPanel("Leaderboard Viewport", modal, new Color(0.05f, 0.08f, 0.11f, 0.86f));
             SetAnchors(viewport, new Vector2(0.06f, 0.17f), new Vector2(0.94f, 0.75f), Vector2.zero, Vector2.zero);

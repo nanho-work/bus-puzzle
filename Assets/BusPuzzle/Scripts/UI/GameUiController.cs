@@ -13,6 +13,7 @@ namespace BusPuzzle
         private const string DepartBoosterIconResource = "UI/Boosters/Depart";
         private const string StationSlotBoosterIconResource = "UI/Boosters/plus";
         private const string SettingsButtonIconResource = "UI/Boosters/Setting";
+        private const string RankingButtonIconResource = "UI/Boosters/ranking";
         private const string RetryButtonIconResource = "UI/Boosters/retry";
         private const string NextButtonIconResource = "UI/Boosters/NEXT";
         private const string PromptButtonBaseResource = "UI/Boosters/base";
@@ -54,6 +55,7 @@ namespace BusPuzzle
         private Text vipBadgeText;
         private Button menuButton;
         private Button settingsButton;
+        private Button rankingButton;
         private Button vipButton;
         private Button mixButton;
         private Button departButton;
@@ -66,7 +68,6 @@ namespace BusPuzzle
         private Text vibrationLabelText;
         private Text languageLabelText;
         private Text nicknameButtonText;
-        private Text leaderboardButtonText;
         private Text feedbackButtonText;
         private Text legalButtonText;
         private Button languageButton;

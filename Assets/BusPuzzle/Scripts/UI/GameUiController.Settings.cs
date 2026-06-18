@@ -94,18 +94,8 @@ namespace BusPuzzle
                 UiSecondaryActionColor,
                 out nicknameButtonText);
             ApplySettingsTextWeight(nicknameButtonText);
-            SetAnchors(nicknameButton.GetComponent<RectTransform>(), new Vector2(0.06f, 0.22f), new Vector2(0.48f, 0.36f), Vector2.zero, Vector2.zero);
+            SetAnchors(nicknameButton.GetComponent<RectTransform>(), new Vector2(0.06f, 0.22f), new Vector2(0.94f, 0.36f), Vector2.zero, Vector2.zero);
             nicknameButton.onClick.AddListener(() => ShowNicknamePrompt(false));
-
-            var leaderboardButton = CreatePromptTextButton(
-                "Leaderboard Button",
-                modal,
-                Localization.Text("leaderboard_short"),
-                UiSecondaryActionColor,
-                out leaderboardButtonText);
-            ApplySettingsTextWeight(leaderboardButtonText);
-            SetAnchors(leaderboardButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.22f), new Vector2(0.94f, 0.36f), Vector2.zero, Vector2.zero);
-            leaderboardButton.onClick.AddListener(ShowLeaderboardPrompt);
 
             var feedbackButton = CreatePromptTextButton(
                 "Feedback Button",
@@ -331,11 +321,6 @@ namespace BusPuzzle
             if (nicknameButtonText != null)
             {
                 nicknameButtonText.text = Localization.Text("nickname_short");
-            }
-
-            if (leaderboardButtonText != null)
-            {
-                leaderboardButtonText.text = Localization.Text("leaderboard_short");
             }
 
             if (feedbackButtonText != null)

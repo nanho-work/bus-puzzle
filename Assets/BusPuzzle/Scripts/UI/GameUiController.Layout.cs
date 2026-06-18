@@ -58,6 +58,10 @@ namespace BusPuzzle
             SetAnchors(settingsButton.GetComponent<RectTransform>(), new Vector2(0.84f, 0f), new Vector2(1f, 1f), new Vector2(6f, 0f), new Vector2(0f, 0f));
             settingsButton.onClick.AddListener(ToggleSettingsPanel);
 
+            rankingButton = CreateHeaderIconButton("Header Ranking Button", root, RankingButtonIconResource, "#", UiPrimaryActionColor);
+            SetAnchors(rankingButton.GetComponent<RectTransform>(), new Vector2(0.84f, 1f), new Vector2(1f, 1f), new Vector2(6f, -250f), new Vector2(-16f, -134f));
+            rankingButton.onClick.AddListener(ShowLeaderboardPrompt);
+
             statusText = CreateText("Status Text", root, TextAnchor.MiddleCenter, 30, FontStyle.Normal);
             SetAnchors(statusText.rectTransform, new Vector2(0.18f, 1f), new Vector2(0.82f, 1f), new Vector2(0f, -162f), new Vector2(0f, -120f));
 

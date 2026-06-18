@@ -5,7 +5,7 @@ namespace BusPuzzle
     internal static class BannerAdLayout
     {
         private const float BannerHeightDp = 50f;
-        private const float GameplayExtraBottomClearanceDp = 36f;
+        private const float GameplayExtraBottomClearanceDp = 44f;
         private const float DefaultReservedHeightPixels = 64f;
         private const float DefaultGameplayExtraClearancePixels = 44f;
 

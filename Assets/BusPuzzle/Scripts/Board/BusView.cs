@@ -19,6 +19,7 @@ namespace BusPuzzle
         private const float BoardingShakeYawDegrees = 1.2f;
         private const float MysteryBadgeCharacterSize = 0.115f;
         private const float MysteryBadgeShadowOffset = 0.007f;
+        private const float RoofMarkerLiftScale = 0.014f;
 
         private Coroutine motionRoutine;
         private Coroutine hitShakeRoutine;
@@ -793,8 +794,13 @@ namespace BusPuzzle
 
         private void CreateArrow()
         {
-            var roofHeight = TryGetVisualBodyTopLocalY(out var visualBodyTopY) ? visualBodyTopY : VisualHeight;
+            var roofHeight = GetVisualBodyMarkerHeight();
             directionArrow = VehicleDirectionArrow.Create(Size, transform, BodyVisualWidth, BodyVisualLength, roofHeight, BodyVisualCenterZ, cellSize);
+        }
+
+        private float GetVisualBodyMarkerHeight()
+        {
+            return TryGetVisualBodyTopLocalY(out var visualBodyTopY) ? visualBodyTopY : VisualHeight;
         }
 
         private bool TryGetVisualBodyTopLocalY(out float topY)
@@ -858,7 +864,7 @@ namespace BusPuzzle
         {
             mysteryBadge = new GameObject("Mystery Badge");
             mysteryBadge.transform.SetParent(transform, false);
-            mysteryBadge.transform.localPosition = new Vector3(0f, VisualHeight + cellSize * 0.18f, BodyVisualCenterZ);
+            mysteryBadge.transform.localPosition = new Vector3(0f, GetVisualBodyMarkerHeight() + cellSize * RoofMarkerLiftScale, BodyVisualCenterZ);
             mysteryBadge.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 
             CreateMysteryText("Mystery Shadow", new Color(0.015f, 0.018f, 0.024f, 0.96f), new Vector3(cellSize * MysteryBadgeShadowOffset, -cellSize * MysteryBadgeShadowOffset, 0.010f));

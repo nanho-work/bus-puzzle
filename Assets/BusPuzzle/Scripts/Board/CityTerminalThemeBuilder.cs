@@ -15,17 +15,16 @@ namespace BusPuzzle
         private static readonly Color TreeLeafColor = new Color(0.24f, 0.49f, 0.30f);
         private static readonly Color TrunkColor = new Color(0.39f, 0.25f, 0.14f);
         private static readonly Color QueueGuideColor = new Color(0.96f, 0.86f, 0.52f, 0.42f);
-        private const int PreviewStationSkinStageNumber = 14;
         private const float QueueGuideY = -0.011f;
 
-        public static void Create(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, int stageNumber = 0)
+        public static void Create(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
         {
             var root = new GameObject("City Terminal Theme").transform;
             root.SetParent(parent, false);
             var materials = CreateMaterials();
 
             CreateBusYardEdgeSkin(CreateSection(root, "1 Bus Yard Edge Skin"), materials);
-            CreateStationSkin(CreateSection(root, "2 Station Skin"), stageNumber);
+            CreateStationSkin(CreateSection(root, "2 Station Skin"));
             CreateQueueFloorSkin(CreateSection(root, "3 Queue Floor Skin"), layout, settings, materials);
             CreateQueueOuterLineSkin(CreateSection(root, "4 Queue Outer Line Skin"), layout, settings, materials);
             CreateRotaryCenterSkin(CreateSection(root, "5 Rotary Center Skin"), settings, materials);
@@ -79,16 +78,13 @@ namespace BusPuzzle
             CreateYardMarkings(root, materials.WhiteLine);
         }
 
-        private static void CreateStationSkin(Transform root, int stageNumber)
+        private static void CreateStationSkin(Transform root)
         {
             root.gameObject.SetActive(true);
-            if (stageNumber == PreviewStationSkinStageNumber)
-            {
-                CreateStage14TerminalStationSkin(root);
-            }
+            CreateTerminalStationSkin(root);
         }
 
-        private static void CreateStage14TerminalStationSkin(Transform root)
+        private static void CreateTerminalStationSkin(Transform root)
         {
             var rotation = Quaternion.identity;
             var totalSlots = BoardLayoutConfig.TotalStationSlots;
@@ -107,8 +103,6 @@ namespace BusPuzzle
             var railPostMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Rail Post", new Color(0.63f, 0.71f, 0.80f));
             var vipMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Gold", new Color(0.96f, 0.67f, 0.08f));
             var vipInsetMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Inset", new Color(1.00f, 0.86f, 0.28f));
-            var lockedPanelMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Locked Panel", new Color(0.35f, 0.43f, 0.54f, 0.16f));
-            var ledMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Green LED", new Color(0.22f, 0.98f, 0.52f));
             var whiteLineMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal White Paint", new Color(0.92f, 0.96f, 1.00f, 0.72f));
 
             BoardGeometry.CreateFlatRoundedRect(
@@ -167,19 +161,6 @@ namespace BusPuzzle
             }
 
             CreateVipTerminalBay(root, BoardLayoutConfig.GetFreeStationPosition(), slotWidth, slotDepth, rotation, vipMaterial, vipInsetMaterial, whiteLineMaterial);
-
-            for (var index = 0; index < BoardLayoutConfig.LockedStationSlots; index++)
-            {
-                CreateLockedTerminalPanel(
-                    root,
-                    index,
-                    BoardLayoutConfig.GetStationPosition(BoardLayoutConfig.ActiveStationSlots + index),
-                    slotWidth,
-                    slotDepth,
-                    rotation,
-                    lockedPanelMaterial,
-                    ledMaterial);
-            }
         }
 
         private static void CreateTerminalBay(
@@ -249,40 +230,6 @@ namespace BusPuzzle
                 position + Vector3.up * -0.017f - rotation * Vector3.forward * (slotDepth * 0.33f),
                 new Vector2(slotWidth * 0.54f, 0.018f),
                 whiteLineMaterial,
-                rotation);
-        }
-
-        private static void CreateLockedTerminalPanel(
-            Transform root,
-            int index,
-            Vector3 position,
-            float slotWidth,
-            float slotDepth,
-            Quaternion rotation,
-            Material panelMaterial,
-            Material ledMaterial)
-        {
-            BoardGeometry.CreateFlatRoundedRect(
-                $"Stage 14 Terminal Locked LED Panel {index + 1}",
-                root,
-                position + Vector3.up * -0.027f,
-                new Vector2(slotWidth - 0.070f, slotDepth - 0.105f),
-                slotWidth * 0.10f,
-                panelMaterial,
-                rotation);
-            CreateBox(
-                $"Stage 14 Terminal Locked LED Vertical {index + 1}",
-                root,
-                position + Vector3.up * 0.003f,
-                new Vector3(slotWidth * 0.090f, 0.018f, slotDepth * 0.26f),
-                ledMaterial,
-                rotation);
-            CreateBox(
-                $"Stage 14 Terminal Locked LED Horizontal {index + 1}",
-                root,
-                position + Vector3.up * 0.004f,
-                new Vector3(slotWidth * 0.43f, 0.018f, slotDepth * 0.060f),
-                ledMaterial,
                 rotation);
         }
 

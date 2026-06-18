@@ -172,7 +172,7 @@ namespace BusPuzzle
             var vipLabelColor = new Color(1.00f, 0.70f, 0.00f);
             var vipLabelShadowColor = new Color(0.42f, 0.25f, 0.00f, 0.58f);
             var vipLabelSize = Mathf.Max(cellSize * 0.120f, vipSlotWidth * 0.132f);
-            const float VipLabelYawDegrees = 90f;
+            const float VipLabelYawDegrees = 0f;
 
             BoardGeometry.CreateFlatRoundedRect(
                 "Vip Station Warm Aura",
@@ -302,63 +302,125 @@ namespace BusPuzzle
             float cellSize,
             Quaternion stationRotation)
         {
-            var vipBaseMaterial = PuzzlePalette.CreateSolidMaterial("Vip Terminal Badge Base", new Color(0.96f, 0.67f, 0.08f));
-            var vipInsetMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Terminal Badge Inset", new Color(1.00f, 0.91f, 0.42f, 0.58f));
-            var vipLineMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Terminal Badge Line", new Color(1.00f, 0.98f, 0.78f, 0.54f));
-            var vipLabelColor = new Color(1.00f, 0.72f, 0.00f);
-            var vipLabelShadowColor = new Color(0.42f, 0.25f, 0.00f, 0.52f);
-            var vipLabelSize = Mathf.Max(cellSize * 0.112f, vipSlotWidth * 0.122f);
-            const float VipLabelYawDegrees = 90f;
+            var cardShadowMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Pass Card Shadow", new Color(0.36f, 0.24f, 0.04f, 0.20f));
+            var cardBorderMaterial = PuzzlePalette.CreateSolidMaterial("Vip Pass Card Gold Border", new Color(0.94f, 0.70f, 0.22f));
+            var cardMaterial = PuzzlePalette.CreateSolidMaterial("Vip Pass Card Cream", new Color(1.00f, 0.94f, 0.62f));
+            var starMaterial = PuzzlePalette.CreateSolidMaterial("Vip Pass Card Star", new Color(0.94f, 0.67f, 0.16f));
+            var starShadowMaterial = PuzzlePalette.CreateTransparentMaterial("Vip Pass Card Star Shadow", new Color(0.48f, 0.30f, 0.02f, 0.22f));
+            var vipLabelColor = new Color(0.78f, 0.53f, 0.12f);
+            var vipLabelShadowColor = new Color(0.46f, 0.30f, 0.06f, 0.24f);
+            var vipLabelSize = Mathf.Max(cellSize * 0.080f, vipSlotWidth * 0.088f);
+            const float VipLabelYawDegrees = 0f;
 
             BoardGeometry.CreateFlatRoundedRect(
-                "Vip Terminal Badge Base",
+                "Vip Pass Card Shadow",
                 root,
-                position + Vector3.down * 0.019f,
-                new Vector2(vipSlotWidth - BayInset * 0.24f, vipSlotDepth - BayInset * 0.24f),
-                vipSlotWidth * 0.14f,
-                vipBaseMaterial,
+                position + Vector3.down * 0.027f + stationRotation * new Vector3(0.012f, 0f, -0.012f),
+                new Vector2(vipSlotWidth - BayInset * 0.18f, vipSlotDepth - BayInset * 0.16f),
+                vipSlotWidth * 0.16f,
+                cardShadowMaterial,
                 stationRotation);
 
             BoardGeometry.CreateFlatRoundedRect(
-                "Vip Terminal Badge Inset",
+                "Vip Pass Card Border",
                 root,
-                position + Vector3.down * 0.012f,
-                new Vector2(vipSlotWidth - BayInset * 0.90f, vipSlotDepth - BayInset * 0.90f),
-                vipSlotWidth * 0.11f,
-                vipInsetMaterial,
+                position + Vector3.down * 0.020f,
+                new Vector2(vipSlotWidth - BayInset * 0.26f, vipSlotDepth - BayInset * 0.22f),
+                vipSlotWidth * 0.16f,
+                cardBorderMaterial,
                 stationRotation);
 
-            BoardGeometry.CreateFlatRect(
-                "Vip Terminal Badge Light Streak",
+            BoardGeometry.CreateFlatRoundedRect(
+                "Vip Pass Card Cream Face",
                 root,
-                position + Vector3.up * 0.004f + stationRotation * new Vector3(vipSlotWidth * 0.10f, 0f, -vipSlotDepth * 0.18f),
-                new Vector2(vipSlotWidth * 0.34f, 0.014f),
-                vipLineMaterial,
-                stationRotation * Quaternion.Euler(0f, -20f, 0f));
+                position + Vector3.down * 0.013f,
+                new Vector2(vipSlotWidth - BayInset * 0.64f, vipSlotDepth - BayInset * 0.58f),
+                vipSlotWidth * 0.13f,
+                cardMaterial,
+                stationRotation);
+
+            var starCenter = position + stationRotation * new Vector3(0f, 0f, -vipSlotDepth * 0.18f);
+            CreateFlatStar(
+                root,
+                "Vip Pass Star Shadow",
+                starCenter + Vector3.down * 0.003f + stationRotation * new Vector3(0.006f, 0f, -0.007f),
+                vipSlotWidth * 0.285f,
+                stationRotation,
+                starShadowMaterial);
+            CreateFlatStar(
+                root,
+                "Vip Pass Star",
+                starCenter + Vector3.up * 0.006f,
+                vipSlotWidth * 0.270f,
+                stationRotation,
+                starMaterial);
 
             CreateStationLabel(
                 root,
                 "Vip Terminal Label Shadow",
-                position + stationRotation * new Vector3(0.007f, 0f, -0.009f),
+                position + stationRotation * new Vector3(0.004f, 0f, vipSlotDepth * 0.205f),
                 "VIP",
                 vipLabelShadowColor,
                 vipLabelSize,
                 stationRotation,
                 FontStyle.Bold,
-                56,
+                48,
                 VipLabelYawDegrees);
 
             CreateStationLabel(
                 root,
                 "Vip Terminal Label",
-                position,
+                position + stationRotation * new Vector3(0f, 0f, vipSlotDepth * 0.215f),
                 "VIP",
                 vipLabelColor,
                 vipLabelSize,
                 stationRotation,
                 FontStyle.Bold,
-                56,
+                48,
                 VipLabelYawDegrees);
+        }
+
+        private static void CreateFlatStar(
+            Transform root,
+            string name,
+            Vector3 position,
+            float radius,
+            Quaternion stationRotation,
+            Material material)
+        {
+            const int pointCount = 5;
+            var vertices = new Vector3[pointCount * 2 + 1];
+            var triangles = new int[pointCount * 2 * 6];
+            vertices[0] = Vector3.zero;
+            var innerRadius = radius * 0.47f;
+
+            for (var index = 0; index < pointCount * 2; index++)
+            {
+                var angle = Mathf.PI * 0.5f + index * Mathf.PI / pointCount;
+                var pointRadius = index % 2 == 0 ? radius : innerRadius;
+                vertices[index + 1] = new Vector3(
+                    Mathf.Cos(angle) * pointRadius,
+                    0f,
+                    Mathf.Sin(angle) * pointRadius);
+            }
+
+            for (var index = 0; index < pointCount * 2; index++)
+            {
+                var current = index + 1;
+                var next = index + 1 == pointCount * 2 ? 1 : index + 2;
+                var triangleIndex = index * 6;
+                triangles[triangleIndex] = 0;
+                triangles[triangleIndex + 1] = current;
+                triangles[triangleIndex + 2] = next;
+                triangles[triangleIndex + 3] = 0;
+                triangles[triangleIndex + 4] = next;
+                triangles[triangleIndex + 5] = current;
+            }
+
+            var star = new GameObject(name).transform;
+            star.SetParent(root, false);
+            star.SetPositionAndRotation(position, stationRotation);
+            BoardGeometry.CreateMeshObject(name, star, vertices, triangles, material, true);
         }
 
         private static void CreateStationLabel(

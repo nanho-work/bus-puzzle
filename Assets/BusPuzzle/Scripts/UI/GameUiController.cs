@@ -8,8 +8,8 @@ namespace BusPuzzle
     {
         private const string FeedbackEmailAddress = "koofylab@gmail.com";
         private const string PrivacyPolicyUrl = "https://www.koofy.co.kr/bus-pop/privacy";
-        private const string VipBoosterIconResource = "UI/Boosters/booster_vip 1";
-        private const string MixBoosterIconResource = "UI/Boosters/booster_mix 1";
+        private const string VipBoosterIconResource = "UI/Boosters/booster_vip";
+        private const string MixBoosterIconResource = "UI/Boosters/booster_mix";
         private const string DepartBoosterIconResource = "UI/Boosters/Depart";
         private const string StationSlotBoosterIconResource = "UI/Boosters/plus";
         private const string SettingsButtonIconResource = "UI/Boosters/Setting";

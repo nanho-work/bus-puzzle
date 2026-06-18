@@ -35,7 +35,6 @@ namespace BusPuzzle
         private Coroutine tutorialStationHighlightRoutine;
         private GameObject tutorialStationHighlight;
         private int currentPassengerUnitCount;
-        private int currentStageNumber;
         private float rotaryCenterZ = BoardLayoutConfig.RotaryCenterZ;
         private bool vipStationSlotOccupied;
 
@@ -87,7 +86,6 @@ namespace BusPuzzle
         public void BuildLevel(LevelData levelData, List<PassengerView> passengers, List<BusView> buses, int stageNumber = 0)
         {
             var roadPreset = GetRoadPresetForStage(levelData);
-            currentStageNumber = Mathf.Max(0, stageNumber);
             var rotaryUnitCapacity = GetRotaryUnitCapacityForStage(levelData, roadPreset);
             var rotaryUnitSpacing = GetRotaryUnitSpacingForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber);
             var roadProfile = PassengerUnitLayout.CreateRoadProfile(roadPreset, GetRoadScaleForStage(levelData, roadPreset, rotaryUnitCapacity, stageNumber));
@@ -107,7 +105,7 @@ namespace BusPuzzle
             garages.Clear();
             CreateRoots();
             CreateGround();
-            CreateTheme(stageNumber);
+            CreateTheme();
             CreatePassengerRotary();
             CreateGrid();
             CreateStationSlots();
@@ -196,6 +194,7 @@ namespace BusPuzzle
             vipStationSlotOccupied = true;
             slotIndex = VipStationSlotIndex;
             slotPosition = BoardLayoutConfig.GetFreeStationPosition();
+            RefreshVipStationLabelVisibility();
             return true;
         }
 
@@ -215,6 +214,7 @@ namespace BusPuzzle
             if (slotIndex == VipStationSlotIndex)
             {
                 vipStationSlotOccupied = false;
+                RefreshVipStationLabelVisibility();
                 return;
             }
 
@@ -723,9 +723,9 @@ namespace BusPuzzle
             RotaryRoadBuilder.CreateGround(transform, rotaryLayout, CreateRotaryRoadBuildSettings());
         }
 
-        private void CreateTheme(int stageNumber)
+        private void CreateTheme()
         {
-            CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings(), stageNumber);
+            CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings());
         }
 
         private void CreatePassengerRotary()
@@ -761,14 +761,43 @@ namespace BusPuzzle
                 BoardLayoutConfig.GetFreeStationPosition,
                 BoardLayoutConfig.GetStationPosition,
                 GetLockedStationPosition,
-                currentStageNumber == 14);
+                true);
+            RefreshVipStationLabelVisibility();
+        }
+
+        private void RefreshVipStationLabelVisibility()
+        {
+            if (stationRoot == null)
+            {
+                return;
+            }
+
+            SetStationVisualsByName(stationRoot, "Vip Terminal Label", !vipStationSlotOccupied);
+            SetStationVisualsByName(stationRoot, "Vip Station Label", !vipStationSlotOccupied);
+        }
+
+        private static void SetStationVisualsByName(Transform root, string namePrefix, bool visible)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < root.childCount; index++)
+            {
+                var child = root.GetChild(index);
+                if (child.name.StartsWith(namePrefix, System.StringComparison.Ordinal))
+                {
+                    child.gameObject.SetActive(visible);
+                }
+
+                SetStationVisualsByName(child, namePrefix, visible);
+            }
         }
 
         private Quaternion GetActiveStationRotation()
         {
-            return currentStageNumber == 14
-                ? Quaternion.identity
-                : BoardLayoutConfig.StationRotation;
+            return Quaternion.identity;
         }
 
         private static float GetMaxAbsFeederX(params FeederRoadPath[] paths)

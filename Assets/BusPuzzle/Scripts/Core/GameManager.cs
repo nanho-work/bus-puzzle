@@ -72,6 +72,7 @@ namespace BusPuzzle
         private IRewardedAdService rewardedAdService;
         private IBannerAdService bannerAdService;
         private float bannerReservedHeightPixels;
+        private float bannerGameplayReservedHeightPixels;
         private bool isStationUnlockAdInProgress;
         private bool isVipAdInProgress;
         private bool isMixShuffleAdInProgress;
@@ -117,6 +118,8 @@ namespace BusPuzzle
         {
             ApplyStartupOrientation();
             MobilePerformanceProfile.Apply();
+            PlayerIdentityService.Initialize();
+            LeaderboardService.Initialize();
 
             EnsureSceneDependencies();
             RemoteConfigService.ValuesUpdated += ApplyRemoteConfigState;
@@ -519,17 +522,19 @@ namespace BusPuzzle
         private void UpdateBannerReservedArea(bool reframeCamera)
         {
             var stageNumber = Mathf.Max(1, currentLevelIndex + 1);
-            var reservedHeight = bannerAdService != null && bannerAdService.ShouldReserveSpace(stageNumber)
-                ? BannerAdLayout.GetReservedHeightPixels()
-                : 0f;
+            var shouldReserveSpace = bannerAdService != null && bannerAdService.ShouldReserveSpace(stageNumber);
+            var reservedHeight = shouldReserveSpace ? BannerAdLayout.GetReservedHeightPixels() : 0f;
+            var gameplayReservedHeight = shouldReserveSpace ? BannerAdLayout.GetGameplayReservedHeightPixels() : 0f;
             uiController?.SetExternalBottomSafeAreaInsetPixels(reservedHeight);
 
-            if (Mathf.Abs(bannerReservedHeightPixels - reservedHeight) < 0.5f)
+            if (Mathf.Abs(bannerReservedHeightPixels - reservedHeight) < 0.5f &&
+                Mathf.Abs(bannerGameplayReservedHeightPixels - gameplayReservedHeight) < 0.5f)
             {
                 return;
             }
 
             bannerReservedHeightPixels = reservedHeight;
+            bannerGameplayReservedHeightPixels = gameplayReservedHeight;
             if (reframeCamera)
             {
                 ReframeBoardCamera(true);
@@ -539,9 +544,9 @@ namespace BusPuzzle
         private Rect GetGameplaySafeArea()
         {
             var safeArea = Screen.safeArea;
-            if (bannerReservedHeightPixels > 0f)
+            if (bannerGameplayReservedHeightPixels > 0f)
             {
-                safeArea.yMin = Mathf.Min(safeArea.yMax - 1f, safeArea.yMin + bannerReservedHeightPixels);
+                safeArea.yMin = Mathf.Min(safeArea.yMax - 1f, safeArea.yMin + bannerGameplayReservedHeightPixels);
             }
 
             return safeArea;
@@ -2535,12 +2540,14 @@ namespace BusPuzzle
             }
 
             ExitVipSelectionModeForEndState();
-            if (currentLevelIndex + 1 < levelSequence.Count)
+            var clearedStageNumber = currentLevelIndex + 1;
+            LeaderboardService.RecordStageClear(clearedStageNumber);
+            if (clearedStageNumber < levelSequence.Count)
             {
-                UserProgress.SaveLastStageIndex(currentLevelIndex + 1, levelSequence.Count);
+                UserProgress.SaveLastStageIndex(clearedStageNumber, levelSequence.Count);
             }
 
-            var goldReward = UserEconomy.TryGrantStageClearGold(currentLevelIndex + 1, StageClearGoldReward)
+            var goldReward = UserEconomy.TryGrantStageClearGold(clearedStageNumber, StageClearGoldReward)
                 ? StageClearGoldReward
                 : 0;
             currentClearGoldReward = goldReward;
@@ -2548,7 +2555,7 @@ namespace BusPuzzle
             isClearRewardDoubleAdInProgress = false;
             UpdateCounters();
             UpdateGoldUi();
-            uiController.ShowClear(currentLevelIndex + 1, currentLevelIndex + 1 < levelSequence.Count, goldReward);
+            uiController.ShowClear(clearedStageNumber, clearedStageNumber < levelSequence.Count, goldReward);
             UpdateRewardedAdUi();
             EffectAudioPlayer.PlayVictory();
         }

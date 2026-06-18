@@ -1,15 +1,19 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BusPuzzle
 {
     internal static class GameFontProvider
     {
         private const string LightFontResource = "Fonts/GmarketSansTTFLight";
+        private const string MediumFontResource = "Fonts/GmarketSansTTFMedium";
         private const string BoldFontResource = "Fonts/GmarketSansTTFBold";
 
         private static Font lightFont;
+        private static Font mediumFont;
         private static Font boldFont;
         private static Font fallbackFont;
+        private static bool attemptedMediumFontLoad;
 
         public static Font GetFont(FontStyle fontStyle)
         {
@@ -20,6 +24,21 @@ namespace BusPuzzle
             }
 
             return GetFallbackFont();
+        }
+
+        public static void ApplyMediumToText(Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.fontStyle = FontStyle.Normal;
+            var font = GetMediumFont();
+            if (font != null)
+            {
+                text.font = font;
+            }
         }
 
         public static void ApplyToTextMesh(TextMesh text, FontStyle fontStyle)
@@ -57,6 +76,17 @@ namespace BusPuzzle
             }
 
             return lightFont;
+        }
+
+        private static Font GetMediumFont()
+        {
+            if (!attemptedMediumFontLoad)
+            {
+                mediumFont = Resources.Load<Font>(MediumFontResource);
+                attemptedMediumFontLoad = true;
+            }
+
+            return mediumFont != null ? mediumFont : GetLightFont();
         }
 
         private static Font GetBoldFont()

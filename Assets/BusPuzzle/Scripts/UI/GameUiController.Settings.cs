@@ -23,6 +23,7 @@ namespace BusPuzzle
 
             var titlePlate = CreateDialogTitlePlate("Settings Title Plate", modal, Localization.Text("settings_title"));
             settingsTitleText = titlePlate.GetComponentInChildren<Text>();
+            ApplySettingsTextWeight(settingsTitleText);
             SetAnchors(titlePlate, new Vector2(0.17f, 0.88f), new Vector2(0.83f, 1.14f), Vector2.zero, Vector2.zero);
 
             var closeButton = CreateRoundIconButton("Settings Close Button", modal, "×", 86f, 42, true);
@@ -86,13 +87,34 @@ namespace BusPuzzle
             SetAnchors(languageButton.GetComponent<RectTransform>(), new Vector2(0.76f, 0.39f), new Vector2(0.97f, 0.72f), Vector2.zero, Vector2.zero);
             languageButton.onClick.AddListener(ShowLanguagePrompt);
 
+            var nicknameButton = CreatePromptTextButton(
+                "Nickname Button",
+                modal,
+                Localization.Text("nickname_short"),
+                UiSecondaryActionColor,
+                out nicknameButtonText);
+            ApplySettingsTextWeight(nicknameButtonText);
+            SetAnchors(nicknameButton.GetComponent<RectTransform>(), new Vector2(0.06f, 0.22f), new Vector2(0.48f, 0.36f), Vector2.zero, Vector2.zero);
+            nicknameButton.onClick.AddListener(() => ShowNicknamePrompt(false));
+
+            var leaderboardButton = CreatePromptTextButton(
+                "Leaderboard Button",
+                modal,
+                Localization.Text("leaderboard_short"),
+                UiSecondaryActionColor,
+                out leaderboardButtonText);
+            ApplySettingsTextWeight(leaderboardButtonText);
+            SetAnchors(leaderboardButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.22f), new Vector2(0.94f, 0.36f), Vector2.zero, Vector2.zero);
+            leaderboardButton.onClick.AddListener(ShowLeaderboardPrompt);
+
             var feedbackButton = CreatePromptTextButton(
                 "Feedback Button",
                 modal,
                 Localization.Text("contact_short"),
                 UiSecondaryActionColor,
                 out feedbackButtonText);
-            SetAnchors(feedbackButton.GetComponent<RectTransform>(), new Vector2(0.13f, 0.08f), new Vector2(0.48f, 0.30f), Vector2.zero, Vector2.zero);
+            ApplySettingsTextWeight(feedbackButtonText);
+            SetAnchors(feedbackButton.GetComponent<RectTransform>(), new Vector2(0.06f, 0.06f), new Vector2(0.48f, 0.20f), Vector2.zero, Vector2.zero);
             feedbackButton.onClick.AddListener(OpenFeedbackMail);
 
             var privacyButton = CreatePromptTextButton(
@@ -101,10 +123,13 @@ namespace BusPuzzle
                 Localization.Text("legal_short"),
                 UiSecondaryActionColor,
                 out legalButtonText);
-            SetAnchors(privacyButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.08f), new Vector2(0.87f, 0.30f), Vector2.zero, Vector2.zero);
+            ApplySettingsTextWeight(legalButtonText);
+            SetAnchors(privacyButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.06f), new Vector2(0.94f, 0.20f), Vector2.zero, Vector2.zero);
             privacyButton.onClick.AddListener(OpenPrivacyPolicy);
 
             BuildLanguagePrompt();
+            BuildLeaderboardPrompt();
+            BuildNicknamePrompt();
             HideSettingsPanel();
         }
 
@@ -135,6 +160,16 @@ namespace BusPuzzle
             {
                 languagePrompt.gameObject.SetActive(false);
             }
+
+            if (leaderboardPrompt != null)
+            {
+                leaderboardPrompt.gameObject.SetActive(false);
+            }
+
+            if (nicknamePrompt != null)
+            {
+                nicknamePrompt.gameObject.SetActive(false);
+            }
         }
 
         private void RefreshSettingsToggles()
@@ -152,6 +187,7 @@ namespace BusPuzzle
 
             var titlePlate = CreateDialogTitlePlate("Language Title Plate", modal, Localization.Text("language_title"));
             languagePromptTitleText = titlePlate.GetComponentInChildren<Text>();
+            ApplySettingsTextWeight(languagePromptTitleText);
             SetAnchors(titlePlate, new Vector2(0.17f, 0.88f), new Vector2(0.83f, 1.14f), Vector2.zero, Vector2.zero);
 
             var closeButton = CreatePromptCloseButton("Language Close Button", modal);
@@ -292,6 +328,16 @@ namespace BusPuzzle
                 languageLabelText.text = Localization.Text("language");
             }
 
+            if (nicknameButtonText != null)
+            {
+                nicknameButtonText.text = Localization.Text("nickname_short");
+            }
+
+            if (leaderboardButtonText != null)
+            {
+                leaderboardButtonText.text = Localization.Text("leaderboard_short");
+            }
+
             if (feedbackButtonText != null)
             {
                 feedbackButtonText.text = Localization.Text("contact_short");
@@ -305,6 +351,31 @@ namespace BusPuzzle
             if (languagePromptTitleText != null)
             {
                 languagePromptTitleText.text = Localization.Text("language_title");
+            }
+
+            if (leaderboardPromptTitleText != null)
+            {
+                leaderboardPromptTitleText.text = Localization.Text("leaderboard_title");
+            }
+
+            if (leaderboardRefreshButtonText != null)
+            {
+                leaderboardRefreshButtonText.text = Localization.Text("leaderboard_refresh");
+            }
+
+            if (nicknamePromptTitleText != null)
+            {
+                nicknamePromptTitleText.text = Localization.Text("nickname_title");
+            }
+
+            if (nicknameInputPlaceholderText != null)
+            {
+                nicknameInputPlaceholderText.text = Localization.Text("nickname_placeholder");
+            }
+
+            if (nicknameSaveButtonText != null)
+            {
+                nicknameSaveButtonText.text = Localization.Text("nickname_save");
             }
 
             if (clearPromptTitleText != null)
@@ -383,6 +454,11 @@ namespace BusPuzzle
             {
                 iconVisual.Apply(value);
             }
+        }
+
+        private static void ApplySettingsTextWeight(Text text)
+        {
+            GameFontProvider.ApplyMediumToText(text);
         }
 
         private static Toggle CreateSettingIconToggle(

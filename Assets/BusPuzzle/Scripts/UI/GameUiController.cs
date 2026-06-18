@@ -65,6 +65,8 @@ namespace BusPuzzle
         private Text mainSoundLabelText;
         private Text vibrationLabelText;
         private Text languageLabelText;
+        private Text nicknameButtonText;
+        private Text leaderboardButtonText;
         private Text feedbackButtonText;
         private Text legalButtonText;
         private Button languageButton;
@@ -73,6 +75,20 @@ namespace BusPuzzle
         private readonly System.Collections.Generic.List<Button> languageOptionButtons = new System.Collections.Generic.List<Button>();
         private readonly System.Collections.Generic.List<Text> languageOptionButtonTexts = new System.Collections.Generic.List<Text>();
         private readonly System.Collections.Generic.List<string> languageOptionCodes = new System.Collections.Generic.List<string>();
+        private RectTransform leaderboardPrompt;
+        private Text leaderboardPromptTitleText;
+        private Text leaderboardStatusText;
+        private RectTransform leaderboardListContent;
+        private Button leaderboardRefreshButton;
+        private Text leaderboardRefreshButtonText;
+        private RectTransform nicknamePrompt;
+        private Text nicknamePromptTitleText;
+        private Text nicknamePromptMessageText;
+        private InputField nicknameInput;
+        private Text nicknameInputPlaceholderText;
+        private Button nicknameCloseButton;
+        private Button nicknameSaveButton;
+        private Text nicknameSaveButtonText;
         private RectTransform clearPrompt;
         private Text clearPromptTitleText;
         private Text clearPromptText;
@@ -134,6 +150,9 @@ namespace BusPuzzle
         private static Sprite circleSprite;
         private static Sprite gearIconSprite;
         private bool shouldReturnToFailPromptOnRecoveryCancel;
+        private bool attemptedInitialNicknamePrompt;
+        private bool nicknamePromptIsInitial;
+        private bool nicknamePromptReturnToSettings;
         private RectTransform startupSplashRoot;
         private CanvasGroup startupSplashCanvasGroup;
 
@@ -178,6 +197,7 @@ namespace BusPuzzle
         {
             UpdateSafeArea();
             UpdateTutorialOverlay();
+            TryShowInitialNicknamePrompt();
         }
 
         public void SetExternalBottomSafeAreaInsetPixels(float insetPixels)

@@ -274,15 +274,6 @@ namespace BusPuzzle
 
             CreateCrosswalk(root, new Vector3(-1.88f, -0.018f, BoardLayoutConfig.ParkingYardTopZ + 0.22f), 0.46f, 0.22f, whiteLine);
             CreateCrosswalk(root, new Vector3(1.92f, -0.018f, BoardLayoutConfig.ParkingYardTopZ + 0.22f), 0.46f, 0.22f, whiteLine);
-
-            CreateGroundLabel(
-                root,
-                "Bus Only Yard Label",
-                new Vector3(0f, 0.002f, BoardLayoutConfig.GridBottomZ - 0.13f),
-                "BUS ONLY",
-                new Color(TerminalBlue.r, TerminalBlue.g, TerminalBlue.b, 0.58f),
-                0.034f,
-                Quaternion.identity);
         }
 
         private static void CreateQueueFloorSkin(
@@ -454,34 +445,6 @@ namespace BusPuzzle
                 new Vector2(0.050f, 0.050f),
                 0.025f,
                 material);
-        }
-
-        private static void CreateGroundLabel(
-            Transform root,
-            string name,
-            Vector3 position,
-            string label,
-            Color color,
-            float characterSize,
-            Quaternion rotation)
-        {
-            var labelObject = new GameObject(name);
-            labelObject.transform.SetParent(root, false);
-            labelObject.transform.SetPositionAndRotation(position, rotation * Quaternion.Euler(90f, 0f, 0f));
-
-            var text = labelObject.AddComponent<TextMesh>();
-            text.text = label;
-            text.anchor = TextAnchor.MiddleCenter;
-            text.alignment = TextAlignment.Center;
-            text.fontSize = 42;
-            text.characterSize = characterSize;
-            text.fontStyle = FontStyle.Bold;
-            text.color = color;
-            GameFontProvider.ApplyToTextMesh(text, FontStyle.Bold);
-
-            var renderer = labelObject.GetComponent<MeshRenderer>();
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
         }
 
         private static void CreateLamp(Transform root, Vector3 position, float height, Material pole, Material glow, Material bulb)

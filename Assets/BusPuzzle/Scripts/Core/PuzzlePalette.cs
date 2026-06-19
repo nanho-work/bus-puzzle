@@ -88,6 +88,19 @@ namespace BusPuzzle
             return material;
         }
 
+        public static Material CreateLitMaterial(string materialName, Color color, float smoothness = 0.28f)
+        {
+            var material = CreateMaterialFromShader(FindDefaultShader(), materialName);
+            SetMaterialColor(material, color);
+
+            if (material != null && material.HasProperty("_Smoothness"))
+            {
+                material.SetFloat("_Smoothness", smoothness);
+            }
+
+            return material;
+        }
+
         public static Material CreateMaterialFromShader(Shader shader, string materialName)
         {
             Material material = null;

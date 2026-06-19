@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Firebase;
 using Firebase.Extensions;
 using Firebase.Functions;
 using UnityEngine;
@@ -14,11 +15,33 @@ namespace BusPuzzle
         private const string LocalReachedAtUtcKey = "bus_puzzle_local_max_cleared_stage_reached_at_utc";
         private const string ServerSubmittedMaxClearedStageKey = "bus_puzzle_server_submitted_max_cleared_stage";
         private const string ServerSyncedNicknameKey = "bus_puzzle_server_synced_nickname";
+        private const string CachedTopLeaderboardKey = "bus_puzzle_cached_top_leaderboard_v1";
 
         private static bool isInitialized;
         private static bool isSubmitting;
+        private static bool isFetchingTopLeaderboard;
+        private static IReadOnlyList<LeaderboardEntry> cachedTopLeaderboard;
+        private static readonly List<Action<IReadOnlyList<LeaderboardEntry>>> PendingFetchCompletions =
+            new List<Action<IReadOnlyList<LeaderboardEntry>>>();
+        private static readonly List<Action<string>> PendingFetchFailures = new List<Action<string>>();
 
         public static int LocalMaxClearedStage => Mathf.Max(0, PlayerPrefs.GetInt(LocalMaxClearedStageKey, 0));
+
+        [Serializable]
+        private sealed class CachedLeaderboardPayload
+        {
+            public string fetchedAtUtc;
+            public List<CachedLeaderboardEntry> entries = new List<CachedLeaderboardEntry>();
+        }
+
+        [Serializable]
+        private sealed class CachedLeaderboardEntry
+        {
+            public string userId;
+            public int rank;
+            public string nickname;
+            public int maxClearedStage;
+        }
 
         public sealed class LeaderboardEntry
         {
@@ -44,8 +67,8 @@ namespace BusPuzzle
             }
 
             isInitialized = true;
-            PlayerIdentityService.IdentityUpdated += SubmitPendingRecord;
-            SubmitPendingRecord();
+            PlayerIdentityService.IdentityUpdated += HandleIdentityUpdated;
+            HandleIdentityUpdated();
         }
 
         public static bool RecordStageClear(int clearedStageNumber)
@@ -122,9 +145,109 @@ namespace BusPuzzle
                 });
         }
 
+        public static bool TryGetCachedTopLeaderboard(out IReadOnlyList<LeaderboardEntry> entries)
+        {
+            entries = cachedTopLeaderboard;
+            if (entries != null && entries.Count > 0)
+            {
+                return true;
+            }
+
+            var json = PlayerPrefs.GetString(CachedTopLeaderboardKey, string.Empty);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return false;
+            }
+
+            try
+            {
+                var payload = JsonUtility.FromJson<CachedLeaderboardPayload>(json);
+                if (payload?.entries == null || payload.entries.Count == 0)
+                {
+                    return false;
+                }
+
+                var restoredEntries = new List<LeaderboardEntry>(payload.entries.Count);
+                foreach (var cachedEntry in payload.entries)
+                {
+                    if (cachedEntry == null || cachedEntry.rank <= 0 || cachedEntry.maxClearedStage <= 0)
+                    {
+                        continue;
+                    }
+
+                    restoredEntries.Add(new LeaderboardEntry(
+                        cachedEntry.userId,
+                        cachedEntry.rank,
+                        cachedEntry.nickname,
+                        cachedEntry.maxClearedStage));
+                }
+
+                if (restoredEntries.Count == 0)
+                {
+                    return false;
+                }
+
+                cachedTopLeaderboard = restoredEntries;
+                entries = cachedTopLeaderboard;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Leaderboard cache load failed: {exception.Message}");
+                return false;
+            }
+        }
+
+        public static void PrefetchTopLeaderboard()
+        {
+            if (!PlayerIdentityService.IsReady)
+            {
+                return;
+            }
+
+            FetchTopLeaderboard(null, null);
+        }
+
         public static void FetchTopLeaderboard(
             Action<IReadOnlyList<LeaderboardEntry>> onCompleted,
             Action<string> onFailed)
+        {
+            if (onCompleted != null)
+            {
+                PendingFetchCompletions.Add(onCompleted);
+            }
+
+            if (onFailed != null)
+            {
+                PendingFetchFailures.Add(onFailed);
+            }
+
+            if (isFetchingTopLeaderboard)
+            {
+                return;
+            }
+
+            isFetchingTopLeaderboard = true;
+            FirebaseDependencyService.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+            {
+                if (task.IsFaulted || task.IsCanceled || task.Result != DependencyStatus.Available)
+                {
+                    var reason = task.Exception?.GetBaseException().Message;
+                    if (string.IsNullOrWhiteSpace(reason))
+                    {
+                        reason = task.IsCanceled ? "Canceled" : task.Result.ToString();
+                    }
+
+                    Debug.LogWarning($"Leaderboard dependency check failed: {reason}");
+                    CompleteLeaderboardFetchFailure(reason);
+                    return;
+                }
+
+                FetchTopLeaderboardFromServer();
+            });
+        }
+
+        private static void FetchTopLeaderboardFromServer()
         {
             FirebaseFunctions.GetInstance(FunctionsRegion)
                 .GetHttpsCallable("getTopLeaderboard")
@@ -135,12 +258,83 @@ namespace BusPuzzle
                     {
                         var message = task.Exception?.GetBaseException().Message ?? "Canceled";
                         Debug.LogWarning($"Leaderboard fetch failed: {message}");
-                        onFailed?.Invoke(message);
+                        CompleteLeaderboardFetchFailure(message);
                         return;
                     }
 
-                    onCompleted?.Invoke(ParseLeaderboardEntries(task.Result.Data));
+                    var entries = ParseLeaderboardEntries(task.Result.Data);
+                    SaveCachedTopLeaderboard(entries);
+                    CompleteLeaderboardFetchSuccess(entries);
                 });
+        }
+
+        private static void HandleIdentityUpdated()
+        {
+            SubmitPendingRecord();
+            PrefetchTopLeaderboard();
+        }
+
+        private static void CompleteLeaderboardFetchSuccess(IReadOnlyList<LeaderboardEntry> entries)
+        {
+            isFetchingTopLeaderboard = false;
+            var callbacks = new List<Action<IReadOnlyList<LeaderboardEntry>>>(PendingFetchCompletions);
+            PendingFetchCompletions.Clear();
+            PendingFetchFailures.Clear();
+
+            foreach (var callback in callbacks)
+            {
+                callback?.Invoke(entries);
+            }
+        }
+
+        private static void CompleteLeaderboardFetchFailure(string message)
+        {
+            isFetchingTopLeaderboard = false;
+            var callbacks = new List<Action<string>>(PendingFetchFailures);
+            PendingFetchCompletions.Clear();
+            PendingFetchFailures.Clear();
+
+            foreach (var callback in callbacks)
+            {
+                callback?.Invoke(message);
+            }
+        }
+
+        private static void SaveCachedTopLeaderboard(IReadOnlyList<LeaderboardEntry> entries)
+        {
+            if (entries == null || entries.Count == 0)
+            {
+                cachedTopLeaderboard = null;
+                PlayerPrefs.DeleteKey(CachedTopLeaderboardKey);
+                PlayerPrefs.Save();
+                return;
+            }
+
+            var payload = new CachedLeaderboardPayload
+            {
+                fetchedAtUtc = DateTime.UtcNow.ToString("O"),
+                entries = new List<CachedLeaderboardEntry>(entries.Count)
+            };
+
+            foreach (var entry in entries)
+            {
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                payload.entries.Add(new CachedLeaderboardEntry
+                {
+                    userId = entry.UserId,
+                    rank = entry.Rank,
+                    nickname = entry.Nickname,
+                    maxClearedStage = entry.MaxClearedStage
+                });
+            }
+
+            cachedTopLeaderboard = entries;
+            PlayerPrefs.SetString(CachedTopLeaderboardKey, JsonUtility.ToJson(payload));
+            PlayerPrefs.Save();
         }
 
         private static IReadOnlyList<LeaderboardEntry> ParseLeaderboardEntries(object data)

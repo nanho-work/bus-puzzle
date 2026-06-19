@@ -14,14 +14,18 @@ namespace BusPuzzle
             int rows,
             float cellSize,
             float gridBottomZ,
-            float topExtensionZ = 0f)
+            float topExtensionZ = 0f,
+            BoardThemeId theme = BoardThemeId.Field)
         {
             topExtensionZ = Mathf.Max(0f, topExtensionZ);
-            var surfaceMaterial = PuzzlePalette.CreateSolidMaterial("Bus Yard Surface", new Color(0.61f, 0.72f, 0.78f));
-            var panelMaterialA = PuzzlePalette.CreateTransparentMaterial("Bus Yard Concrete Panel A", new Color(0.78f, 0.88f, 0.92f, 0.08f));
-            var panelMaterialB = PuzzlePalette.CreateTransparentMaterial("Bus Yard Concrete Panel B", new Color(0.48f, 0.60f, 0.66f, 0.055f));
-            var laneMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Faded Lane Mark", new Color(0.94f, 0.98f, 1.00f, 0.16f));
-            var safetyMaterial = PuzzlePalette.CreateTransparentMaterial("Bus Yard Safety Stripe", new Color(0.96f, 0.72f, 0.15f, 0.30f));
+            var style = BoardThemePalette.GetStyle(theme);
+            var surfaceMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Yard Surface", style.YardSurface);
+            var panelMaterialA = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Yard Slab A", style.YardPanelA);
+            var panelMaterialB = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Yard Slab B", style.YardPanelB);
+            var laneMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Yard Lane Paint", style.YardLine);
+            var routeMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Yard Route", style.YardRoute);
+            var checkpointMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Yard Checkpoint", style.YardCheckpoint);
+            var trackMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Yard Track", style.YardTrack);
             var gridWidth = columns * cellSize;
             var gridDepth = rows * cellSize + topExtensionZ;
             var centerZ = gridBottomZ + (rows - 1) * cellSize * 0.5f + topExtensionZ * 0.5f;
@@ -36,12 +40,12 @@ namespace BusPuzzle
                 cellSize * 0.10f,
                 surfaceMaterial);
 
-            CreateConcretePanels(parent, columns, rows, cellSize, gridBottomZ, topExtensionZ, panelMaterialA, panelMaterialB);
-            CreateFadedLaneDividers(parent, columns, rows, cellSize, contentBottomZ, laneMaterial);
-            CreateSafetyStripes(parent, columns, rows, cellSize, gridBottomZ, topExtensionZ, safetyMaterial);
+            CreatePanelBands(parent, columns, rows, cellSize, gridBottomZ, topExtensionZ, panelMaterialA, panelMaterialB);
+            CreateThemeMarkings(parent, columns, rows, cellSize, contentBottomZ, laneMaterial, routeMaterial, checkpointMaterial, surfaceMaterial, style.Name);
+            CreatePanelTracks(parent, columns, rows, cellSize, gridBottomZ, topExtensionZ, trackMaterial);
         }
 
-        private static void CreateConcretePanels(
+        private static void CreatePanelBands(
             Transform parent,
             int columns,
             int rows,
@@ -51,32 +55,74 @@ namespace BusPuzzle
             Material first,
             Material second)
         {
-            var panelCount = 4;
+            var panelCount = 6;
             var gridWidth = columns * cellSize;
             var panelDepth = (rows * cellSize + topExtensionZ) / panelCount;
             for (var index = 0; index < panelCount; index++)
             {
                 var centerZ = gridBottomZ - cellSize * 0.5f + panelDepth * (index + 0.5f);
                 BoardGeometry.CreateFlatRect(
-                    $"Bus Yard Concrete Panel {index + 1}",
+                    $"Yard Slab {index + 1}",
                     parent,
                     new Vector3(0f, PanelY, centerZ),
-                    new Vector2(gridWidth * 0.98f, panelDepth - cellSize * 0.10f),
-                    index % 2 == 0 ? first : second);
+                    new Vector2(gridWidth * 0.98f, panelDepth - cellSize * 0.08f),
+                    index % 2 == 0 ? first : second,
+                    Quaternion.Euler(0f, index % 2 == 0 ? -5f : 6f, 0f));
             }
         }
 
-        private static void CreateFadedLaneDividers(
+        private static void CreateThemeMarkings(
             Transform parent,
             int columns,
             int rows,
             float cellSize,
             float gridBottomZ,
-            Material material)
+            Material whiteLine,
+            Material routeLine,
+            Material checkpointLine,
+            Material surfaceMaterial,
+            string themeName)
         {
             var gridWidth = columns * cellSize;
-            CreateDashedHorizontalLine(parent, "Bus Yard Lane Upper", gridBottomZ + cellSize * 8.5f, gridWidth, cellSize, material);
-            CreateDashedHorizontalLine(parent, "Bus Yard Lane Lower", gridBottomZ + cellSize * 4.5f, gridWidth, cellSize, material);
+            var gridDepth = rows * cellSize;
+            var centerZ = gridBottomZ + cellSize * 6.5f;
+            var leftX = -gridWidth * 0.5f + cellSize * 0.15f;
+            var rightX = gridWidth * 0.5f - cellSize * 0.15f;
+            var bottomZ = gridBottomZ - cellSize * 0.38f;
+            var topZ = gridBottomZ + gridDepth - cellSize * 0.62f;
+
+            CreateCircuitStroke(parent, $"{themeName} Outer Yard Route", new Vector3(0f, MarkingY, centerZ), new Vector2(gridWidth * 0.86f, gridDepth * 0.80f), cellSize * 0.065f, routeLine, surfaceMaterial);
+            CreateCircuitStroke(parent, $"{themeName} Inner Yard Route", new Vector3(0f, MarkingY + 0.004f, centerZ), new Vector2(gridWidth * 0.62f, gridDepth * 0.50f), cellSize * 0.046f, routeLine, surfaceMaterial);
+
+            BoardGeometry.CreateFlatRect($"{themeName} Bottom Yard Rail", parent, new Vector3(0f, MarkingY + 0.008f, bottomZ), new Vector2(gridWidth * 0.86f, cellSize * 0.030f), whiteLine);
+            BoardGeometry.CreateFlatRect($"{themeName} Top Yard Rail", parent, new Vector3(0f, MarkingY + 0.008f, topZ), new Vector2(gridWidth * 0.86f, cellSize * 0.030f), whiteLine);
+            BoardGeometry.CreateFlatRect($"{themeName} Left Yard Rail", parent, new Vector3(leftX, MarkingY + 0.008f, centerZ), new Vector2(cellSize * 0.030f, gridDepth * 0.78f), whiteLine);
+            BoardGeometry.CreateFlatRect($"{themeName} Right Yard Rail", parent, new Vector3(rightX, MarkingY + 0.008f, centerZ), new Vector2(cellSize * 0.030f, gridDepth * 0.78f), whiteLine);
+            BoardGeometry.CreateFlatRect($"{themeName} Yard Start Line", parent, new Vector3(0f, MarkingY + 0.010f, centerZ), new Vector2(gridWidth * 0.64f, cellSize * 0.042f), checkpointLine);
+            BoardGeometry.CreateFlatRoundedRect($"{themeName} Yard Pad", parent, new Vector3(0f, MarkingY + 0.012f, centerZ), new Vector2(cellSize * 0.42f, cellSize * 0.22f), cellSize * 0.11f, whiteLine);
+
+            CreateDashedHorizontalLine(parent, $"{themeName} Upper Lane Dashes", gridBottomZ + cellSize * 8.5f, gridWidth, cellSize, whiteLine);
+            CreateDashedHorizontalLine(parent, $"{themeName} Lower Lane Dashes", gridBottomZ + cellSize * 4.5f, gridWidth, cellSize, whiteLine);
+        }
+
+        private static void CreateCircuitStroke(
+            Transform parent,
+            string name,
+            Vector3 center,
+            Vector2 size,
+            float thickness,
+            Material lineMaterial,
+            Material fillMaterial)
+        {
+            var radius = Mathf.Min(size.x, size.y) * 0.5f;
+            BoardGeometry.CreateFlatRoundedRect(name, parent, center, size, radius, lineMaterial);
+            BoardGeometry.CreateFlatRoundedRect(
+                $"{name} Inner Deck Panel",
+                parent,
+                center + Vector3.up * 0.002f,
+                new Vector2(size.x - thickness * 2f, size.y - thickness * 2f),
+                Mathf.Max(0.01f, radius - thickness),
+                fillMaterial);
         }
 
         private static void CreateDashedHorizontalLine(
@@ -101,7 +147,7 @@ namespace BusPuzzle
             }
         }
 
-        private static void CreateSafetyStripes(
+        private static void CreatePanelTracks(
             Transform parent,
             int columns,
             int rows,
@@ -118,12 +164,12 @@ namespace BusPuzzle
             for (var index = 0; index < 3; index++)
             {
                 var offset = index * cellSize * 0.22f;
-                CreateSafetyStripe(parent, $"Bus Yard Lower Safety Stripe {index + 1}", leftX + offset, lowerZ, material);
-                CreateSafetyStripe(parent, $"Bus Yard Upper Safety Stripe {index + 1}", rightX - offset, upperZ, material);
+                CreatePanelTrack(parent, $"Lower Yard Track {index + 1}", leftX + offset, lowerZ, material);
+                CreatePanelTrack(parent, $"Upper Yard Track {index + 1}", rightX - offset, upperZ, material);
             }
         }
 
-        private static void CreateSafetyStripe(Transform parent, string name, float x, float z, Material material)
+        private static void CreatePanelTrack(Transform parent, string name, float x, float z, Material material)
         {
             BoardGeometry.CreateFlatRect(
                 name,

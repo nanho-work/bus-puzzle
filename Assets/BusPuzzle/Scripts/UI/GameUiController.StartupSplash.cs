@@ -11,7 +11,7 @@ namespace BusPuzzle
 
         private static bool ShouldShowRuntimeStartupSplash()
         {
-#if UNITY_IOS || UNITY_ANDROID
+#if UNITY_IOS
             return false;
 #else
             return true;

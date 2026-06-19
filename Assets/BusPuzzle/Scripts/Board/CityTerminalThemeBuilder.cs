@@ -4,49 +4,38 @@ namespace BusPuzzle
 {
     internal static class CityTerminalThemeBuilder
     {
-        private static readonly Color PavementColor = new Color(0.68f, 0.73f, 0.77f);
-        private static readonly Color PaverColorA = new Color(0.74f, 0.79f, 0.82f);
-        private static readonly Color PaverColorB = new Color(0.62f, 0.68f, 0.72f);
-        private static readonly Color SafetyYellow = new Color(0.93f, 0.70f, 0.16f);
-        private static readonly Color LineWhite = new Color(0.90f, 0.94f, 0.96f);
-        private static readonly Color TerminalBlue = new Color(0.18f, 0.35f, 0.50f);
-        private static readonly Color PoleColor = new Color(0.32f, 0.38f, 0.44f);
-        private static readonly Color LightColor = new Color(1.00f, 0.92f, 0.64f);
-        private static readonly Color TreeLeafColor = new Color(0.24f, 0.49f, 0.30f);
-        private static readonly Color TrunkColor = new Color(0.39f, 0.25f, 0.14f);
-        private static readonly Color QueueGuideColor = new Color(0.96f, 0.86f, 0.52f, 0.42f);
         private const float QueueGuideY = -0.011f;
 
-        public static void Create(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
+        public static void Create(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, BoardThemeId theme = BoardThemeId.Field)
         {
+            var style = BoardThemePalette.GetStyle(theme);
             var root = new GameObject("City Terminal Theme").transform;
             root.SetParent(parent, false);
-            var materials = CreateMaterials();
+            var materials = CreateMaterials(style);
 
             CreateBusYardEdgeSkin(CreateSection(root, "1 Bus Yard Edge Skin"), materials);
-            CreateStationSkin(CreateSection(root, "2 Station Skin"));
+            CreateStationSkin(CreateSection(root, "2 Station Skin"), style);
             CreateQueueFloorSkin(CreateSection(root, "3 Queue Floor Skin"), layout, settings, materials);
             CreateQueueOuterLineSkin(CreateSection(root, "4 Queue Outer Line Skin"), layout, settings, materials);
-            CreateRotaryCenterSkin(CreateSection(root, "5 Rotary Center Skin"), settings, materials);
+            CreateRotaryCenterSkin(CreateSection(root, "5 Rotary Center Skin"), settings, materials, theme, style);
             CreateQueueSurroundings(CreateSection(root, "6 Queue Surroundings"), settings, materials);
-            CreateRotarySideMargins(CreateSection(root, "7 Rotary Side Margins"), settings, materials);
+            CreateRotarySideMargins(CreateSection(root, "7 Rotary Side Margins"), settings, materials, theme, style);
+            CreateThemeProps(CreateSection(root, $"8 {style.Name} Props"), materials, theme, style);
         }
 
-        private static ThemeMaterials CreateMaterials()
+        private static ThemeMaterials CreateMaterials(BoardThemeStyle style)
         {
             return new ThemeMaterials(
-                PuzzlePalette.CreateSolidMaterial("City Terminal Pavement", PavementColor),
-                PuzzlePalette.CreateSolidMaterial("City Terminal Paver A", PaverColorA),
-                PuzzlePalette.CreateSolidMaterial("City Terminal Paver B", PaverColorB),
-                PuzzlePalette.CreateTransparentMaterial("City Terminal Safety Yellow", new Color(SafetyYellow.r, SafetyYellow.g, SafetyYellow.b, 0.36f)),
-                PuzzlePalette.CreateTransparentMaterial("City Terminal White Line", new Color(LineWhite.r, LineWhite.g, LineWhite.b, 0.52f)),
-                PuzzlePalette.CreateSolidMaterial("City Terminal Pole", PoleColor),
-                PuzzlePalette.CreateTransparentMaterial("City Terminal Lamp Glow", new Color(1.00f, 0.88f, 0.48f, 0.18f)),
-                PuzzlePalette.CreateSolidMaterial("City Terminal Lamp Bulb", LightColor),
-                PuzzlePalette.CreateSolidMaterial("City Terminal Tree Leaf", TreeLeafColor),
-                PuzzlePalette.CreateSolidMaterial("City Terminal Tree Trunk", TrunkColor),
-                PuzzlePalette.CreateTransparentMaterial("City Terminal Queue Guide", QueueGuideColor),
-                PuzzlePalette.CreateTransparentMaterial("City Terminal Queue Floor", new Color(0.70f, 0.78f, 0.82f, 0.22f)));
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Pavement", style.Pavement),
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Paver A", style.PaverA),
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Paver B", style.PaverB),
+                PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Safety", BoardThemePalette.WithAlpha(style.Gate, 0.36f)),
+                PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Line", BoardThemePalette.WithAlpha(style.Rail, 0.52f)),
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Pole", style.Pole),
+                PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Lamp Glow", BoardThemePalette.WithAlpha(style.Light, 0.24f)),
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Lamp Bulb", style.Light),
+                PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Queue Guide", style.QueueGuide),
+                PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Queue Floor", style.QueueFloor));
         }
 
         private static Transform CreateSection(Transform root, string name)
@@ -72,19 +61,16 @@ namespace BusPuzzle
                 new Vector2(5.24f, 0.26f),
                 materials.Pavement);
 
-            var paverCount = Mathf.CeilToInt(BoardLayoutConfig.ParkingYardWorldDepth / 0.31f);
-            CreatePaverStrip(root, materials.PaverA, materials.PaverB, -2.48f, BoardLayoutConfig.ParkingYardCenterZ, paverCount, 0.31f);
-            CreatePaverStrip(root, materials.PaverB, materials.PaverA, 2.48f, BoardLayoutConfig.ParkingYardCenterZ, paverCount, 0.31f);
             CreateYardMarkings(root, materials.WhiteLine);
         }
 
-        private static void CreateStationSkin(Transform root)
+        private static void CreateStationSkin(Transform root, BoardThemeStyle style)
         {
             root.gameObject.SetActive(true);
-            CreateTerminalStationSkin(root);
+            CreateTerminalStationSkin(root, style);
         }
 
-        private static void CreateTerminalStationSkin(Transform root)
+        private static void CreateTerminalStationSkin(Transform root, BoardThemeStyle style)
         {
             var rotation = Quaternion.identity;
             var totalSlots = BoardLayoutConfig.TotalStationSlots;
@@ -94,16 +80,16 @@ namespace BusPuzzle
             var platformWidth = (totalSlots - 1) * slotSpacing + slotWidth + 0.40f;
             var platformDepth = slotDepth + 0.20f;
 
-            var deckShadowMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Platform Shadow", new Color(0.12f, 0.16f, 0.22f, 0.16f));
-            var deckMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Deck", new Color(0.58f, 0.66f, 0.74f));
-            var deckTopMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Deck Top", new Color(0.72f, 0.80f, 0.88f, 0.44f));
-            var bayMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Bay", new Color(0.78f, 0.86f, 0.94f, 0.24f));
-            var bayTrimMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal Bay Trim", new Color(0.96f, 0.99f, 1.00f, 0.54f));
-            var railMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Rail", new Color(0.78f, 0.85f, 0.92f));
-            var railPostMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal Rail Post", new Color(0.63f, 0.71f, 0.80f));
-            var vipMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Gold", new Color(0.96f, 0.67f, 0.08f));
-            var vipInsetMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Inset", new Color(1.00f, 0.86f, 0.28f));
-            var whiteLineMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal White Paint", new Color(0.92f, 0.96f, 1.00f, 0.72f));
+            var deckShadowMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Platform Shadow", BoardThemePalette.WithAlpha(style.RoadShadow, 0.24f));
+            var deckMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Deck", style.StationPlatform);
+            var deckTopMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Deck Top", BoardThemePalette.WithAlpha(style.LockedSlot, 0.42f));
+            var bayMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Bay", style.StationBayTerminal);
+            var bayTrimMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Bay Trim", BoardThemePalette.WithAlpha(style.Gate, 0.50f));
+            var railMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Rail", style.Rail);
+            var railPostMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Rail Post", style.Pole);
+            var vipMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Gold", new Color(0.96f, 0.67f, 0.08f, 0.80f));
+            var vipInsetMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Inset", new Color(1.00f, 0.86f, 0.28f, 0.60f));
+            var whiteLineMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Safety Paint", BoardThemePalette.WithAlpha(style.Rail, 0.76f));
 
             BoardGeometry.CreateFlatRoundedRect(
                 "Stage 14 Terminal Soft Shadow",
@@ -209,11 +195,12 @@ namespace BusPuzzle
             Material vipInsetMaterial,
             Material whiteLineMaterial)
         {
-            CreateBox(
+            BoardGeometry.CreateFlatRoundedRect(
                 "Stage 14 Terminal VIP Raised Plinth",
                 root,
                 new Vector3(position.x, -0.048f, position.z),
-                new Vector3(slotWidth + 0.090f, 0.035f, slotDepth + 0.055f),
+                new Vector2(slotWidth + 0.090f, slotDepth + 0.055f),
+                slotWidth * 0.16f,
                 vipMaterial,
                 rotation);
             BoardGeometry.CreateFlatRoundedRect(
@@ -301,11 +288,39 @@ namespace BusPuzzle
         private static void CreateRotaryCenterSkin(
             Transform root,
             RotaryRoadBuildSettings settings,
-            ThemeMaterials materials)
+            ThemeMaterials materials,
+            BoardThemeId theme,
+            BoardThemeStyle style)
         {
             var center = new Vector3(0f, 0f, settings.RotaryCenterZ);
-            CreateSmallTree(root, center + new Vector3(0.38f, 0f, -0.05f), materials.Leaf, materials.Trunk, 0.105f);
-            CreateSmallTree(root, center + new Vector3(-0.42f, 0f, -0.15f), materials.Leaf, materials.Trunk, 0.085f);
+            var baseMaterial = PuzzlePalette.CreateLitMaterial($"Rotary {style.Name} Base Prop", style.Pavement, 0.22f);
+            var accentA = PuzzlePalette.CreateLitMaterial($"Rotary {style.Name} Accent A", style.AccentA, 0.24f);
+            var accentB = PuzzlePalette.CreateLitMaterial($"Rotary {style.Name} Accent B", style.AccentB, 0.24f);
+            var accentC = PuzzlePalette.CreateLitMaterial($"Rotary {style.Name} Accent C", style.AccentC, 0.24f);
+            var shadowMaterial = PuzzlePalette.CreateTransparentMaterial($"Rotary {style.Name} Shadow", style.PropShadow);
+
+            switch (theme)
+            {
+                case BoardThemeId.Harbor:
+                    CreateCargoPallet(root, center + new Vector3(-0.08f, 0f, 0.04f), Quaternion.Euler(0f, -8f, 0f), baseMaterial, accentC, shadowMaterial);
+                    CreateContainerStack(root, center + new Vector3(0.36f, 0f, -0.08f), Quaternion.Euler(0f, 18f, 0f), accentB, accentA, accentC, shadowMaterial, 0.70f);
+                    CreateBollardPair(root, center + new Vector3(-0.42f, 0f, -0.15f), Quaternion.identity, materials.Pole, materials.Safety, shadowMaterial, 0.78f);
+                    break;
+                case BoardThemeId.Future:
+                case BoardThemeId.Space:
+                    CreateHologramCore(root, center + new Vector3(0.04f, 0f, 0.02f), accentA, materials.LampGlow, baseMaterial, accentB, shadowMaterial);
+                    CreateDataNodeCluster(root, center + new Vector3(-0.34f, 0f, -0.14f), accentC, shadowMaterial, 0.72f);
+                    break;
+                case BoardThemeId.Waikiki:
+                    CreateTidePool(root, center + new Vector3(0.02f, 0f, 0.02f), accentA, materials.LampGlow, baseMaterial);
+                    CreateShellCluster(root, center + new Vector3(-0.36f, 0f, -0.12f), accentC, shadowMaterial, 0.66f);
+                    break;
+                default:
+                    CreateCargoPallet(root, center + new Vector3(-0.08f, 0f, 0.04f), Quaternion.Euler(0f, -8f, 0f), baseMaterial, accentC, shadowMaterial, 0.78f);
+                    CreateBollardPair(root, center + new Vector3(0.34f, 0f, -0.12f), Quaternion.identity, materials.Pole, materials.Safety, shadowMaterial, 0.72f);
+                    break;
+            }
+
             CreateFlowerDot(root, center + new Vector3(0.05f, -0.010f, 0.18f), materials.Safety);
             CreateFlowerDot(root, center + new Vector3(-0.17f, -0.010f, 0.07f), materials.WhiteLine);
             CreateFlowerDot(root, center + new Vector3(0.19f, -0.010f, -0.18f), materials.Safety);
@@ -324,7 +339,9 @@ namespace BusPuzzle
         private static void CreateRotarySideMargins(
             Transform root,
             RotaryRoadBuildSettings settings,
-            ThemeMaterials materials)
+            ThemeMaterials materials,
+            BoardThemeId theme,
+            BoardThemeStyle style)
         {
             var z = settings.RotaryCenterZ + 0.12f;
             BoardGeometry.CreateFlatRect(
@@ -340,8 +357,599 @@ namespace BusPuzzle
                 new Vector2(0.38f, 1.55f),
                 materials.PaverB);
 
-            CreateSmallTree(root, new Vector3(-2.43f, 0f, z - 0.48f), materials.Leaf, materials.Trunk, 0.095f);
-            CreateSmallTree(root, new Vector3(2.43f, 0f, z + 0.48f), materials.Leaf, materials.Trunk, 0.095f);
+            var shadow = PuzzlePalette.CreateTransparentMaterial($"Side {style.Name} Prop Shadow", style.PropShadow);
+            var accentA = PuzzlePalette.CreateLitMaterial($"Side {style.Name} Accent A", style.AccentA, 0.28f);
+            var accentB = PuzzlePalette.CreateLitMaterial($"Side {style.Name} Accent B", style.AccentB, 0.28f);
+            var accentC = PuzzlePalette.CreateLitMaterial($"Side {style.Name} Accent C", style.AccentC, 0.28f);
+            var baseMaterial = PuzzlePalette.CreateLitMaterial($"Side {style.Name} Base", style.Pavement, 0.28f);
+
+            switch (theme)
+            {
+                case BoardThemeId.Harbor:
+                    CreateContainerStack(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), accentB, accentA, accentC, shadow, 0.82f);
+                    CreateHarborCrane(root, new Vector3(2.43f, 0f, z + 0.48f), Quaternion.Euler(0f, 28f, 0f), accentC, materials.Pole, materials.Safety, shadow, 0.82f);
+                    break;
+                case BoardThemeId.Future:
+                case BoardThemeId.Space:
+                    CreateCityBlockCluster(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), baseMaterial, accentA, accentB, shadow, 0.82f);
+                    CreateEnergyPylon(root, new Vector3(2.43f, 0f, z + 0.48f), Quaternion.Euler(0f, 28f, 0f), baseMaterial, accentA, accentC, shadow, 0.82f);
+                    break;
+                case BoardThemeId.Waikiki:
+                    CreatePalmTree(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), baseMaterial, accentA, shadow, 0.82f);
+                    CreateBeachUmbrella(root, new Vector3(2.43f, 0f, z + 0.48f), Quaternion.Euler(0f, 28f, 0f), accentB, accentC, materials.Pole, shadow, 0.82f);
+                    break;
+                default:
+                    CreateBollardPair(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), materials.Pole, materials.Safety, shadow, 0.82f);
+                    CreateDataNodeCluster(root, new Vector3(2.43f, 0f, z + 0.48f), accentA, shadow, 0.82f);
+                    break;
+            }
+        }
+
+        private static void CreateThemeProps(
+            Transform root,
+            ThemeMaterials materials,
+            BoardThemeId theme,
+            BoardThemeStyle style)
+        {
+            switch (theme)
+            {
+                case BoardThemeId.Harbor:
+                    CreateHarborProps(root, materials);
+                    break;
+                case BoardThemeId.Future:
+                    CreateFutureCityProps(root, materials);
+                    break;
+                case BoardThemeId.Waikiki:
+                    CreateWaikikiProps(root, materials);
+                    break;
+                case BoardThemeId.Space:
+                    CreateSpaceProps(root, materials, style);
+                    break;
+                default:
+                    CreateSimpleThemeProps(root, materials, style);
+                    break;
+            }
+        }
+
+        private static void CreateSimpleThemeProps(Transform root, ThemeMaterials materials, BoardThemeStyle style)
+        {
+            var leftEdgeX = BoardLayoutConfig.GridLeftX - BoardLayoutConfig.CellSize * 1.10f;
+            var rightEdgeX = BoardLayoutConfig.GridRightX + BoardLayoutConfig.CellSize * 1.10f;
+            var lowerSideZ = BoardLayoutConfig.GridBottomZ + BoardLayoutConfig.CellSize * 1.65f;
+            var centerSideZ = BoardLayoutConfig.ParkingYardCenterZ - BoardLayoutConfig.CellSize * 0.18f;
+            var upperSideZ = BoardLayoutConfig.ParkingYardTopZ - BoardLayoutConfig.CellSize * 1.16f;
+            var baseMaterial = PuzzlePalette.CreateLitMaterial($"{style.Name} Prop Base", style.Pavement, 0.26f);
+            var accentA = PuzzlePalette.CreateLitMaterial($"{style.Name} Prop Accent A", style.AccentA, 0.26f);
+            var accentB = PuzzlePalette.CreateLitMaterial($"{style.Name} Prop Accent B", style.AccentB, 0.26f);
+            var accentC = PuzzlePalette.CreateLitMaterial($"{style.Name} Prop Accent C", style.AccentC, 0.26f);
+            var shadow = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Prop Contact Shadow", style.PropShadow);
+
+            CreateCargoPallet(root, new Vector3(leftEdgeX, 0f, upperSideZ - 0.16f), Quaternion.Euler(0f, 90f, 0f), baseMaterial, accentC, shadow, 0.78f);
+            CreateBollardPair(root, new Vector3(rightEdgeX, 0f, upperSideZ), Quaternion.Euler(0f, -90f, 0f), materials.Pole, materials.Safety, shadow, 0.82f);
+            CreateDataNodeCluster(root, new Vector3(leftEdgeX, 0f, lowerSideZ), accentA, shadow, 0.86f);
+            CreateCargoPallet(root, new Vector3(rightEdgeX - 0.03f, 0f, centerSideZ + 0.58f), Quaternion.Euler(0f, -90f, 0f), baseMaterial, accentB, shadow, 0.82f);
+            CreateBollardPair(root, new Vector3(leftEdgeX - 0.04f, 0f, centerSideZ), Quaternion.Euler(0f, 20f, 0f), materials.Pole, materials.Safety, shadow, 0.82f);
+            CreateDataNodeCluster(root, new Vector3(rightEdgeX + 0.04f, 0f, lowerSideZ + 0.55f), accentC, shadow, 0.78f);
+        }
+
+        private static void CreateWaikikiProps(Transform root, ThemeMaterials materials)
+        {
+            var leftEdgeX = BoardLayoutConfig.GridLeftX - BoardLayoutConfig.CellSize * 1.10f;
+            var rightEdgeX = BoardLayoutConfig.GridRightX + BoardLayoutConfig.CellSize * 1.10f;
+            var lowerSideZ = BoardLayoutConfig.GridBottomZ + BoardLayoutConfig.CellSize * 1.65f;
+            var centerSideZ = BoardLayoutConfig.ParkingYardCenterZ - BoardLayoutConfig.CellSize * 0.18f;
+            var upperSideZ = BoardLayoutConfig.ParkingYardTopZ - BoardLayoutConfig.CellSize * 1.16f;
+
+            var trunk = PuzzlePalette.CreateLitMaterial("Waikiki Prop Trunk", BoardThemePalette.WaikikiTrunk, 0.26f);
+            var palm = PuzzlePalette.CreateLitMaterial("Waikiki Prop Palm", BoardThemePalette.WaikikiPalm, 0.26f);
+            var palmLight = PuzzlePalette.CreateLitMaterial("Waikiki Prop Palm Light", BoardThemePalette.WaikikiPalmLight, 0.26f);
+            var boardBlue = PuzzlePalette.CreateLitMaterial("Waikiki Prop Board Blue", BoardThemePalette.WaikikiUmbrellaBlue, 0.26f);
+            var coral = PuzzlePalette.CreateLitMaterial("Waikiki Prop Coral", BoardThemePalette.WaikikiCoral, 0.26f);
+            var sand = PuzzlePalette.CreateLitMaterial("Waikiki Prop Sand", BoardThemePalette.WaikikiSandLight, 0.24f);
+            var shadow = PuzzlePalette.CreateTransparentMaterial("Waikiki Prop Contact Shadow", BoardThemePalette.WithAlpha(BoardThemePalette.WaikikiRoadShadow, 0.20f));
+
+            CreatePalmTree(root, new Vector3(leftEdgeX, 0f, upperSideZ - 0.16f), Quaternion.Euler(0f, 90f, 0f), trunk, palm, shadow);
+            CreateSurfboardRack(root, new Vector3(rightEdgeX, 0f, upperSideZ), Quaternion.Euler(0f, -90f, 0f), boardBlue, coral, materials.Safety, trunk, shadow);
+            CreateBeachUmbrella(root, new Vector3(leftEdgeX, 0f, lowerSideZ), Quaternion.Euler(0f, 90f, 0f), coral, sand, trunk, shadow, 0.86f);
+            CreateBeachBench(root, new Vector3(rightEdgeX - 0.03f, 0f, centerSideZ + 0.58f), Quaternion.Euler(0f, -90f, 0f), trunk, sand, shadow);
+            CreateLifebuoyStack(root, new Vector3(leftEdgeX - 0.04f, 0f, centerSideZ), Quaternion.Euler(0f, 20f, 0f), coral, sand, shadow, 0.88f);
+            CreateShellCluster(root, new Vector3(rightEdgeX + 0.04f, 0f, lowerSideZ + 0.55f), palmLight, shadow, 0.84f);
+        }
+
+        private static void CreateSpaceProps(Transform root, ThemeMaterials materials, BoardThemeStyle style)
+        {
+            var leftEdgeX = BoardLayoutConfig.GridLeftX - BoardLayoutConfig.CellSize * 1.10f;
+            var rightEdgeX = BoardLayoutConfig.GridRightX + BoardLayoutConfig.CellSize * 1.10f;
+            var lowerSideZ = BoardLayoutConfig.GridBottomZ + BoardLayoutConfig.CellSize * 1.65f;
+            var centerSideZ = BoardLayoutConfig.ParkingYardCenterZ - BoardLayoutConfig.CellSize * 0.18f;
+            var upperSideZ = BoardLayoutConfig.ParkingYardTopZ - BoardLayoutConfig.CellSize * 1.16f;
+
+            var steel = PuzzlePalette.CreateLitMaterial("Space Dock Prop Steel", style.Pole, 0.34f);
+            var darkPanel = PuzzlePalette.CreateLitMaterial("Space Dock Prop Panel", style.PaverB, 0.34f);
+            var glowBlue = PuzzlePalette.CreateLitMaterial("Space Dock Prop Glow Blue", style.AccentA, 0.32f);
+            var glowPurple = PuzzlePalette.CreateLitMaterial("Space Dock Prop Glow Purple", style.AccentB, 0.32f);
+            var dust = PuzzlePalette.CreateLitMaterial("Space Dock Prop Dust", style.AccentC, 0.30f);
+            var glass = PuzzlePalette.CreateTransparentMaterial("Space Dock Prop Glass", BoardThemePalette.WithAlpha(style.Rail, 0.42f));
+            var glow = PuzzlePalette.CreateTransparentMaterial("Space Dock Prop Glow", BoardThemePalette.WithAlpha(style.AccentA, 0.30f));
+            var shadow = PuzzlePalette.CreateTransparentMaterial("Space Dock Prop Contact Shadow", style.PropShadow);
+
+            CreateDronePad(root, new Vector3(leftEdgeX, 0f, upperSideZ - 0.16f), Quaternion.Euler(0f, 90f, 0f), steel, darkPanel, glowBlue, shadow);
+            CreateHoloBillboard(root, new Vector3(rightEdgeX, 0f, upperSideZ), Quaternion.Euler(0f, -90f, 0f), steel, glass, glowPurple, glow, shadow);
+            CreateEnergyPylon(root, new Vector3(leftEdgeX, 0f, lowerSideZ), Quaternion.Euler(0f, 90f, 0f), steel, glass, glowBlue, shadow, 0.86f);
+            CreateDataBench(root, new Vector3(rightEdgeX - 0.03f, 0f, centerSideZ + 0.58f), Quaternion.Euler(0f, -90f, 0f), darkPanel, glowBlue, steel, shadow);
+            CreateDataNodeCluster(root, new Vector3(leftEdgeX - 0.04f, 0f, centerSideZ), glowPurple, shadow, 0.88f);
+            CreateCityBlockCluster(root, new Vector3(rightEdgeX + 0.04f, 0f, lowerSideZ + 0.55f), Quaternion.Euler(0f, -18f, 0f), darkPanel, glass, dust, shadow, 0.84f);
+        }
+
+        private static void CreateHarborProps(Transform root, ThemeMaterials materials)
+        {
+            var leftEdgeX = BoardLayoutConfig.GridLeftX - BoardLayoutConfig.CellSize * 1.10f;
+            var rightEdgeX = BoardLayoutConfig.GridRightX + BoardLayoutConfig.CellSize * 1.10f;
+            var lowerSideZ = BoardLayoutConfig.GridBottomZ + BoardLayoutConfig.CellSize * 1.65f;
+            var centerSideZ = BoardLayoutConfig.ParkingYardCenterZ - BoardLayoutConfig.CellSize * 0.18f;
+            var upperSideZ = BoardLayoutConfig.ParkingYardTopZ - BoardLayoutConfig.CellSize * 1.16f;
+
+            var redContainer = PuzzlePalette.CreateLitMaterial("Harbor Prop Red Container", BoardThemePalette.HarborContainerRed, 0.24f);
+            var blueContainer = PuzzlePalette.CreateLitMaterial("Harbor Prop Blue Container", BoardThemePalette.HarborContainerBlue, 0.24f);
+            var orangeContainer = PuzzlePalette.CreateLitMaterial("Harbor Prop Orange Container", BoardThemePalette.HarborContainerOrange, 0.24f);
+            var greenContainer = PuzzlePalette.CreateLitMaterial("Harbor Prop Green Container", BoardThemePalette.HarborContainerGreen, 0.24f);
+            var craneMaterial = PuzzlePalette.CreateLitMaterial("Harbor Prop Crane", BoardThemePalette.HarborCrane, 0.30f);
+            var steel = PuzzlePalette.CreateLitMaterial("Harbor Prop Steel", BoardThemePalette.HarborSteel, 0.30f);
+            var palletMaterial = PuzzlePalette.CreateLitMaterial("Harbor Prop Pallet", BoardThemePalette.HarborConcreteLight, 0.22f);
+            var shadow = PuzzlePalette.CreateTransparentMaterial("Harbor Prop Contact Shadow", BoardThemePalette.WithAlpha(BoardThemePalette.HarborAsphaltDark, 0.22f));
+
+            CreateHarborCrane(root, new Vector3(leftEdgeX, 0f, upperSideZ - 0.16f), Quaternion.Euler(0f, 90f, 0f), craneMaterial, steel, materials.Safety, shadow);
+            CreateContainerStack(root, new Vector3(rightEdgeX, 0f, upperSideZ), Quaternion.Euler(0f, -90f, 0f), blueContainer, orangeContainer, greenContainer, shadow);
+            CreateContainerStack(root, new Vector3(leftEdgeX, 0f, lowerSideZ), Quaternion.Euler(0f, 90f, 0f), redContainer, blueContainer, orangeContainer, shadow, 0.86f);
+            CreateCargoPallet(root, new Vector3(rightEdgeX - 0.03f, 0f, centerSideZ + 0.58f), Quaternion.Euler(0f, -90f, 0f), palletMaterial, greenContainer, shadow);
+
+            CreateBollardPair(root, new Vector3(leftEdgeX - 0.04f, 0f, centerSideZ), Quaternion.Euler(0f, 20f, 0f), steel, materials.Safety, shadow);
+            CreateBollardPair(root, new Vector3(rightEdgeX + 0.04f, 0f, lowerSideZ + 0.55f), Quaternion.Euler(0f, -18f, 0f), steel, materials.Safety, shadow, 0.88f);
+            CreateContainerStack(root, new Vector3(leftEdgeX + 0.04f, 0f, lowerSideZ - 0.50f), Quaternion.Euler(0f, 76f, 0f), greenContainer, orangeContainer, blueContainer, shadow, 0.72f);
+            CreateCargoPallet(root, new Vector3(rightEdgeX - 0.04f, 0f, upperSideZ + 0.44f), Quaternion.Euler(0f, -78f, 0f), palletMaterial, redContainer, shadow, 0.76f);
+            CreateHarborBeacon(root, new Vector3(leftEdgeX + 0.02f, 0f, upperSideZ + 0.43f), Quaternion.Euler(0f, -12f, 0f), steel, materials.LampBulb, materials.LampGlow, shadow);
+            CreateHarborCrane(root, new Vector3(rightEdgeX - 0.02f, 0f, lowerSideZ - 0.44f), Quaternion.Euler(0f, 34f, 0f), craneMaterial, steel, materials.Safety, shadow, 0.78f);
+        }
+
+        private static void CreateContainerStack(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material firstMaterial,
+            Material secondMaterial,
+            Material thirdMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Harbor Container Stack Shadow", center, new Vector2(0.68f * scale, 0.36f * scale), shadowMaterial, rotation);
+            CreateContainerBox(root, "Harbor Container Stack Lower", center + rotation * new Vector3(-0.115f * scale, 0.070f * scale, -0.012f * scale), rotation, firstMaterial, scale);
+            CreateContainerBox(root, "Harbor Container Stack Upper", center + rotation * new Vector3(0.090f * scale, 0.165f * scale, 0.018f * scale), rotation, secondMaterial, scale * 0.92f);
+            CreateContainerBox(root, "Harbor Container Stack Short", center + rotation * new Vector3(0.220f * scale, 0.072f * scale, -0.038f * scale), rotation, thirdMaterial, scale * 0.72f);
+        }
+
+        private static void CreateContainerBox(
+            Transform root,
+            string name,
+            Vector3 center,
+            Quaternion rotation,
+            Material material,
+            float scale)
+        {
+            CreateBox(name, root, center, new Vector3(0.36f * scale, 0.110f * scale, 0.155f * scale), material, rotation);
+            var ribMaterial = PuzzlePalette.CreateTransparentMaterial($"{name} Rib", BoardThemePalette.WithAlpha(BoardThemePalette.HarborLine, 0.20f));
+            for (var index = 0; index < 3; index++)
+            {
+                var x = Mathf.Lerp(-0.120f, 0.120f, index / 2f) * scale;
+                CreateBox($"{name} Rib {index + 1}", root, center + rotation * new Vector3(x, 0.058f * scale, 0.081f * scale), new Vector3(0.012f * scale, 0.010f * scale, 0.010f * scale), ribMaterial, rotation);
+            }
+        }
+
+        private static void CreateCargoPallet(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material baseMaterial,
+            Material crateMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Harbor Cargo Pallet Shadow", center, new Vector2(0.56f * scale, 0.30f * scale), shadowMaterial, rotation);
+            CreateBox("Harbor Cargo Pallet Base", root, center + Vector3.up * (0.045f * scale), new Vector3(0.44f * scale, 0.045f * scale, 0.170f * scale), baseMaterial, rotation);
+            CreateBox("Harbor Cargo Crate A", root, center + rotation * new Vector3(-0.095f * scale, 0.120f * scale, 0.000f), new Vector3(0.160f * scale, 0.150f * scale, 0.145f * scale), crateMaterial, rotation);
+            CreateBox("Harbor Cargo Crate B", root, center + rotation * new Vector3(0.100f * scale, 0.105f * scale, 0.010f * scale), new Vector3(0.145f * scale, 0.120f * scale, 0.130f * scale), crateMaterial, rotation);
+            CreateBox("Harbor Cargo Strap", root, center + Vector3.up * (0.190f * scale), new Vector3(0.360f * scale, 0.016f * scale, 0.018f * scale), baseMaterial, rotation);
+        }
+
+        private static void CreateBollardPair(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material postMaterial,
+            Material stripeMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Harbor Bollard Pair Shadow", center, new Vector2(0.40f * scale, 0.28f * scale), shadowMaterial, rotation);
+            for (var index = 0; index < 2; index++)
+            {
+                var x = (index == 0 ? -0.105f : 0.105f) * scale;
+                var postCenter = center + rotation * new Vector3(x, 0.075f * scale, 0f);
+                CreateCylinder($"Harbor Bollard {index + 1}", root, postCenter, new Vector3(0.050f * scale, 0.150f * scale, 0.050f * scale), postMaterial, rotation);
+                CreateBox($"Harbor Bollard Stripe {index + 1}", root, postCenter + Vector3.up * (0.038f * scale), new Vector3(0.070f * scale, 0.014f * scale, 0.018f * scale), stripeMaterial, rotation * Quaternion.Euler(0f, 35f, 0f));
+            }
+        }
+
+        private static void CreateHarborCrane(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material craneMaterial,
+            Material steelMaterial,
+            Material stripeMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Harbor Crane Shadow", center, new Vector2(0.72f * scale, 0.38f * scale), shadowMaterial, rotation);
+            CreateBox("Harbor Crane Left Leg", root, center + rotation * new Vector3(-0.165f * scale, 0.165f * scale, -0.020f * scale), new Vector3(0.040f * scale, 0.330f * scale, 0.045f * scale), steelMaterial, rotation);
+            CreateBox("Harbor Crane Right Leg", root, center + rotation * new Vector3(0.165f * scale, 0.165f * scale, -0.020f * scale), new Vector3(0.040f * scale, 0.330f * scale, 0.045f * scale), steelMaterial, rotation);
+            CreateBox("Harbor Crane Top Beam", root, center + rotation * new Vector3(0f, 0.335f * scale, -0.020f * scale), new Vector3(0.420f * scale, 0.038f * scale, 0.050f * scale), craneMaterial, rotation);
+            CreateBox("Harbor Crane Boom", root, center + rotation * new Vector3(0.135f * scale, 0.300f * scale, 0.175f * scale), new Vector3(0.070f * scale, 0.032f * scale, 0.460f * scale), craneMaterial, rotation * Quaternion.Euler(0f, -8f, 0f));
+            CreateBox("Harbor Crane Hook Cable", root, center + rotation * new Vector3(0.205f * scale, 0.190f * scale, 0.365f * scale), new Vector3(0.012f * scale, 0.170f * scale, 0.012f * scale), steelMaterial, rotation);
+            CreateBox("Harbor Crane Hook", root, center + rotation * new Vector3(0.205f * scale, 0.092f * scale, 0.365f * scale), new Vector3(0.058f * scale, 0.026f * scale, 0.032f * scale), stripeMaterial, rotation);
+        }
+
+        private static void CreateHarborBeacon(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material poleMaterial,
+            Material lightMaterial,
+            Material glowMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Harbor Beacon Shadow", center, new Vector2(0.38f * scale, 0.30f * scale), shadowMaterial, rotation);
+            CreateCylinder("Harbor Beacon Base", root, center + Vector3.up * (0.045f * scale), new Vector3(0.070f * scale, 0.090f * scale, 0.070f * scale), poleMaterial, rotation);
+            CreateBox("Harbor Beacon Pole", root, center + Vector3.up * (0.175f * scale), new Vector3(0.030f * scale, 0.270f * scale, 0.030f * scale), poleMaterial, rotation);
+            CreateSphere("Harbor Beacon Light", root, center + Vector3.up * (0.330f * scale), 0.065f * scale, lightMaterial);
+            BoardGeometry.CreateFlatRoundedRect(
+                "Harbor Beacon Glow",
+                root,
+                center + Vector3.up * (0.338f * scale),
+                new Vector2(0.220f * scale, 0.190f * scale),
+                0.090f * scale,
+                glowMaterial,
+                rotation);
+        }
+
+        private static void CreateFutureCityProps(Transform root, ThemeMaterials materials)
+        {
+            var leftEdgeX = BoardLayoutConfig.GridLeftX - BoardLayoutConfig.CellSize * 1.10f;
+            var rightEdgeX = BoardLayoutConfig.GridRightX + BoardLayoutConfig.CellSize * 1.10f;
+            var lowerSideZ = BoardLayoutConfig.GridBottomZ + BoardLayoutConfig.CellSize * 1.65f;
+            var centerSideZ = BoardLayoutConfig.ParkingYardCenterZ - BoardLayoutConfig.CellSize * 0.18f;
+            var upperSideZ = BoardLayoutConfig.ParkingYardTopZ - BoardLayoutConfig.CellSize * 1.16f;
+
+            var steel = PuzzlePalette.CreateLitMaterial("Future City Prop Steel", BoardThemePalette.FutureSteel, 0.36f);
+            var darkPanel = PuzzlePalette.CreateLitMaterial("Future City Prop Dark Panel", BoardThemePalette.FuturePanelDark, 0.34f);
+            var neonBlue = PuzzlePalette.CreateLitMaterial("Future City Prop Neon Blue", BoardThemePalette.FutureNeonBlue, 0.32f);
+            var neonPink = PuzzlePalette.CreateLitMaterial("Future City Prop Neon Pink", BoardThemePalette.FutureNeonPink, 0.32f);
+            var neonGreen = PuzzlePalette.CreateLitMaterial("Future City Prop Neon Green", BoardThemePalette.FutureNeonGreen, 0.32f);
+            var glass = PuzzlePalette.CreateTransparentMaterial("Future City Prop Holo Glass", BoardThemePalette.WithAlpha(BoardThemePalette.FutureGlass, 0.42f));
+            var glow = PuzzlePalette.CreateTransparentMaterial("Future City Prop Glow", BoardThemePalette.WithAlpha(BoardThemePalette.FutureNeonBlue, 0.30f));
+            var shadow = PuzzlePalette.CreateTransparentMaterial("Future City Prop Contact Shadow", BoardThemePalette.WithAlpha(BoardThemePalette.FutureRoadShadow, 0.20f));
+
+            CreateHoloBillboard(root, new Vector3(leftEdgeX, 0f, upperSideZ - 0.16f), Quaternion.Euler(0f, 90f, 0f), steel, glass, neonPink, glow, shadow);
+            CreateDronePad(root, new Vector3(rightEdgeX, 0f, upperSideZ), Quaternion.Euler(0f, -90f, 0f), steel, darkPanel, neonBlue, shadow);
+            CreateDronePad(root, new Vector3(leftEdgeX, 0f, lowerSideZ), Quaternion.Euler(0f, 90f, 0f), steel, darkPanel, neonGreen, shadow, 0.86f);
+            CreateDataBench(root, new Vector3(rightEdgeX - 0.03f, 0f, centerSideZ + 0.58f), Quaternion.Euler(0f, -90f, 0f), darkPanel, neonBlue, steel, shadow);
+
+            CreateEnergyPylon(root, new Vector3(leftEdgeX - 0.04f, 0f, centerSideZ), Quaternion.Euler(0f, 20f, 0f), steel, glass, neonBlue, shadow);
+            CreateEnergyPylon(root, new Vector3(rightEdgeX + 0.04f, 0f, lowerSideZ + 0.55f), Quaternion.Euler(0f, -18f, 0f), steel, glass, neonPink, shadow, 0.88f);
+            CreateDataNodeCluster(root, new Vector3(leftEdgeX + 0.04f, 0f, lowerSideZ - 0.50f), neonGreen, shadow, 0.90f);
+            CreateDataNodeCluster(root, new Vector3(rightEdgeX - 0.04f, 0f, upperSideZ + 0.44f), neonBlue, shadow, 0.76f);
+            CreateCityBlockCluster(root, new Vector3(leftEdgeX + 0.02f, 0f, upperSideZ + 0.43f), Quaternion.Euler(0f, -12f, 0f), darkPanel, glass, neonBlue, shadow);
+            CreateCityBlockCluster(root, new Vector3(rightEdgeX - 0.02f, 0f, lowerSideZ - 0.44f), Quaternion.Euler(0f, 34f, 0f), darkPanel, glass, neonPink, shadow, 0.86f);
+        }
+
+        private static void CreateHoloBillboard(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material frameMaterial,
+            Material glassMaterial,
+            Material accentMaterial,
+            Material glowMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Future City Holo Billboard Shadow", center, new Vector2(0.70f, 0.34f), shadowMaterial, rotation);
+            CreateBox("Future City Holo Billboard Left Post", root, center + rotation * new Vector3(-0.24f, 0.130f, -0.040f), new Vector3(0.034f, 0.260f, 0.036f), frameMaterial, rotation);
+            CreateBox("Future City Holo Billboard Right Post", root, center + rotation * new Vector3(0.24f, 0.130f, -0.040f), new Vector3(0.034f, 0.260f, 0.036f), frameMaterial, rotation);
+            CreateBox("Future City Holo Billboard Panel", root, center + rotation * new Vector3(0f, 0.220f, 0.006f), new Vector3(0.58f, 0.220f, 0.030f), glassMaterial, rotation);
+            CreateBox("Future City Holo Billboard Top Pulse", root, center + rotation * new Vector3(0f, 0.345f, 0.020f), new Vector3(0.48f, 0.020f, 0.034f), accentMaterial, rotation);
+            CreateBox("Future City Holo Billboard Scan Line", root, center + rotation * new Vector3(0f, 0.225f, 0.026f), new Vector3(0.44f, 0.012f, 0.020f), glowMaterial, rotation);
+        }
+
+        private static void CreateDronePad(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material rimMaterial,
+            Material deckMaterial,
+            Material neonMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Future City Drone Pad Shadow", center, new Vector2(0.58f * scale, 0.34f * scale), shadowMaterial, rotation);
+            CreateCylinder("Future City Drone Pad Outer Ring", root, center + Vector3.up * (0.035f * scale), new Vector3(0.34f * scale, 0.036f * scale, 0.34f * scale), rimMaterial, rotation);
+            CreateCylinder("Future City Drone Pad Deck", root, center + Vector3.up * (0.041f * scale), new Vector3(0.255f * scale, 0.038f * scale, 0.255f * scale), deckMaterial, rotation);
+            CreateCylinder("Future City Drone Pad Core", root, center + Vector3.up * (0.047f * scale), new Vector3(0.105f * scale, 0.041f * scale, 0.105f * scale), neonMaterial, rotation);
+            CreateBox("Future City Drone Pad Approach A", root, center + rotation * new Vector3(0f, 0.058f * scale, 0.220f * scale), new Vector3(0.070f * scale, 0.010f * scale, 0.160f * scale), neonMaterial, rotation);
+            CreateBox("Future City Drone Pad Approach B", root, center + rotation * new Vector3(0f, 0.059f * scale, -0.220f * scale), new Vector3(0.070f * scale, 0.010f * scale, 0.160f * scale), neonMaterial, rotation);
+        }
+
+        private static void CreateDataBench(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material seatMaterial,
+            Material screenMaterial,
+            Material frameMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Future City Data Bench Shadow", center, new Vector2(0.54f, 0.27f), shadowMaterial, rotation);
+            CreateBox("Future City Data Bench Seat", root, center + Vector3.up * 0.105f, new Vector3(0.46f, 0.055f, 0.15f), seatMaterial, rotation);
+            CreateBox("Future City Data Bench Back Screen", root, center + rotation * new Vector3(0f, 0.190f, 0.085f), new Vector3(0.46f, 0.145f, 0.046f), screenMaterial, rotation);
+            CreateBox("Future City Data Bench Left Leg", root, center + rotation * new Vector3(-0.16f, 0.045f, -0.040f), new Vector3(0.040f, 0.090f, 0.050f), frameMaterial, rotation);
+            CreateBox("Future City Data Bench Right Leg", root, center + rotation * new Vector3(0.16f, 0.045f, -0.040f), new Vector3(0.040f, 0.090f, 0.050f), frameMaterial, rotation);
+        }
+
+        private static void CreateEnergyPylon(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material baseMaterial,
+            Material beamMaterial,
+            Material capMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Future City Energy Pylon Shadow", center, new Vector2(0.38f * scale, 0.30f * scale), shadowMaterial, rotation);
+            CreateCylinder("Future City Energy Pylon Base", root, center + Vector3.up * (0.042f * scale), new Vector3(0.150f * scale, 0.055f * scale, 0.150f * scale), baseMaterial, rotation);
+            CreateCylinder("Future City Energy Pylon Beam", root, center + Vector3.up * (0.175f * scale), new Vector3(0.042f * scale, 0.300f * scale, 0.042f * scale), beamMaterial, rotation);
+            CreateSphere("Future City Energy Pylon Cap", root, center + Vector3.up * (0.335f * scale), 0.082f * scale, capMaterial);
+            BoardGeometry.CreateFlatRoundedRect(
+                "Future City Energy Pylon Glow",
+                root,
+                center + Vector3.up * (0.342f * scale),
+                new Vector2(0.270f * scale, 0.245f * scale),
+                0.120f * scale,
+                beamMaterial,
+                rotation);
+        }
+
+        private static void CreateDataNodeCluster(
+            Transform root,
+            Vector3 position,
+            Material nodeMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Future City Data Node Shadow", position, new Vector2(0.38f * scale, 0.26f * scale), shadowMaterial, Quaternion.identity);
+            CreateSphere("Future City Data Node A", root, position + new Vector3(-0.075f * scale, 0.052f * scale, -0.020f * scale), 0.085f * scale, nodeMaterial);
+            CreateSphere("Future City Data Node B", root, position + new Vector3(0.060f * scale, 0.066f * scale, 0.030f * scale), 0.073f * scale, nodeMaterial);
+            CreateSphere("Future City Data Node C", root, position + new Vector3(0.150f * scale, 0.046f * scale, -0.040f * scale), 0.058f * scale, nodeMaterial);
+        }
+
+        private static void CreateCityBlockCluster(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material bodyMaterial,
+            Material glassMaterial,
+            Material neonMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Future City Block Cluster Shadow", center, new Vector2(0.48f * scale, 0.34f * scale), shadowMaterial, rotation);
+            CreateBox("Future City Block Tower A", root, center + rotation * new Vector3(-0.120f * scale, 0.130f * scale, -0.020f * scale), new Vector3(0.110f * scale, 0.260f * scale, 0.110f * scale), bodyMaterial, rotation);
+            CreateBox("Future City Block Tower B", root, center + rotation * new Vector3(0.015f * scale, 0.185f * scale, 0.035f * scale), new Vector3(0.120f * scale, 0.370f * scale, 0.110f * scale), glassMaterial, rotation);
+            CreateBox("Future City Block Tower C", root, center + rotation * new Vector3(0.150f * scale, 0.105f * scale, -0.030f * scale), new Vector3(0.095f * scale, 0.210f * scale, 0.100f * scale), bodyMaterial, rotation);
+            CreateBox("Future City Block Neon Bridge", root, center + rotation * new Vector3(0.020f * scale, 0.235f * scale, 0.090f * scale), new Vector3(0.250f * scale, 0.018f * scale, 0.026f * scale), neonMaterial, rotation);
+        }
+
+        private static void CreateHologramCore(
+            Transform root,
+            Vector3 center,
+            Material coreMaterial,
+            Material glowMaterial,
+            Material baseMaterial,
+            Material beamMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Future City Hologram Core Shadow", center, new Vector2(0.58f, 0.38f), shadowMaterial, Quaternion.identity);
+            BoardGeometry.CreateFlatRoundedRect("Future City Hologram Core Rim", root, center + Vector3.down * 0.006f, new Vector2(0.54f, 0.34f), 0.15f, baseMaterial, Quaternion.Euler(0f, -8f, 0f));
+            BoardGeometry.CreateFlatRoundedRect("Future City Hologram Core Plate", root, center + Vector3.up * 0.004f, new Vector2(0.43f, 0.24f), 0.11f, coreMaterial, Quaternion.Euler(0f, -8f, 0f));
+            BoardGeometry.CreateFlatRoundedRect("Future City Hologram Core Glow", root, center + new Vector3(-0.06f, 0.012f, 0.02f), new Vector2(0.16f, 0.055f), 0.025f, glowMaterial, Quaternion.Euler(0f, -18f, 0f));
+            CreateCylinder("Future City Hologram Core Beam", root, center + Vector3.up * 0.145f, new Vector3(0.055f, 0.270f, 0.055f), beamMaterial, Quaternion.identity);
+        }
+
+        private static void CreateSurfboardRack(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material boardMaterialA,
+            Material boardMaterialB,
+            Material stripeMaterial,
+            Material poleMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Waikiki Surfboard Rack Shadow", center, new Vector2(0.70f, 0.36f), shadowMaterial, rotation);
+            CreateBox("Waikiki Surfboard Rack Left Post", root, center + rotation * new Vector3(-0.22f, 0.058f, -0.045f), new Vector3(0.032f, 0.116f, 0.038f), poleMaterial, rotation);
+            CreateBox("Waikiki Surfboard Rack Right Post", root, center + rotation * new Vector3(0.22f, 0.058f, -0.045f), new Vector3(0.032f, 0.116f, 0.038f), poleMaterial, rotation);
+            CreateBox("Waikiki Surfboard A", root, center + rotation * new Vector3(-0.16f, 0.120f, 0.018f), new Vector3(0.108f, 0.032f, 0.530f), boardMaterialA, rotation * Quaternion.Euler(0f, -8f, 0f));
+            CreateBox("Waikiki Surfboard B", root, center + rotation * new Vector3(0.00f, 0.140f, -0.004f), new Vector3(0.112f, 0.032f, 0.560f), boardMaterialB, rotation * Quaternion.Euler(0f, 6f, 0f));
+            CreateBox("Waikiki Surfboard C", root, center + rotation * new Vector3(0.17f, 0.116f, 0.024f), new Vector3(0.100f, 0.032f, 0.500f), boardMaterialA, rotation * Quaternion.Euler(0f, 12f, 0f));
+            CreateBox("Waikiki Surfboard Stripe", root, center + rotation * new Vector3(0.00f, 0.163f, -0.020f), new Vector3(0.066f, 0.010f, 0.400f), stripeMaterial, rotation * Quaternion.Euler(0f, 6f, 0f));
+        }
+
+        private static void CreateLifebuoyStack(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material outerMaterial,
+            Material insetMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Waikiki Lifebuoy Stack Shadow", center, new Vector2(0.56f * scale, 0.32f * scale), shadowMaterial, rotation);
+            for (var index = 0; index < 3; index++)
+            {
+                var layerCenter = center + Vector3.up * ((0.040f + index * 0.055f) * scale) + rotation * new Vector3((index - 1) * 0.018f * scale, 0f, 0f);
+                CreateCylinder($"Waikiki Lifebuoy Outer {index + 1}", root, layerCenter, new Vector3(0.32f * scale, 0.038f * scale, 0.32f * scale), outerMaterial, rotation);
+                CreateCylinder($"Waikiki Lifebuoy Inset {index + 1}", root, layerCenter + Vector3.up * (0.003f * scale), new Vector3(0.205f * scale, 0.041f * scale, 0.205f * scale), insetMaterial, rotation);
+                CreateCylinder($"Waikiki Lifebuoy Center {index + 1}", root, layerCenter + Vector3.up * (0.006f * scale), new Vector3(0.095f * scale, 0.044f * scale, 0.095f * scale), outerMaterial, rotation);
+            }
+        }
+
+        private static void CreateBeachBench(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material seatMaterial,
+            Material legMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Waikiki Bench Shadow", center, new Vector2(0.54f, 0.27f), shadowMaterial, rotation);
+            CreateBox("Waikiki Bench Seat", root, center + Vector3.up * 0.105f, new Vector3(0.46f, 0.055f, 0.15f), seatMaterial, rotation);
+            CreateBox("Waikiki Bench Back", root, center + rotation * new Vector3(0f, 0.185f, 0.085f), new Vector3(0.46f, 0.155f, 0.050f), seatMaterial, rotation);
+            CreateBox("Waikiki Bench Left Leg", root, center + rotation * new Vector3(-0.16f, 0.045f, -0.040f), new Vector3(0.040f, 0.090f, 0.050f), legMaterial, rotation);
+            CreateBox("Waikiki Bench Right Leg", root, center + rotation * new Vector3(0.16f, 0.045f, -0.040f), new Vector3(0.040f, 0.090f, 0.050f), legMaterial, rotation);
+        }
+
+        private static void CreateBeachUmbrella(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material primaryMaterial,
+            Material secondaryMaterial,
+            Material poleMaterial,
+            Material shadowMaterial)
+        {
+            CreateBeachUmbrella(root, center, rotation, primaryMaterial, secondaryMaterial, poleMaterial, shadowMaterial, 1f);
+        }
+
+        private static void CreateBeachUmbrella(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material primaryMaterial,
+            Material secondaryMaterial,
+            Material poleMaterial,
+            Material shadowMaterial,
+            float scale)
+        {
+            CreatePropShadow(root, "Waikiki Umbrella Shadow", center, new Vector2(0.36f * scale, 0.30f * scale), shadowMaterial, rotation);
+            CreateCylinder("Waikiki Umbrella Pole", root, center + Vector3.up * (0.102f * scale), new Vector3(0.020f * scale, 0.205f * scale, 0.020f * scale), poleMaterial, rotation);
+            BoardGeometry.CreateFlatRoundedRect(
+                "Waikiki Umbrella Canopy",
+                root,
+                center + Vector3.up * (0.220f * scale),
+                new Vector2(0.330f * scale, 0.285f * scale),
+                0.130f * scale,
+                primaryMaterial,
+                rotation);
+            CreateBox("Waikiki Umbrella Stripe A", root, center + Vector3.up * (0.230f * scale), new Vector3(0.040f * scale, 0.010f * scale, 0.245f * scale), secondaryMaterial, rotation);
+            CreateBox("Waikiki Umbrella Stripe B", root, center + Vector3.up * (0.234f * scale), new Vector3(0.230f * scale, 0.010f * scale, 0.040f * scale), secondaryMaterial, rotation);
+        }
+
+        private static void CreateShellCluster(
+            Transform root,
+            Vector3 position,
+            Material shellMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Waikiki Shell Cluster Shadow", position, new Vector2(0.38f * scale, 0.26f * scale), shadowMaterial, Quaternion.identity);
+            CreateSphere("Waikiki Shell Cluster A", root, position + new Vector3(-0.075f * scale, 0.052f * scale, -0.020f * scale), 0.090f * scale, shellMaterial);
+            CreateSphere("Waikiki Shell Cluster B", root, position + new Vector3(0.060f * scale, 0.060f * scale, 0.030f * scale), 0.082f * scale, shellMaterial);
+            CreateSphere("Waikiki Shell Cluster C", root, position + new Vector3(0.150f * scale, 0.044f * scale, -0.040f * scale), 0.064f * scale, shellMaterial);
+        }
+
+        private static void CreatePalmTree(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material trunkMaterial,
+            Material leafMaterial,
+            Material shadowMaterial,
+            float scale = 1f)
+        {
+            CreatePropShadow(root, "Waikiki Palm Shadow", center, new Vector2(0.42f * scale, 0.32f * scale), shadowMaterial, rotation);
+            CreateCylinder("Waikiki Palm Trunk", root, center + Vector3.up * (0.150f * scale), new Vector3(0.052f * scale, 0.300f * scale, 0.052f * scale), trunkMaterial, rotation * Quaternion.Euler(0f, 0f, -6f));
+            CreateSphere("Waikiki Palm Crown", root, center + Vector3.up * (0.315f * scale), 0.100f * scale, leafMaterial);
+            for (var index = 0; index < 5; index++)
+            {
+                var leafRotation = rotation * Quaternion.Euler(0f, index * 72f, 0f);
+                CreateBox(
+                    $"Waikiki Palm Leaf {index + 1}",
+                    root,
+                    center + Vector3.up * (0.315f * scale) + leafRotation * Vector3.forward * (0.115f * scale),
+                    new Vector3(0.070f * scale, 0.018f * scale, 0.270f * scale),
+                    leafMaterial,
+                    leafRotation);
+            }
+        }
+
+        private static void CreateTidePool(
+            Transform root,
+            Vector3 center,
+            Material waterMaterial,
+            Material waterLightMaterial,
+            Material shellMaterial)
+        {
+            BoardGeometry.CreateFlatRoundedRect(
+                "Waikiki Tide Pool Sand Rim",
+                root,
+                center + Vector3.down * 0.006f,
+                new Vector2(0.54f, 0.34f),
+                0.15f,
+                shellMaterial,
+                Quaternion.Euler(0f, -8f, 0f));
+            BoardGeometry.CreateFlatRoundedRect(
+                "Waikiki Tide Pool Water",
+                root,
+                center + Vector3.up * 0.004f,
+                new Vector2(0.43f, 0.24f),
+                0.11f,
+                waterMaterial,
+                Quaternion.Euler(0f, -8f, 0f));
+            BoardGeometry.CreateFlatRoundedRect(
+                "Waikiki Tide Pool Highlight",
+                root,
+                center + new Vector3(-0.06f, 0.012f, 0.02f),
+                new Vector2(0.16f, 0.055f),
+                0.025f,
+                waterLightMaterial,
+                Quaternion.Euler(0f, -18f, 0f));
+        }
+
+        private static void CreatePropShadow(
+            Transform root,
+            string name,
+            Vector3 center,
+            Vector2 size,
+            Material material,
+            Quaternion rotation)
+        {
+            BoardGeometry.CreateFlatRoundedRect(
+                name,
+                root,
+                new Vector3(center.x, -0.016f, center.z),
+                size,
+                Mathf.Min(size.x, size.y) * 0.42f,
+                material,
+                rotation);
         }
 
         private static void CreateFeederPathBand(
@@ -462,12 +1070,6 @@ namespace BusPuzzle
                 Quaternion.Euler(0f, 35f, 0f));
         }
 
-        private static void CreateSmallTree(Transform root, Vector3 position, Material leaf, Material trunk, float radius)
-        {
-            CreateBox("Terminal Tree Trunk", root, position + Vector3.up * 0.10f, new Vector3(radius * 0.18f, 0.20f, radius * 0.18f), trunk, Quaternion.identity);
-            CreateSphere("Terminal Tree Crown", root, position + Vector3.up * 0.25f, radius, leaf);
-        }
-
         private static void CreateCrosswalk(Transform root, Vector3 center, float width, float depth, Material material)
         {
             const int stripes = 4;
@@ -483,26 +1085,6 @@ namespace BusPuzzle
             }
         }
 
-        private static void CreatePaverStrip(
-            Transform root,
-            Material first,
-            Material second,
-            float x,
-            float startZ,
-            int count,
-            float spacing)
-        {
-            for (var index = 0; index < count; index++)
-            {
-                BoardGeometry.CreateFlatRect(
-                    $"Sidewalk Paver {x:0.0} {index + 1}",
-                    root,
-                    new Vector3(x, -0.078f, startZ + (index - count * 0.5f) * spacing),
-                    new Vector2(0.18f, 0.12f),
-                    index % 2 == 0 ? first : second);
-            }
-        }
-
         private static GameObject CreateBox(string name, Transform root, Vector3 position, Vector3 scale, Material material, Quaternion rotation)
         {
             var box = VisualPrimitiveFactory.Create(PrimitiveType.Cube, name);
@@ -512,6 +1094,17 @@ namespace BusPuzzle
             box.GetComponent<Renderer>().sharedMaterial = material;
             DisablePhysics(box);
             return box;
+        }
+
+        private static GameObject CreateCylinder(string name, Transform root, Vector3 position, Vector3 scale, Material material, Quaternion rotation)
+        {
+            var cylinder = VisualPrimitiveFactory.Create(PrimitiveType.Cylinder, name);
+            cylinder.transform.SetParent(root, false);
+            cylinder.transform.SetPositionAndRotation(position, rotation);
+            cylinder.transform.localScale = scale;
+            cylinder.GetComponent<Renderer>().sharedMaterial = material;
+            DisablePhysics(cylinder);
+            return cylinder;
         }
 
         private static GameObject CreateSphere(string name, Transform root, Vector3 position, float radius, Material material)
@@ -551,8 +1144,6 @@ namespace BusPuzzle
             public readonly Material Pole;
             public readonly Material LampGlow;
             public readonly Material LampBulb;
-            public readonly Material Leaf;
-            public readonly Material Trunk;
             public readonly Material QueueGuide;
             public readonly Material QueueFloor;
 
@@ -565,8 +1156,6 @@ namespace BusPuzzle
                 Material pole,
                 Material lampGlow,
                 Material lampBulb,
-                Material leaf,
-                Material trunk,
                 Material queueGuide,
                 Material queueFloor)
             {
@@ -578,8 +1167,6 @@ namespace BusPuzzle
                 Pole = pole;
                 LampGlow = lampGlow;
                 LampBulb = lampBulb;
-                Leaf = leaf;
-                Trunk = trunk;
                 QueueGuide = queueGuide;
                 QueueFloor = queueFloor;
             }

@@ -132,6 +132,7 @@ namespace BusPuzzle
                 return;
             }
 
+            var wasInitialPrompt = nicknamePromptIsInitial;
             if (!PlayerIdentityService.TrySetNickname(nicknameInput.text, out var normalizedNickname, out var validationMessage))
             {
                 SetNicknamePromptMessage(Localization.Text(validationMessage));
@@ -139,13 +140,18 @@ namespace BusPuzzle
             }
 
             nicknameInput.SetTextWithoutNotify(normalizedNickname);
-            if (nicknamePromptIsInitial)
+            if (wasInitialPrompt)
             {
                 PlayerIdentityService.MarkInitialNicknamePromptSeen();
             }
 
             SetNicknamePromptMessage(Localization.Text("nickname_saved"));
             HideNicknamePrompt(nicknamePromptReturnToSettings);
+
+            if (wasInitialPrompt)
+            {
+                InitialNicknamePromptCompleted?.Invoke();
+            }
         }
 
         private void HideNicknamePrompt(bool returnToSettings)

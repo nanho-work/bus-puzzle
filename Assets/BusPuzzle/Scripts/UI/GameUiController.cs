@@ -174,6 +174,12 @@ namespace BusPuzzle
         public event Action DepartConfirmed;
         public event Action RecoveryPromptCancelled;
         public event Action RemoteConfigActionRequested;
+        public event Action InitialNicknamePromptCompleted;
+
+        public bool IsInitialNicknamePromptBlocking =>
+            nicknamePrompt != null &&
+            (PlayerIdentityService.ShouldShowInitialNicknamePrompt ||
+             (nicknamePromptIsInitial && nicknamePrompt.gameObject.activeSelf));
 
         public static GameUiController CreateDefault()
         {

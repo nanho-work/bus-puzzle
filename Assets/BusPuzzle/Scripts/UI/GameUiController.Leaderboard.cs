@@ -115,8 +115,17 @@ namespace BusPuzzle
 
         private void RefreshLeaderboardPrompt()
         {
-            ClearLeaderboardRows();
-            SetLeaderboardStatus(Localization.Text("leaderboard_loading"));
+            var hasCachedEntries = LeaderboardService.TryGetCachedTopLeaderboard(out var cachedEntries);
+            if (hasCachedEntries)
+            {
+                ApplyLeaderboardEntries(cachedEntries);
+            }
+            else
+            {
+                ClearLeaderboardRows();
+                SetLeaderboardStatus(Localization.Text("leaderboard_loading"));
+            }
+
             if (leaderboardRefreshButton != null)
             {
                 leaderboardRefreshButton.interactable = false;
@@ -139,8 +148,11 @@ namespace BusPuzzle
                         leaderboardRefreshButton.interactable = true;
                     }
 
-                    ClearLeaderboardRows();
-                    SetLeaderboardStatus(Localization.Text("leaderboard_error"));
+                    if (!hasCachedEntries)
+                    {
+                        ClearLeaderboardRows();
+                        SetLeaderboardStatus(Localization.Text("leaderboard_error"));
+                    }
                 });
         }
 

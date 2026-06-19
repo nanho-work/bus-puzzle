@@ -172,6 +172,7 @@ namespace BusPuzzle
                 uiController.DepartConfirmed -= RequestDepartAd;
                 uiController.RecoveryPromptCancelled -= HandleRecoveryPromptCancelled;
                 uiController.RemoteConfigActionRequested -= HandleRemoteConfigActionRequested;
+                uiController.InitialNicknamePromptCompleted -= HandleInitialNicknamePromptCompleted;
             }
 
             if (rewardedAdService != null)
@@ -328,6 +329,7 @@ namespace BusPuzzle
             uiController.DepartGoldConfirmed += RequestDepartGold;
             uiController.DepartConfirmed += RequestDepartAd;
             uiController.RecoveryPromptCancelled += HandleRecoveryPromptCancelled;
+            uiController.InitialNicknamePromptCompleted += HandleInitialNicknamePromptCompleted;
 
             rewardedAdService = RewardedAdServiceFactory.Create(AdMobSettings.Load());
             rewardedAdService.AvailabilityChanged += UpdateRewardedAdUi;
@@ -627,6 +629,11 @@ namespace BusPuzzle
             {
                 Application.OpenURL(updateUrl);
             }
+        }
+
+        private void HandleInitialNicknamePromptCompleted()
+        {
+            StartTutorialIfNeeded();
         }
 
         private void QuitApplication()
@@ -1368,7 +1375,9 @@ namespace BusPuzzle
             if (currentLevelIndex != 0 ||
                 UserProgress.HasCompletedTutorial ||
                 uiController == null ||
-                gameState != GameState.Playing)
+                uiController.IsInitialNicknamePromptBlocking ||
+                gameState != GameState.Playing ||
+                tutorialStep != TutorialStep.None)
             {
                 return;
             }

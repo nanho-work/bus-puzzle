@@ -30,18 +30,15 @@ namespace BusPuzzle
 
     internal static class RotaryRoadBuilder
     {
-        private static readonly Color RoadColor = new Color(0.42f, 0.46f, 0.54f);
-        private static readonly Color RailColor = new Color(0.96f, 0.98f, 1.00f);
-        private static readonly Color RailShadowColor = new Color(0.24f, 0.28f, 0.34f);
-        private static readonly Color GateMarkerColor = new Color(0.90f, 0.69f, 0.10f);
         private const float FeederRoadScreenExitExtension = 1.55f;
         private const float FeederRoadJoinExtensionScale = 0.24f;
         private const float FeederRailJoinExtensionScale = 0.08f;
         private const float FeederJunctionPatchWidthScale = 0.96f;
         private const float FeederJunctionPatchLengthScale = 0.74f;
 
-        public static void CreateGround(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
+        public static void CreateGround(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, BoardThemeId theme = BoardThemeId.Field)
         {
+            var style = BoardThemePalette.GetStyle(theme);
             var feederTopZ = settings.RotaryCenterZ + GetMaxFeederY(layout) + layout.RoadWidth;
             const float floorBottomZ = -5.10f;
             var floorTopZ = Mathf.Max(4.78f, feederTopZ + FeederRoadScreenExitExtension + 0.42f);
@@ -53,7 +50,7 @@ namespace BusPuzzle
                 parent,
                 new Vector3(0f, -0.120f, floorCenterZ),
                 new Vector2(5.85f, floorDepth),
-                PuzzlePalette.CreateSolidMaterial("Terminal Floor", new Color(0.63f, 0.69f, 0.75f)));
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Theme Floor", style.Floor));
 
             var feederHalfWidth = GetMaxAbsFeederX(layout) + layout.RoadWidth * 0.5f + 0.24f;
             var rotaryDistrictWidth = Mathf.Max(layout.OuterRadiusX * 2f + 0.46f, feederHalfWidth * 2f);
@@ -66,22 +63,23 @@ namespace BusPuzzle
                 parent,
                 rotaryDistrictCenter,
                 new Vector2(rotaryDistrictWidth, rotaryDistrictDepth),
-                PuzzlePalette.CreateSolidMaterial("Passenger Rotary District", new Color(0.70f, 0.75f, 0.80f)));
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Rotary District", style.RotaryDistrict));
 
             BoardGeometry.CreateFlatRect(
                 "Bus Puzzle Yard",
                 parent,
                 new Vector3(0f, -0.090f, settings.GridCenterZ),
                 new Vector2(settings.GridWorldWidth + 0.48f, settings.GridWorldDepth + 0.48f),
-                PuzzlePalette.CreateSolidMaterial("Bus Puzzle Yard", new Color(0.58f, 0.66f, 0.74f)));
+                PuzzlePalette.CreateSolidMaterial($"{style.Name} Puzzle Yard", style.PuzzleYard));
 
-            CreateFeederLane(parent, layout, settings, -1);
-            CreateFeederLane(parent, layout, settings, 1);
+            CreateFeederLane(parent, layout, settings, -1, style);
+            CreateFeederLane(parent, layout, settings, 1, style);
         }
 
-        public static void CreatePassengerRotary(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
+        public static void CreatePassengerRotary(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, BoardThemeId theme = BoardThemeId.Field)
         {
-            CreateRoad(parent, layout, settings);
+            var style = BoardThemePalette.GetStyle(theme);
+            CreateRoad(parent, layout, settings, style);
 
             if (layout.Preset.Id != RotaryRoadPresetId.SnakeTest)
             {
@@ -92,24 +90,24 @@ namespace BusPuzzle
                     settings.RotaryCenterZ,
                     -0.058f,
                     layout.RoadInnerOffset - 0.060f,
-                    PuzzlePalette.CreateSolidMaterial("Rotary Island", new Color(0.72f, 0.77f, 0.82f)));
+                    PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Island", style.Island));
 
                 if (!UsesMinimalRotaryCenter(layout.Preset.Id))
                 {
-                    CreateRotaryGarden(parent, layout, settings);
+                    CreateRotaryGarden(parent, layout, settings, style);
                 }
             }
 
-            CreateBoardingGate(parent, layout, settings);
+            CreateBoardingGate(parent, layout, settings, style);
         }
 
-        private static void CreateRoad(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
+        private static void CreateRoad(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, BoardThemeStyle style)
         {
-            var roadMaterial = PuzzlePalette.CreateSolidMaterial("Rotary Asphalt Road", RoadColor);
-            var railMaterial = PuzzlePalette.CreateSolidMaterial("Rotary White Guardrail", RailColor);
-            var railShadowMaterial = PuzzlePalette.CreateSolidMaterial("Rotary Guardrail Shadow", RailShadowColor);
-            var shadowMaterial = PuzzlePalette.CreateSolidMaterial("Rotary Soft Shadow", new Color(0.30f, 0.34f, 0.40f));
-            var railRimMaterial = PuzzlePalette.CreateSolidMaterial("Rotary Guardrail Rim", new Color(0.73f, 0.79f, 0.86f));
+            var roadMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Road", style.Road);
+            var railMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Guardrail", style.Rail);
+            var railShadowMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Guardrail Shadow", style.RailShadow);
+            var shadowMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Soft Shadow", style.RoadShadow);
+            var railRimMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Guardrail Rim", style.Gate);
 
             const float railWidth = 0.104f;
             const float rimWidth = 0.018f;
@@ -146,7 +144,7 @@ namespace BusPuzzle
             }
         }
 
-        private static void CreateFeederLane(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, int side)
+        private static void CreateFeederLane(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, int side, BoardThemeStyle style)
         {
             var name = side < 0 ? "Left Passenger Feeder" : "Right Passenger Feeder";
             var logicFeederPath = layout.GetFeederPath(side);
@@ -158,9 +156,9 @@ namespace BusPuzzle
                 logicFeederPath,
                 FeederRoadScreenExitExtension,
                 layout.RoadWidth * FeederRailJoinExtensionScale);
-            var laneMaterial = PuzzlePalette.CreateSolidMaterial(name, new Color(0.43f, 0.47f, 0.55f));
-            var railMaterial = PuzzlePalette.CreateSolidMaterial($"{name} Guardrail", new Color(0.88f, 0.92f, 0.96f));
-            var railShadowMaterial = PuzzlePalette.CreateSolidMaterial($"{name} Guardrail Shadow", new Color(0.25f, 0.29f, 0.35f));
+            var laneMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} {name}", style.Road);
+            var railMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} {name} Guardrail", style.Rail);
+            var railShadowMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} {name} Guardrail Shadow", style.RailShadow);
 
             const float railWidth = 0.066f;
             var innerOffset = layout.RoadInnerOffset;
@@ -335,12 +333,12 @@ namespace BusPuzzle
             return max;
         }
 
-        private static void CreateBoardingGate(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
+        private static void CreateBoardingGate(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, BoardThemeStyle style)
         {
-            var roadMaterial = PuzzlePalette.CreateSolidMaterial("Boarding Gate Road", RoadColor);
-            var railMaterial = PuzzlePalette.CreateSolidMaterial("Boarding Gate Guardrail", RailColor);
-            var railShadowMaterial = PuzzlePalette.CreateSolidMaterial("Boarding Gate Guardrail Shadow", RailShadowColor);
-            var markerMaterial = PuzzlePalette.CreateSolidMaterial("Boarding Gate Marker", GateMarkerColor);
+            var roadMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Boarding Gate Road", style.Road);
+            var railMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Boarding Gate Guardrail", style.Rail);
+            var railShadowMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Boarding Gate Guardrail Shadow", style.RailShadow);
+            var markerMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Boarding Gate Marker", style.Gate);
             var sample = layout.Path.Sample(layout.Preset.BoardingGateProgress);
             var tangent = new Vector3(sample.Tangent.x, 0f, sample.Tangent.y).normalized;
             var outward = new Vector3(sample.Outward.x, 0f, sample.Outward.y).normalized;
@@ -397,19 +395,19 @@ namespace BusPuzzle
                 markerMaterial);
         }
 
-        private static void CreateRotaryGarden(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings)
+        private static void CreateRotaryGarden(Transform parent, RotaryLayout layout, RotaryRoadBuildSettings settings, BoardThemeStyle style)
         {
             var center = new Vector3(0f, -0.040f, settings.RotaryCenterZ);
             var gardenWidth = Mathf.Max(0.72f, layout.Path.RadiusX * 0.92f);
             var gardenDepth = Mathf.Max(0.42f, layout.Path.RadiusZ * 0.72f);
-            var curbMaterial = PuzzlePalette.CreateSolidMaterial("Rotary Garden Curb", new Color(0.88f, 0.91f, 0.88f));
-            var grassMaterial = PuzzlePalette.CreateSolidMaterial("Rotary Garden Grass", new Color(0.42f, 0.58f, 0.42f));
-            var bushMaterial = PuzzlePalette.CreateSolidMaterial("Rotary Garden Bush", new Color(0.26f, 0.47f, 0.27f));
-            var flowerYellow = PuzzlePalette.CreateSolidMaterial("Rotary Garden Yellow Flowers", new Color(0.95f, 0.78f, 0.22f));
-            var flowerPink = PuzzlePalette.CreateSolidMaterial("Rotary Garden Pink Flowers", new Color(0.91f, 0.48f, 0.65f));
+            var curbMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Garden Rim", style.Rail);
+            var grassMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Garden Plate", style.Island);
+            var bushMaterial = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Garden Node", style.AccentA);
+            var flowerYellow = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Garden Mark A", style.AccentB);
+            var flowerPink = PuzzlePalette.CreateSolidMaterial($"Rotary {style.Name} Garden Mark B", style.AccentC);
 
             BoardGeometry.CreateFlatRoundedRect(
-                "Rotary Garden Curb",
+                "Rotary Harbor Cargo Rim",
                 parent,
                 center + Vector3.down * 0.004f,
                 new Vector2(gardenWidth + 0.16f, gardenDepth + 0.14f),
@@ -417,7 +415,7 @@ namespace BusPuzzle
                 curbMaterial);
 
             BoardGeometry.CreateFlatRoundedRect(
-                "Rotary Garden Grass",
+                "Rotary Harbor Concrete Plate",
                 parent,
                 center + Vector3.up * 0.006f,
                 new Vector2(gardenWidth, gardenDepth),

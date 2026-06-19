@@ -34,6 +34,7 @@ namespace BusPuzzle
         private Transform themeRoot;
         private Coroutine tutorialStationHighlightRoutine;
         private GameObject tutorialStationHighlight;
+        private BoardThemeId activeTheme = BoardThemeId.Field;
         private int currentPassengerUnitCount;
         private float rotaryCenterZ = BoardLayoutConfig.RotaryCenterZ;
         private bool vipStationSlotOccupied;
@@ -99,6 +100,7 @@ namespace BusPuzzle
             currentPassengerUnitCount = levelData.PassengerUnits.Count;
             passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
             vehicleTraffic = new VehicleTrafficEngine(CreateVehicleTrafficSettings());
+            activeTheme = BoardThemePalette.GetThemeForStage(stageNumber);
 
             ClearBoard();
             ResetStationSlots();
@@ -720,17 +722,17 @@ namespace BusPuzzle
 
         private void CreateGround()
         {
-            RotaryRoadBuilder.CreateGround(transform, rotaryLayout, CreateRotaryRoadBuildSettings());
+            RotaryRoadBuilder.CreateGround(transform, rotaryLayout, CreateRotaryRoadBuildSettings(), activeTheme);
         }
 
         private void CreateTheme()
         {
-            CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings());
+            CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings(), activeTheme);
         }
 
         private void CreatePassengerRotary()
         {
-            RotaryRoadBuilder.CreatePassengerRotary(transform, rotaryLayout, CreateRotaryRoadBuildSettings());
+            RotaryRoadBuilder.CreatePassengerRotary(transform, rotaryLayout, CreateRotaryRoadBuildSettings(), activeTheme);
         }
 
         private void CreateGrid()
@@ -741,7 +743,8 @@ namespace BusPuzzle
                 BoardLayoutConfig.GridRows,
                 BoardLayoutConfig.CellSize,
                 BoardLayoutConfig.GridBottomZ,
-                BoardLayoutConfig.UpperParkingExtensionZ);
+                BoardLayoutConfig.UpperParkingExtensionZ,
+                activeTheme);
         }
 
         private void CreateStationSlots()
@@ -761,7 +764,8 @@ namespace BusPuzzle
                 BoardLayoutConfig.GetFreeStationPosition,
                 BoardLayoutConfig.GetStationPosition,
                 GetLockedStationPosition,
-                true);
+                true,
+                activeTheme);
             RefreshVipStationLabelVisibility();
         }
 

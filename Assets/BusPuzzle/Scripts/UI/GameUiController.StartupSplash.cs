@@ -6,6 +6,8 @@ namespace BusPuzzle
 {
     public sealed partial class GameUiController
     {
+        private const float StartupSplashSettleSeconds = 0.35f;
+        private const float StartupSplashMaxSettleSeconds = 1f;
         private const float StartupSplashHoldSeconds = 1.65f;
         private const float StartupSplashFadeSeconds = 0.45f;
 
@@ -45,6 +47,11 @@ namespace BusPuzzle
             var imageRect = imageObject.GetComponent<RectTransform>();
             SetAnchors(imageRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
+            startupSplashImageCanvasGroup = imageObject.AddComponent<CanvasGroup>();
+            startupSplashImageCanvasGroup.alpha = 0f;
+            startupSplashImageCanvasGroup.blocksRaycasts = false;
+            startupSplashImageCanvasGroup.interactable = false;
+
             var image = imageObject.GetComponent<Image>();
             image.sprite = splashSprite;
             image.color = Color.white;
@@ -60,6 +67,13 @@ namespace BusPuzzle
 
         private IEnumerator PlayStartupSplashRoutine()
         {
+            yield return WaitForStartupOrientationSettle();
+
+            if (startupSplashImageCanvasGroup != null)
+            {
+                startupSplashImageCanvasGroup.alpha = 1f;
+            }
+
             yield return new WaitForSecondsRealtime(StartupSplashHoldSeconds);
 
             var elapsed = 0f;
@@ -80,7 +94,55 @@ namespace BusPuzzle
                 Destroy(startupSplashRoot.gameObject);
                 startupSplashRoot = null;
                 startupSplashCanvasGroup = null;
+                startupSplashImageCanvasGroup = null;
             }
+        }
+
+        private static IEnumerator WaitForStartupOrientationSettle()
+        {
+            var elapsed = 0f;
+            var portraitElapsed = 0f;
+
+            while (elapsed < StartupSplashMaxSettleSeconds && portraitElapsed < StartupSplashSettleSeconds)
+            {
+                LockStartupPortraitOrientation();
+
+                var delta = Time.unscaledDeltaTime;
+                elapsed += delta;
+
+                if (IsStartupPortraitFrame())
+                {
+                    portraitElapsed += delta;
+                }
+                else
+                {
+                    portraitElapsed = 0f;
+                }
+
+                yield return null;
+            }
+        }
+
+        private static void LockStartupPortraitOrientation()
+        {
+            Screen.autorotateToPortrait = true;
+            Screen.autorotateToPortraitUpsideDown = false;
+            Screen.autorotateToLandscapeLeft = false;
+            Screen.autorotateToLandscapeRight = false;
+            Screen.orientation = ScreenOrientation.Portrait;
+        }
+
+        private static bool IsStartupPortraitFrame()
+        {
+            if (Screen.width <= 0 || Screen.height <= 0)
+            {
+                return false;
+            }
+
+            return Screen.height >= Screen.width &&
+                Screen.orientation != ScreenOrientation.PortraitUpsideDown &&
+                Screen.orientation != ScreenOrientation.LandscapeLeft &&
+                Screen.orientation != ScreenOrientation.LandscapeRight;
         }
     }
 }

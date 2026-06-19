@@ -22,6 +22,7 @@ namespace BusPuzzle
         {
             var manifestPath = Path.Combine(path, "src/main/AndroidManifest.xml");
             ForcePortraitOrientation(manifestPath);
+            ForceQuietStartupTheme(path);
         }
 
         private static void ForcePortraitOrientation(string manifestPath)
@@ -51,6 +52,33 @@ namespace BusPuzzle
             ForcePortraitApplicationMetadata(document);
             document.Save(manifestPath);
             Debug.Log($"Bus Pop Android manifest locked to portrait for {activities.Count} launcher activity entry: {manifestPath}");
+        }
+
+        private static void ForceQuietStartupTheme(string projectPath)
+        {
+            var stylePaths = new[]
+            {
+                Path.Combine(projectPath, "src/main/res/values/styles.xml"),
+                Path.Combine(projectPath, "src/main/res/values-v31/styles.xml")
+            };
+
+            foreach (var stylePath in stylePaths.Where(File.Exists))
+            {
+                var document = XDocument.Load(stylePath);
+                var styles = document
+                    .Descendants("style")
+                    .Where(IsStartupTheme)
+                    .ToList();
+
+                foreach (var style in styles)
+                {
+                    SetOrCreateStyleItem(style, "android:windowBackground", "@android:color/black");
+                    SetOrCreateStyleItem(style, "android:windowDisablePreview", "true");
+                }
+
+                document.Save(stylePath);
+                Debug.Log($"Bus Pop Android startup theme quieted for {styles.Count} style entry: {stylePath}");
+            }
         }
 
         private static bool IsUnityLauncherActivity(XElement activity)
@@ -113,6 +141,27 @@ namespace BusPuzzle
             return parent
                 .Elements("meta-data")
                 .Any(element => (string)element.Attribute(AndroidNamespace + "name") == name);
+        }
+
+        private static bool IsStartupTheme(XElement style)
+        {
+            var name = (string)style.Attribute("name") ?? string.Empty;
+            return name == "BaseUnityTheme" || name == "UnityThemeSelector";
+        }
+
+        private static void SetOrCreateStyleItem(XElement style, string name, string value)
+        {
+            var item = style
+                .Elements("item")
+                .FirstOrDefault(element => (string)element.Attribute("name") == name);
+
+            if (item == null)
+            {
+                item = new XElement("item", new XAttribute("name", name));
+                style.Add(item);
+            }
+
+            item.Value = value;
         }
 
         private static void SetOrCreateMetadata(XElement parent, string name, string value)

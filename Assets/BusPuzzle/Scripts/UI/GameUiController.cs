@@ -156,6 +156,7 @@ namespace BusPuzzle
         private bool nicknamePromptReturnToSettings;
         private RectTransform startupSplashRoot;
         private CanvasGroup startupSplashCanvasGroup;
+        private CanvasGroup startupSplashImageCanvasGroup;
 
         public event Action RestartRequested;
         public event Action NextLevelRequested;

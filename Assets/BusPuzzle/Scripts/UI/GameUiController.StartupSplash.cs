@@ -105,8 +105,6 @@ namespace BusPuzzle
 
             while (elapsed < StartupSplashMaxSettleSeconds && portraitElapsed < StartupSplashSettleSeconds)
             {
-                LockStartupPortraitOrientation();
-
                 var delta = Time.unscaledDeltaTime;
                 elapsed += delta;
 
@@ -121,15 +119,6 @@ namespace BusPuzzle
 
                 yield return null;
             }
-        }
-
-        private static void LockStartupPortraitOrientation()
-        {
-            Screen.autorotateToPortrait = true;
-            Screen.autorotateToPortraitUpsideDown = false;
-            Screen.autorotateToLandscapeLeft = false;
-            Screen.autorotateToLandscapeRight = false;
-            Screen.orientation = ScreenOrientation.Portrait;
         }
 
         private static bool IsStartupPortraitFrame()

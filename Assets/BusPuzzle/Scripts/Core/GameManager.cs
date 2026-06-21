@@ -108,11 +108,13 @@ namespace BusPuzzle
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ApplyStartupOrientation()
         {
+#if UNITY_EDITOR
             Screen.autorotateToPortrait = true;
             Screen.autorotateToPortraitUpsideDown = false;
             Screen.autorotateToLandscapeLeft = false;
             Screen.autorotateToLandscapeRight = false;
             Screen.orientation = ScreenOrientation.Portrait;
+#endif
         }
 
         private void Awake()

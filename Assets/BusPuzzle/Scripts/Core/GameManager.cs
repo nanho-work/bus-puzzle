@@ -540,6 +540,8 @@ namespace BusPuzzle
 
             MobilePerformanceProfile.ApplyCamera(gameCamera);
             MobilePerformanceProfile.ApplyRenderScaleForCurrentScreen();
+            gameCamera.clearFlags = CameraClearFlags.SolidColor;
+            gameCamera.backgroundColor = boardView.CameraBackgroundColor;
             BoardCameraFramer.Apply(gameCamera, boardView.GetCameraContentBounds(), safeArea, screenSize);
         }
 
@@ -3270,7 +3272,7 @@ namespace BusPuzzle
             camera.orthographic = true;
             camera.orthographicSize = 4.82f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.55f, 0.69f, 0.80f);
+            camera.backgroundColor = BoardThemePalette.FieldBase;
             return camera;
         }
 

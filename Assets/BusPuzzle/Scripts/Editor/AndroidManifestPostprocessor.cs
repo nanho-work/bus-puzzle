@@ -11,7 +11,10 @@ namespace BusPuzzle
 {
     public sealed class AndroidManifestPostprocessor : IPostGenerateGradleAndroidProject
     {
-        private const string PortraitOrientation = "portrait";
+        private const string StartupScreenOrientation = "userPortrait";
+        private const string PortraitConfiguration = "portrait";
+        private const string AppCategoryGame = "game";
+        private const string RestrictedResizableProperty = "android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY";
         private const string VibratePermission = "android.permission.VIBRATE";
         private const string UnityPlayerActivityPrefix = "com.unity3d.player.UnityPlayer";
         private static readonly XNamespace AndroidNamespace = "http://schemas.android.com/apk/res/android";
@@ -105,9 +108,10 @@ namespace BusPuzzle
 
         private static void ForcePortraitActivity(XElement activity)
         {
-            activity.SetAttributeValue(AndroidNamespace + "screenOrientation", PortraitOrientation);
+            activity.SetAttributeValue(AndroidNamespace + "screenOrientation", StartupScreenOrientation);
             activity.SetAttributeValue(AndroidNamespace + "resizeableActivity", "false");
             SetOrCreateMetadata(activity, "WindowManagerPreference:FreeformWindowOrientation", "@string/FreeformWindowOrientation_portrait");
+            SetOrCreateProperty(activity, RestrictedResizableProperty, "true");
         }
 
         private static void ForcePortraitApplicationMetadata(XDocument document)
@@ -118,7 +122,9 @@ namespace BusPuzzle
                 return;
             }
 
-            SetOrCreateMetadata(application, "notch.config", PortraitOrientation);
+            application.SetAttributeValue(AndroidNamespace + "appCategory", AppCategoryGame);
+            SetOrCreateProperty(application, RestrictedResizableProperty, "true");
+            SetOrCreateMetadata(application, "notch.config", PortraitConfiguration);
         }
 
         private static void EnsurePermission(XDocument document, string permissionName)
@@ -178,6 +184,22 @@ namespace BusPuzzle
 
             metadata.SetAttributeValue(AndroidNamespace + "name", name);
             metadata.SetAttributeValue(AndroidNamespace + "value", value);
+        }
+
+        private static void SetOrCreateProperty(XElement parent, string name, string value)
+        {
+            var property = parent
+                .Elements("property")
+                .FirstOrDefault(element => (string)element.Attribute(AndroidNamespace + "name") == name);
+
+            if (property == null)
+            {
+                property = new XElement("property");
+                parent.Add(property);
+            }
+
+            property.SetAttributeValue(AndroidNamespace + "name", name);
+            property.SetAttributeValue(AndroidNamespace + "value", value);
         }
     }
 }

@@ -23,6 +23,7 @@ public static class IosLaunchScreenPostprocessor
         CopyLaunchImage(pathToBuiltProject, "LaunchScreen-iPad.png");
         PatchInfoPlist(pathToBuiltProject);
         PatchXcodeProject(pathToBuiltProject);
+        PatchUnityAppController(pathToBuiltProject);
         WriteAppIcons(pathToBuiltProject);
     }
 
@@ -100,6 +101,74 @@ public static class IosLaunchScreenPostprocessor
 
         project.WriteToFile(projectPath);
         Debug.Log("iOS target device family was patched to iPhone only for Bus Pop.");
+    }
+
+    private static void PatchUnityAppController(string buildPath)
+    {
+        string appControllerPath = Path.Combine(buildPath, "Classes", "UnityAppController.mm");
+        if (!File.Exists(appControllerPath))
+        {
+            Debug.LogWarning($"iOS UnityAppController.mm was not found: {appControllerPath}");
+            return;
+        }
+
+        string contents = File.ReadAllText(appControllerPath);
+        string rootlessAllOrientations = @"    // No rootViewController is set because we are switching from one view controller to another, all orientations should be enabled
+    if ([window rootViewController] == nil)
+        return UIInterfaceOrientationMaskAll;";
+        string rootlessPortraitOnly = @"    // Bus Pop is portrait-only; keep the native launch window from briefly accepting reverse portrait.
+    if ([window rootViewController] == nil)
+        return UIInterfaceOrientationMaskPortrait;";
+        string splashControllerReturn = @"    if (self.engineLoadState < kUnityEngineLoadStateAppReady)
+        return [_rootController supportedInterfaceOrientations];";
+        string splashPortraitOnlyReturn = @"    if (self.engineLoadState < kUnityEngineLoadStateAppReady)
+        return UIInterfaceOrientationMaskPortrait;";
+        string forcedMaskReturn = "    return [[window rootViewController] supportedInterfaceOrientations] | _forceInterfaceOrientationMask;";
+        string portraitOnlyReturn = "    return UIInterfaceOrientationMaskPortrait;";
+
+        bool changed = false;
+        if (contents.Contains(rootlessAllOrientations))
+        {
+            contents = contents.Replace(rootlessAllOrientations, rootlessPortraitOnly);
+            changed = true;
+        }
+        else if (!contents.Contains(rootlessPortraitOnly))
+        {
+            Debug.LogWarning("iOS UnityAppController portrait startup patch was skipped because the expected orientation block was not found.");
+            return;
+        }
+
+        if (contents.Contains(splashControllerReturn))
+        {
+            contents = contents.Replace(splashControllerReturn, splashPortraitOnlyReturn);
+            changed = true;
+        }
+        else if (!contents.Contains(splashPortraitOnlyReturn))
+        {
+            Debug.LogWarning("iOS UnityAppController splash portrait patch was skipped because the expected orientation return was not found.");
+            return;
+        }
+
+        if (contents.Contains(forcedMaskReturn))
+        {
+            contents = contents.Replace(forcedMaskReturn, portraitOnlyReturn);
+            changed = true;
+        }
+        else if (!contents.Contains(portraitOnlyReturn))
+        {
+            Debug.LogWarning("iOS UnityAppController portrait return patch was skipped because the expected orientation return was not found.");
+            return;
+        }
+
+        if (changed)
+        {
+            File.WriteAllText(appControllerPath, contents);
+            Debug.Log("iOS UnityAppController was patched to keep startup orientation portrait-only.");
+        }
+        else
+        {
+            Debug.Log("iOS UnityAppController already keeps startup orientation portrait-only.");
+        }
     }
 
     private static void WriteAppIcons(string buildPath)

@@ -9,7 +9,7 @@ namespace BusPuzzle
 {
     internal static class RemoteConfigService
     {
-        private const int CurrentAndroidVersionCode = 11;
+        private const int CurrentAndroidVersionCode = 12;
         private const int CurrentIosBuildNumber = 12;
         private const string AndroidUpdateUrlFallback = "https://play.google.com/store/apps/details?id=com.koofylab.buspop";
         private const string MaintenanceMessageKoFallback = "잠시 후 다시 이용해 주세요.";

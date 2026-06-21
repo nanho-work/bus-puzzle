@@ -53,6 +53,8 @@ namespace BusPuzzle
 
         public Quaternion ActiveStationRotation => GetActiveStationRotation();
 
+        public Color CameraBackgroundColor => BoardThemePalette.GetStyle(activeTheme).Floor;
+
         public Bounds GetCameraContentBounds()
         {
             var halfGridWidth = BoardLayoutConfig.GridWorldWidth * 0.5f + 0.14f;

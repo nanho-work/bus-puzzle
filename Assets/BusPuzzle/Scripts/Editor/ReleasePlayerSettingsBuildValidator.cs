@@ -49,9 +49,9 @@ namespace BusPuzzle
             RequireContains(settings, $"iPhone: {BundleIdentifier}", "iOS bundle identifier must be com.koofylab.buspop.");
             RequireContains(settings, "bundleVersion: 1.0.0", "Release version should start at 1.0.0.");
             RequireContains(settings, AppIconGuid, "App icon is not assigned in Player Settings.");
-            RequireContains(settings, "defaultScreenOrientation: 1", "Default orientation must be Portrait. Do not ship reverse portrait builds.");
+            RequireContains(settings, "defaultScreenOrientation: 5", "Default orientation must be Auto Rotation so Android can preserve the current portrait direction at launch.");
             RequireContains(settings, "allowedAutorotateToPortrait: 1", "Portrait orientation must be allowed.");
-            RequireContains(settings, "allowedAutorotateToPortraitUpsideDown: 0", "Portrait upside down must be disabled.");
+            RequireContains(settings, "allowedAutorotateToPortraitUpsideDown: 1", "Portrait upside down must be allowed so Android does not force a 180 degree flip at launch.");
             RequireContains(settings, "allowedAutorotateToLandscapeRight: 0", "Landscape right must be disabled.");
             RequireContains(settings, "allowedAutorotateToLandscapeLeft: 0", "Landscape left must be disabled.");
             RequireContains(settings, "androidResizeableActivity: 0", "Android activity must not be resizeable for portrait launch stability.");

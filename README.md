@@ -77,16 +77,9 @@ Rewarded ads are configured through `Assets/BusPuzzle/Resources/Ads/AdMobSetting
 - Release Android/iOS builds use the production IDs in `AdMobSettings.asset`.
 - Release builds fail before build if any mobile production ID is missing, still points at Google's test publisher, or the `BUS_PUZZLE_ADMOB` scripting define is not enabled.
 
-Current known IDs:
-
-- Android app ID: `ca-app-pub-5773331970563455~5379288524`
-- Android station rewarded production ad unit ID: `ca-app-pub-5773331970563455/3872285640`
-- Android VIP rewarded production ad unit ID: `ca-app-pub-5773331970563455/3872285640`
-- Android shuffle rewarded production ad unit ID: `ca-app-pub-5773331970563455/3872285640`
-- iOS app ID: `ca-app-pub-5773331970563455~7947262028`
-- iOS station rewarded production ad unit ID: `ca-app-pub-5773331970563455/7771471978`
-- iOS VIP rewarded production ad unit ID: `ca-app-pub-5773331970563455/7771471978`
-- iOS shuffle rewarded production ad unit ID: `ca-app-pub-5773331970563455/7771471978`
+Production AdMob IDs are intentionally not documented in this README. Keep them in the Unity
+settings asset used by release builds, and avoid copying real IDs into public-facing docs,
+portfolio material, issue reports, or screenshots.
 
 If Unity cannot download OpenUPM packages, the project falls back to a compile error until package resolution succeeds; this is intentional so ad builds do not silently ship in mock mode.
 

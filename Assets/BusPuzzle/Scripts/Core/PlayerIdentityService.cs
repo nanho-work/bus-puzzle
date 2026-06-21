@@ -11,8 +11,8 @@ namespace BusPuzzle
     {
         private const string NicknameKey = "bus_puzzle_player_nickname";
         private const string NicknamePromptSeenKey = "bus_puzzle_nickname_prompt_seen_v1";
-        private const int MinNicknameDisplayWidth = 6;
-        private const int MaxNicknameDisplayWidth = 16;
+        public const int MinNicknameDisplayWidth = 6;
+        public const int MaxNicknameDisplayWidth = 16;
 
         private static FirebaseAuth auth;
         private static bool isInitializing;
@@ -99,6 +99,12 @@ namespace BusPuzzle
             return true;
         }
 
+        public static bool TryValidateNickname(string nickname, out string normalizedNickname, out string validationMessage)
+        {
+            normalizedNickname = NormalizeNickname(nickname);
+            return IsValidNickname(normalizedNickname, out validationMessage);
+        }
+
         private static void FinishInitialization(FirebaseUser user)
         {
             UserId = user != null ? user.UserId : string.Empty;
@@ -142,14 +148,20 @@ namespace BusPuzzle
 
             if (ContainsDisallowedCharacter(nickname))
             {
-                validationMessage = "nickname_error_unsupported";
+                validationMessage = "nickname_error_emoji";
                 return false;
             }
 
             var displayWidth = GetDisplayWidth(nickname);
-            if (displayWidth < MinNicknameDisplayWidth || displayWidth > MaxNicknameDisplayWidth)
+            if (displayWidth < MinNicknameDisplayWidth)
             {
-                validationMessage = "nickname_error_width";
+                validationMessage = "nickname_error_min_width";
+                return false;
+            }
+
+            if (displayWidth > MaxNicknameDisplayWidth)
+            {
+                validationMessage = "nickname_error_max_width";
                 return false;
             }
 

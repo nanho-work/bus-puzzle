@@ -87,8 +87,12 @@ namespace BusPuzzle
             var bayTrimMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Bay Trim", BoardThemePalette.WithAlpha(style.Gate, 0.50f));
             var railMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Rail", style.Rail);
             var railPostMaterial = PuzzlePalette.CreateSolidMaterial($"{style.Name} Terminal Rail Post", style.Pole);
-            var vipMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Gold", new Color(0.96f, 0.67f, 0.08f, 0.80f));
-            var vipInsetMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Inset", new Color(1.00f, 0.86f, 0.28f, 0.60f));
+            var vipMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Trim", new Color(0.96f, 0.58f, 0.04f, 0.62f));
+            var vipInsetMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Warm Inset", new Color(1.00f, 0.88f, 0.38f, 0.42f));
+            var vipGlowMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Soft Glow", new Color(1.00f, 0.77f, 0.20f, 0.14f));
+            var vipPostMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Post", new Color(0.88f, 0.54f, 0.06f));
+            var vipCapMaterial = PuzzlePalette.CreateSolidMaterial("Stage 14 Terminal VIP Post Cap", new Color(1.00f, 0.82f, 0.20f));
+            var vipRibbonMaterial = PuzzlePalette.CreateTransparentMaterial("Stage 14 Terminal VIP Ribbon", new Color(0.95f, 0.70f, 0.16f, 0.70f));
             var whiteLineMaterial = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Terminal Safety Paint", BoardThemePalette.WithAlpha(style.Rail, 0.76f));
 
             BoardGeometry.CreateFlatRoundedRect(
@@ -146,7 +150,7 @@ namespace BusPuzzle
                     rotation);
             }
 
-            CreateVipTerminalBay(root, BoardLayoutConfig.GetFreeStationPosition(), slotWidth, slotDepth, rotation, vipMaterial, vipInsetMaterial, whiteLineMaterial);
+            CreateVipTerminalBay(root, BoardLayoutConfig.GetFreeStationPosition(), slotWidth, slotDepth, rotation, vipMaterial, vipInsetMaterial, whiteLineMaterial, vipPostMaterial, vipCapMaterial, vipRibbonMaterial, vipGlowMaterial);
         }
 
         private static void CreateTerminalBay(
@@ -193,30 +197,98 @@ namespace BusPuzzle
             Quaternion rotation,
             Material vipMaterial,
             Material vipInsetMaterial,
-            Material whiteLineMaterial)
+            Material whiteLineMaterial,
+            Material vipPostMaterial,
+            Material vipCapMaterial,
+            Material vipRibbonMaterial,
+            Material vipGlowMaterial)
         {
             BoardGeometry.CreateFlatRoundedRect(
-                "Stage 14 Terminal VIP Raised Plinth",
+                "Stage 14 Terminal VIP Soft Glow",
+                root,
+                position + Vector3.down * 0.055f,
+                new Vector2(slotWidth + 0.070f, slotDepth + 0.045f),
+                slotWidth * 0.18f,
+                vipGlowMaterial,
+                rotation);
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Stage 14 Terminal VIP Trim",
                 root,
                 new Vector3(position.x, -0.048f, position.z),
-                new Vector2(slotWidth + 0.090f, slotDepth + 0.055f),
-                slotWidth * 0.16f,
+                new Vector2(slotWidth + 0.034f, slotDepth + 0.022f),
+                slotWidth * 0.14f,
                 vipMaterial,
                 rotation);
+
             BoardGeometry.CreateFlatRoundedRect(
                 "Stage 14 Terminal VIP Inset",
                 root,
-                position + Vector3.up * -0.026f,
-                new Vector2(slotWidth - 0.040f, slotDepth - 0.070f),
-                slotWidth * 0.13f,
+                position + Vector3.down * 0.034f,
+                new Vector2(slotWidth - 0.082f, slotDepth - 0.122f),
+                slotWidth * 0.11f,
                 vipInsetMaterial,
                 rotation);
+
             BoardGeometry.CreateFlatRect(
                 "Stage 14 Terminal VIP Front Stripe",
                 root,
                 position + Vector3.up * -0.017f - rotation * Vector3.forward * (slotDepth * 0.33f),
-                new Vector2(slotWidth * 0.54f, 0.018f),
+                new Vector2(slotWidth * 0.42f, 0.014f),
                 whiteLineMaterial,
+                rotation);
+
+            BoardGeometry.CreateFlatRect(
+                "Stage 14 Terminal VIP Ticket Mark",
+                root,
+                position + Vector3.down * 0.015f + rotation * new Vector3(-slotWidth * 0.20f, 0f, slotDepth * 0.14f),
+                new Vector2(slotWidth * 0.24f, 0.012f),
+                whiteLineMaterial,
+                rotation);
+
+            CreateVipGateMarker(root, position, slotWidth, slotDepth, rotation, vipPostMaterial, vipCapMaterial, vipRibbonMaterial);
+        }
+
+        private static void CreateVipGateMarker(
+            Transform root,
+            Vector3 position,
+            float slotWidth,
+            float slotDepth,
+            Quaternion rotation,
+            Material postMaterial,
+            Material capMaterial,
+            Material ribbonMaterial)
+        {
+            var postZ = slotDepth * 0.47f;
+            var leftPost = position + rotation * new Vector3(-slotWidth * 0.36f, 0f, postZ);
+            var rightPost = position + rotation * new Vector3(slotWidth * 0.36f, 0f, postZ);
+            var ribbonCenter = position + rotation * new Vector3(0f, 0f, postZ);
+
+            CreateCylinder(
+                "Stage 14 Terminal VIP Left Stanchion",
+                root,
+                leftPost + Vector3.up * 0.044f,
+                new Vector3(0.022f, 0.088f, 0.022f),
+                postMaterial,
+                rotation);
+
+            CreateCylinder(
+                "Stage 14 Terminal VIP Right Stanchion",
+                root,
+                rightPost + Vector3.up * 0.044f,
+                new Vector3(0.022f, 0.088f, 0.022f),
+                postMaterial,
+                rotation);
+
+            CreateSphere("Stage 14 Terminal VIP Left Stanchion Cap", root, leftPost + Vector3.up * 0.134f, 0.032f, capMaterial);
+            CreateSphere("Stage 14 Terminal VIP Right Stanchion Cap", root, rightPost + Vector3.up * 0.134f, 0.032f, capMaterial);
+
+            CreateBox(
+                "Stage 14 Terminal VIP Ribbon",
+                root,
+                ribbonCenter + Vector3.up * 0.114f,
+                new Vector3(slotWidth * 0.62f, 0.016f, 0.018f),
+                ribbonMaterial,
                 rotation);
         }
 

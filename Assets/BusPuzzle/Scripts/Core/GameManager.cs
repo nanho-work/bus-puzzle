@@ -69,6 +69,7 @@ namespace BusPuzzle
         private VehicleDispatchController vehicleDispatchController;
         private BoardingFlowController boardingFlowController;
         private Coroutine stagePreloadRoutine;
+        private Coroutine dailyRewardPromptRoutine;
         private IRewardedAdService rewardedAdService;
         private IBannerAdService bannerAdService;
         private float bannerReservedHeightPixels;
@@ -151,6 +152,7 @@ namespace BusPuzzle
             SetTutorialGameplayPaused(false);
             boardingFlowController?.Stop();
             StopStagePreload();
+            StopDailyRewardPromptCheck();
             RemoteConfigService.ValuesUpdated -= ApplyRemoteConfigState;
 
             if (uiController != null)
@@ -161,15 +163,21 @@ namespace BusPuzzle
                 uiController.ExitConfirmed -= QuitApplication;
                 uiController.StationUnlockRequested -= ShowStationUnlockPrompt;
                 uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
+                uiController.StationUnlockSkipConfirmed -= RequestStationSlotUnlockSkip;
                 uiController.VipTeleportRequested -= HandleVipTeleportRequested;
                 uiController.VipTeleportGoldConfirmed -= RequestVipBusTeleportGold;
                 uiController.VipTeleportConfirmed -= RequestVipBusTeleportAd;
+                uiController.VipTeleportSkipConfirmed -= RequestVipBusTeleportSkip;
                 uiController.MixShuffleRequested -= HandleMixShuffleRequested;
                 uiController.MixShuffleGoldConfirmed -= RequestMixShuffleGold;
                 uiController.MixShuffleConfirmed -= RequestMixShuffleAd;
+                uiController.MixShuffleSkipConfirmed -= RequestMixShuffleSkip;
                 uiController.DepartRequested -= HandleDepartRequested;
                 uiController.DepartGoldConfirmed -= RequestDepartGold;
                 uiController.DepartConfirmed -= RequestDepartAd;
+                uiController.DepartSkipConfirmed -= RequestDepartSkip;
+                uiController.DailyRewardRequested -= ShowDailyRewardPrompt;
+                uiController.DailyRewardClaimRequested -= ClaimDailyReward;
                 uiController.RecoveryPromptCancelled -= HandleRecoveryPromptCancelled;
                 uiController.RemoteConfigActionRequested -= HandleRemoteConfigActionRequested;
                 uiController.InitialNicknamePromptCompleted -= HandleInitialNicknamePromptCompleted;
@@ -319,15 +327,21 @@ namespace BusPuzzle
             uiController.ExitConfirmed += QuitApplication;
             uiController.StationUnlockRequested += ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed += RequestStationSlotUnlock;
+            uiController.StationUnlockSkipConfirmed += RequestStationSlotUnlockSkip;
             uiController.VipTeleportRequested += HandleVipTeleportRequested;
             uiController.VipTeleportGoldConfirmed += RequestVipBusTeleportGold;
             uiController.VipTeleportConfirmed += RequestVipBusTeleportAd;
+            uiController.VipTeleportSkipConfirmed += RequestVipBusTeleportSkip;
             uiController.MixShuffleRequested += HandleMixShuffleRequested;
             uiController.MixShuffleGoldConfirmed += RequestMixShuffleGold;
             uiController.MixShuffleConfirmed += RequestMixShuffleAd;
+            uiController.MixShuffleSkipConfirmed += RequestMixShuffleSkip;
             uiController.DepartRequested += HandleDepartRequested;
             uiController.DepartGoldConfirmed += RequestDepartGold;
             uiController.DepartConfirmed += RequestDepartAd;
+            uiController.DepartSkipConfirmed += RequestDepartSkip;
+            uiController.DailyRewardRequested += ShowDailyRewardPrompt;
+            uiController.DailyRewardClaimRequested += ClaimDailyReward;
             uiController.RecoveryPromptCancelled += HandleRecoveryPromptCancelled;
             uiController.InitialNicknamePromptCompleted += HandleInitialNicknamePromptCompleted;
 
@@ -495,6 +509,7 @@ namespace BusPuzzle
 
             CheckBlocked();
             StartTutorialIfNeeded();
+            ScheduleDailyRewardPromptCheck();
             ScheduleStagePreload();
         }
 
@@ -597,6 +612,13 @@ namespace BusPuzzle
             }
 
             remoteConfigBlocksGameplay = RemoteConfigService.IsCurrentBuildUnsupported || RemoteConfigService.MaintenanceEnabled;
+            if (remoteConfigBlocksGameplay)
+            {
+                StopDailyRewardPromptCheck();
+                uiController.HideDailyRewardPrompt();
+                uiController.SetDailyRewardButtonState(false, false);
+            }
+
             if (RemoteConfigService.IsCurrentBuildUnsupported)
             {
                 uiController.ShowRemoteConfigPrompt(
@@ -616,6 +638,7 @@ namespace BusPuzzle
             else
             {
                 uiController.HideRemoteConfigPrompt();
+                ScheduleDailyRewardPromptCheck();
             }
 
             UpdateRewardedAdUi();
@@ -634,6 +657,94 @@ namespace BusPuzzle
         private void HandleInitialNicknamePromptCompleted()
         {
             StartTutorialIfNeeded();
+            ScheduleDailyRewardPromptCheck();
+        }
+
+        private void ScheduleDailyRewardPromptCheck()
+        {
+            StopDailyRewardPromptCheck();
+            if (uiController == null)
+            {
+                return;
+            }
+
+            RefreshDailyRewardButtonState();
+            dailyRewardPromptRoutine = StartCoroutine(DailyRewardPromptCheckRoutine());
+        }
+
+        private void StopDailyRewardPromptCheck()
+        {
+            if (dailyRewardPromptRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(dailyRewardPromptRoutine);
+            dailyRewardPromptRoutine = null;
+        }
+
+        private IEnumerator DailyRewardPromptCheckRoutine()
+        {
+            yield return null;
+
+            while (uiController != null &&
+                   gameState == GameState.Playing &&
+                   (uiController.IsStartupSplashActive ||
+                    uiController.IsInitialNicknamePromptBlocking ||
+                    IsTutorialActive))
+            {
+                yield return null;
+            }
+
+            dailyRewardPromptRoutine = null;
+            RefreshDailyRewardButtonState();
+        }
+
+        private void RefreshDailyRewardButtonState()
+        {
+            if (uiController == null)
+            {
+                return;
+            }
+
+            var visible =
+                !remoteConfigBlocksGameplay &&
+                gameState == GameState.Playing &&
+                !uiController.IsStartupSplashActive &&
+                !uiController.IsInitialNicknamePromptBlocking &&
+                !IsTutorialActive;
+
+            uiController.SetDailyRewardButtonState(visible, visible && DailyRewardService.CanClaimToday);
+        }
+
+        private void ShowDailyRewardPrompt()
+        {
+            if (uiController == null ||
+                remoteConfigBlocksGameplay ||
+                gameState != GameState.Playing ||
+                uiController.IsStartupSplashActive ||
+                uiController.IsInitialNicknamePromptBlocking ||
+                IsTutorialActive)
+            {
+                return;
+            }
+
+            uiController.ShowDailyRewardPrompt(
+                DailyRewardService.GetDisplayReward(),
+                DailyRewardService.CanClaimToday);
+        }
+
+        private void ClaimDailyReward()
+        {
+            if (!DailyRewardService.TryClaimToday(out var reward))
+            {
+                return;
+            }
+
+            UpdateGoldUi();
+            UpdateRewardedAdUi();
+            RefreshDailyRewardButtonState();
+            Debug.Log($"Daily reward claimed: {reward.Type} x{reward.Amount}");
         }
 
         private void QuitApplication()
@@ -652,18 +763,22 @@ namespace BusPuzzle
                 return;
             }
 
+            var adSkipTickets = UserEconomy.AdSkipTicketBalance;
+            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
             if (!CanShowRecoveryPrompt() ||
                 IsAnyRewardedAdInProgress ||
                 boardView == null ||
                 !boardView.CanUnlockStationSlot ||
                 uiController == null ||
-                !RemoteConfigService.AreRewardedAdsEnabled)
+                (!adsEnabled && adSkipTickets <= 0))
             {
                 UpdateRewardedAdUi();
                 return;
             }
 
-            if (rewardedAdService != null && !rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock))
+            if (adsEnabled &&
+                rewardedAdService != null &&
+                !rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock))
             {
                 rewardedAdService.Preload(RewardedAdPlacement.StationSlotUnlock);
             }
@@ -671,7 +786,8 @@ namespace BusPuzzle
             HoldPendingFailureForRecoveryChoice();
             uiController.ShowStationUnlockPrompt(
                 boardView.LockedStationSlots,
-                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
+                adsEnabled && rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
+                adSkipTickets,
                 isStationUnlockAdInProgress);
         }
 
@@ -710,6 +826,52 @@ namespace BusPuzzle
                     CheckBlocked();
                 }
             }
+        }
+
+        private void RequestStationSlotUnlockSkip()
+        {
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
+                IsAnyRewardedAdInProgress ||
+                boardView == null ||
+                !boardView.CanUnlockStationSlot)
+            {
+                UpdateRewardedAdUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            if (!UserEconomy.TryUseAdSkipTicket())
+            {
+                ShowStationUnlockPrompt();
+                UpdateRewardedAdUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
+
+            if (boardView.TryUnlockStationSlot())
+            {
+                UpdateCounters();
+                CheckBlocked();
+            }
+            else
+            {
+                UserEconomy.AddAdSkipTickets(1);
+                CheckBlocked();
+            }
+
+            UpdateRewardedAdUi();
         }
 
         private void HandleStationSlotUnlockAdCompleted(RewardedAdResult result)
@@ -777,10 +939,10 @@ namespace BusPuzzle
 
         private void ShowVipTeleportPrompt()
         {
+            var adSkipTickets = UserEconomy.AdSkipTicketBalance;
             if (!CanShowRecoveryPrompt() ||
                 IsAnyRewardedAdInProgress ||
                 uiController == null ||
-                rewardedAdService == null ||
                 RemainingVipTeleportUses <= 0)
             {
                 UpdateVipTeleportUi();
@@ -794,7 +956,9 @@ namespace BusPuzzle
                 return;
             }
 
-            if (RemoteConfigService.AreRewardedAdsEnabled && !rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport))
+            if (RemoteConfigService.AreRewardedAdsEnabled &&
+                rewardedAdService != null &&
+                !rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport))
             {
                 rewardedAdService.Preload(RewardedAdPlacement.VipBusTeleport);
             }
@@ -806,7 +970,10 @@ namespace BusPuzzle
                 UserEconomy.GoldBalance,
                 VipTeleportGoldCost,
                 UserEconomy.CanSpendGold(VipTeleportGoldCost),
-                rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
+                adSkipTickets,
+                RemoteConfigService.AreRewardedAdsEnabled &&
+                    rewardedAdService != null &&
+                    rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
                 isVipAdInProgress);
         }
 
@@ -842,6 +1009,43 @@ namespace BusPuzzle
             vipTeleportTickets++;
             EnterVipSelectionMode();
             UpdateGoldUi();
+            UpdateRewardedAdUi();
+        }
+
+        private void RequestVipBusTeleportSkip()
+        {
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
+                IsAnyRewardedAdInProgress ||
+                RemainingVipTeleportUses <= 0 ||
+                !HasVipTeleportTarget())
+            {
+                UpdateVipTeleportUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            if (!UserEconomy.TryUseAdSkipTicket())
+            {
+                ShowVipTeleportPrompt();
+                UpdateVipTeleportUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
+            vipUsesGrantedThisStage++;
+            vipTeleportTickets++;
+            EnterVipSelectionMode();
             UpdateRewardedAdUi();
         }
 
@@ -1016,6 +1220,7 @@ namespace BusPuzzle
 
         private void ShowMixShufflePrompt()
         {
+            var adSkipTickets = UserEconomy.AdSkipTicketBalance;
             if (!CanShowRecoveryPrompt() ||
                 isVipSelectionMode ||
                 IsAnyRewardedAdInProgress ||
@@ -1044,6 +1249,7 @@ namespace BusPuzzle
                 UserEconomy.GoldBalance,
                 MixShuffleGoldCost,
                 UserEconomy.CanSpendGold(MixShuffleGoldCost),
+                adSkipTickets,
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
                 isMixShuffleAdInProgress);
         }
@@ -1089,6 +1295,52 @@ namespace BusPuzzle
             }
 
             UpdateGoldUi();
+            UpdateRewardedAdUi();
+        }
+
+        private void RequestMixShuffleSkip()
+        {
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                !HasMixShuffleTarget())
+            {
+                UpdateMixShuffleUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            if (!UserEconomy.TryUseAdSkipTicket())
+            {
+                ShowMixShufflePrompt();
+                UpdateMixShuffleUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            ClearPendingFailureRecoveryState();
+            ResumeFailedLevelForRecovery();
+            if (TryShuffleVisibleBusColors())
+            {
+                uiController.ShowInvalid(Localization.Text("status_mixed"));
+                CheckBlocked();
+            }
+            else
+            {
+                UserEconomy.AddAdSkipTickets(1);
+                uiController.ShowInvalid(Localization.Text("status_no_mix_target"));
+                CheckBlocked();
+            }
+
             UpdateRewardedAdUi();
         }
 
@@ -1189,6 +1441,7 @@ namespace BusPuzzle
 
         private void ShowDepartPrompt()
         {
+            var adSkipTickets = UserEconomy.AdSkipTicketBalance;
             if (!CanShowRecoveryPrompt() ||
                 isVipSelectionMode ||
                 IsAnyRewardedAdInProgress ||
@@ -1217,6 +1470,7 @@ namespace BusPuzzle
                 UserEconomy.GoldBalance,
                 DepartGoldCost,
                 UserEconomy.CanSpendGold(DepartGoldCost),
+                adSkipTickets,
                 rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
                 isDepartAdInProgress);
         }
@@ -1259,6 +1513,49 @@ namespace BusPuzzle
             }
 
             UpdateGoldUi();
+            UpdateRewardedAdUi();
+        }
+
+        private void RequestDepartSkip()
+        {
+            var wasHoldingFailureChoice = isRecoveryChoiceHoldingFailure;
+            if (!CanUseRecoveryAction() ||
+                isVipSelectionMode ||
+                IsAnyRewardedAdInProgress ||
+                !HasPotentialDepartTarget())
+            {
+                UpdateDepartUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            if (!UserEconomy.TryUseAdSkipTicket())
+            {
+                ShowDepartPrompt();
+                UpdateDepartUi();
+                if (wasHoldingFailureChoice)
+                {
+                    RecheckHeldFailureAfterRecoveryChoice();
+                }
+
+                return;
+            }
+
+            if (TryStartDepartBoost())
+            {
+                uiController.ShowInvalid(Localization.Text("status_departing"));
+            }
+            else
+            {
+                UserEconomy.AddAdSkipTickets(1);
+                uiController.ShowInvalid(Localization.Text("status_no_depart_target"));
+                CheckBlocked();
+            }
+
             UpdateRewardedAdUi();
         }
 
@@ -1533,6 +1830,7 @@ namespace BusPuzzle
             uiController?.HideTutorial();
             UserProgress.MarkTutorialCompleted();
             UpdateRewardedAdUi();
+            ScheduleDailyRewardPromptCheck();
         }
 
         private bool IsTutorialActive =>
@@ -2015,6 +2313,7 @@ namespace BusPuzzle
 
             gameState = GameState.Playing;
             uiController.ShowInvalid(string.Empty);
+            RefreshDailyRewardButtonState();
         }
 
         private int RemainingVipTeleportUses => Mathf.Max(0, VipTeleportAdLimitPerStage - vipUsesGrantedThisStage);
@@ -2551,6 +2850,7 @@ namespace BusPuzzle
 
             ClearPendingFailureRecoveryState();
             gameState = GameState.Cleared;
+            RefreshDailyRewardButtonState();
             if (tutorialFreeUseEnabledForStage || tutorialStep != TutorialStep.None)
             {
                 CompleteTutorial();
@@ -2647,12 +2947,15 @@ namespace BusPuzzle
 
             ClearPendingFailureRecoveryState();
             gameState = GameState.Failed;
+            RefreshDailyRewardButtonState();
             ClearTutorialTargetHighlights();
             uiController.HideTutorial();
             ExitVipSelectionModeForEndState();
             UpdateRewardedAdUi();
             uiController.ShowFailed(
-                boardView != null && boardView.CanUnlockStationSlot && RemoteConfigService.AreRewardedAdsEnabled,
+                boardView != null &&
+                    boardView.CanUnlockStationSlot &&
+                    (RemoteConfigService.AreRewardedAdsEnabled || UserEconomy.AdSkipTicketBalance > 0),
                 RemainingVipTeleportUses > 0 && HasVipTeleportTarget(),
                 HasMixShuffleTarget(),
                 HasPotentialDepartTarget());
@@ -2796,13 +3099,16 @@ namespace BusPuzzle
                 return;
             }
 
+            var adSkipTickets = UserEconomy.AdSkipTicketBalance;
+            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
             uiController.SetStationUnlock(
                 boardView.LockedStationSlots,
                 gameState == GameState.Playing &&
                     !IsAnyRewardedAdInProgress &&
                     boardView.CanUnlockStationSlot &&
-                    RemoteConfigService.AreRewardedAdsEnabled,
-                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
+                    (adsEnabled || adSkipTickets > 0),
+                adsEnabled && rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
+                adSkipTickets,
                 isStationUnlockAdInProgress);
         }
 
@@ -2828,7 +3134,10 @@ namespace BusPuzzle
                 UserEconomy.GoldBalance,
                 VipTeleportGoldCost,
                 UserEconomy.CanSpendGold(VipTeleportGoldCost),
-                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
+                UserEconomy.AdSkipTicketBalance,
+                RemoteConfigService.AreRewardedAdsEnabled &&
+                    rewardedAdService != null &&
+                    rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
                 isVipAdInProgress);
         }
 
@@ -2849,7 +3158,10 @@ namespace BusPuzzle
                 UserEconomy.GoldBalance,
                 MixShuffleGoldCost,
                 UserEconomy.CanSpendGold(MixShuffleGoldCost),
-                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
+                UserEconomy.AdSkipTicketBalance,
+                RemoteConfigService.AreRewardedAdsEnabled &&
+                    rewardedAdService != null &&
+                    rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
                 isMixShuffleAdInProgress);
         }
 
@@ -2872,7 +3184,10 @@ namespace BusPuzzle
                 UserEconomy.GoldBalance,
                 DepartGoldCost,
                 UserEconomy.CanSpendGold(DepartGoldCost),
-                rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
+                UserEconomy.AdSkipTicketBalance,
+                RemoteConfigService.AreRewardedAdsEnabled &&
+                    rewardedAdService != null &&
+                    rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
                 isDepartAdInProgress);
         }
 

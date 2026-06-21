@@ -312,13 +312,16 @@ namespace BusPuzzle
             var vipLabelColor = new Color(0.50f, 0.29f, 0.02f, 0.96f);
             var vipLabelShadowColor = new Color(1.00f, 0.96f, 0.70f, 0.48f);
             var vipLabelSize = Mathf.Max(cellSize * 0.094f, vipSlotWidth * 0.104f);
+            var cardCenter = position + stationRotation * new Vector3(0f, 0f, -vipSlotDepth * 0.015f);
+            var cardWidth = vipSlotWidth * 0.88f;
+            var cardDepth = vipSlotDepth * 0.84f;
             const float VipLabelYawDegrees = 0f;
 
             BoardGeometry.CreateFlatRoundedRect(
                 "Vip Pass Card Shadow",
                 root,
-                position + Vector3.down * 0.027f + stationRotation * new Vector3(0.012f, 0f, -0.012f),
-                new Vector2(vipSlotWidth - BayInset * 0.18f, vipSlotDepth - BayInset * 0.16f),
+                cardCenter + Vector3.down * 0.027f + stationRotation * new Vector3(0.012f, 0f, -0.012f),
+                new Vector2(cardWidth, cardDepth),
                 vipSlotWidth * 0.16f,
                 cardShadowMaterial,
                 stationRotation);
@@ -326,8 +329,8 @@ namespace BusPuzzle
             BoardGeometry.CreateFlatRoundedRect(
                 "Vip Pass Card Border",
                 root,
-                position + Vector3.down * 0.020f,
-                new Vector2(vipSlotWidth - BayInset * 0.26f, vipSlotDepth - BayInset * 0.22f),
+                cardCenter + Vector3.down * 0.020f,
+                new Vector2(cardWidth - BayInset * 0.12f, cardDepth - BayInset * 0.10f),
                 vipSlotWidth * 0.16f,
                 cardBorderMaterial,
                 stationRotation);
@@ -335,32 +338,32 @@ namespace BusPuzzle
             BoardGeometry.CreateFlatRoundedRect(
                 "Vip Pass Card Cream Face",
                 root,
-                position + Vector3.down * 0.013f,
-                new Vector2(vipSlotWidth - BayInset * 0.64f, vipSlotDepth - BayInset * 0.58f),
+                cardCenter + Vector3.down * 0.013f,
+                new Vector2(cardWidth - BayInset * 0.50f, cardDepth - BayInset * 0.46f),
                 vipSlotWidth * 0.13f,
                 cardMaterial,
                 stationRotation);
 
-            var starCenter = position + stationRotation * new Vector3(0f, 0f, -vipSlotDepth * 0.18f);
+            var starCenter = cardCenter + stationRotation * new Vector3(0f, 0f, -cardDepth * 0.18f);
             CreateFlatStar(
                 root,
                 "Vip Pass Star Shadow",
                 starCenter + Vector3.down * 0.003f + stationRotation * new Vector3(0.006f, 0f, -0.007f),
-                vipSlotWidth * 0.285f,
+                cardWidth * 0.300f,
                 stationRotation,
                 starShadowMaterial);
             CreateFlatStar(
                 root,
                 "Vip Pass Star",
                 starCenter + Vector3.up * 0.006f,
-                vipSlotWidth * 0.270f,
+                cardWidth * 0.285f,
                 stationRotation,
                 starMaterial);
 
             CreateStationLabel(
                 root,
                 "Vip Terminal Label Shadow",
-                position + Vector3.up * 0.025f + stationRotation * new Vector3(0.006f, 0f, vipSlotDepth * 0.208f),
+                cardCenter + Vector3.up * 0.025f + stationRotation * new Vector3(0.006f, 0f, cardDepth * 0.208f),
                 "VIP",
                 vipLabelShadowColor,
                 vipLabelSize,
@@ -372,7 +375,7 @@ namespace BusPuzzle
             CreateStationLabel(
                 root,
                 "Vip Terminal Label",
-                position + Vector3.up * 0.030f + stationRotation * new Vector3(0f, 0f, vipSlotDepth * 0.218f),
+                cardCenter + Vector3.up * 0.030f + stationRotation * new Vector3(0f, 0f, cardDepth * 0.218f),
                 "VIP",
                 vipLabelColor,
                 vipLabelSize,

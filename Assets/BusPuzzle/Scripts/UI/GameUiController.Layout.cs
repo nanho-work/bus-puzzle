@@ -62,6 +62,12 @@ namespace BusPuzzle
             SetAnchors(rankingButton.GetComponent<RectTransform>(), new Vector2(0.84f, 1f), new Vector2(1f, 1f), new Vector2(6f, -250f), new Vector2(-16f, -134f));
             rankingButton.onClick.AddListener(ShowLeaderboardPrompt);
 
+            dailyRewardButton = CreateHeaderIconButton("Header Daily Reward Button", root, DailyRewardIconResource, "1", UiPrimaryActionColor);
+            SetAnchors(dailyRewardButton.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0.16f, 1f), new Vector2(16f, -250f), new Vector2(-6f, -134f));
+            dailyRewardButton.onClick.AddListener(() => DailyRewardRequested?.Invoke());
+            BuildDailyRewardButtonBadge(dailyRewardButton.transform);
+            SetDailyRewardButtonState(false, false);
+
             statusText = CreateText("Status Text", root, TextAnchor.MiddleCenter, 30, FontStyle.Normal);
             SetAnchors(statusText.rectTransform, new Vector2(0.18f, 1f), new Vector2(0.82f, 1f), new Vector2(0f, -162f), new Vector2(0f, -120f));
 
@@ -90,12 +96,33 @@ namespace BusPuzzle
             BuildVipTeleportPrompt();
             BuildMixShufflePrompt();
             BuildDepartPrompt();
+            BuildDailyRewardPrompt();
             BuildDifficultyBanner();
             BuildRemoteConfigPrompt();
             if (ShouldShowRuntimeStartupSplash())
             {
                 BuildStartupSplashOverlay();
             }
+        }
+
+        private void BuildDailyRewardButtonBadge(Transform parent)
+        {
+            var glow = CreateRoundedPanel("Header Daily Reward Glow", parent, new Color(0.25f, 0.86f, 1f, 0.28f));
+            SetAnchors(glow, new Vector2(0.04f, 0.04f), new Vector2(0.96f, 0.96f), Vector2.zero, Vector2.zero);
+            glow.SetAsFirstSibling();
+
+            dailyRewardGlowCanvasGroup = glow.gameObject.AddComponent<CanvasGroup>();
+            dailyRewardGlowCanvasGroup.blocksRaycasts = false;
+            dailyRewardGlowCanvasGroup.interactable = false;
+
+            dailyRewardBadge = CreateRoundedPanel("Header Daily Reward Badge", parent, new Color(0.96f, 0.17f, 0.28f, 0.98f));
+            SetAnchors(dailyRewardBadge, new Vector2(0.62f, 0.62f), new Vector2(1.02f, 1.02f), Vector2.zero, Vector2.zero);
+
+            var badgeText = CreateText("Header Daily Reward Badge Text", dailyRewardBadge, TextAnchor.MiddleCenter, 34, FontStyle.Bold);
+            badgeText.text = "1";
+            badgeText.color = Color.white;
+            badgeText.resizeTextMinSize = 22;
+            SetAnchors(badgeText.rectTransform, Vector2.zero, Vector2.one, new Vector2(2f, 0f), new Vector2(-2f, -2f));
         }
 
         private RectTransform EnsureSafeAreaRoot()

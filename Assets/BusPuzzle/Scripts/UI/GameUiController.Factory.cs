@@ -37,15 +37,15 @@ namespace BusPuzzle
             panelImage.raycastTarget = true;
 
             var shadow = panel.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
-            shadow.effectDistance = new Vector2(0f, -8f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.18f);
+            shadow.effectDistance = new Vector2(0f, -5f);
             shadow.useGraphicAlpha = true;
 
             var accent = CreateRoundedPanel($"{name} Accent", panel, UiPanelAccentColor);
-            SetAnchors(accent, new Vector2(0.06f, 0.82f), new Vector2(0.94f, 0.96f), Vector2.zero, Vector2.zero);
+            SetAnchors(accent, new Vector2(0.06f, 0.84f), new Vector2(0.94f, 0.95f), Vector2.zero, Vector2.zero);
 
             var stroke = CreateRoundedPanel($"{name} Stroke", panel, UiPanelStrokeColor);
-            SetAnchors(stroke, new Vector2(0.02f, 0.04f), new Vector2(0.98f, 0.98f), Vector2.zero, Vector2.zero);
+            SetAnchors(stroke, new Vector2(0.04f, 0.06f), new Vector2(0.96f, 0.82f), Vector2.zero, Vector2.zero);
             return panel;
         }
 
@@ -53,52 +53,25 @@ namespace BusPuzzle
         {
             var titleRoot = CreateRectTransform(name, parent);
 
-            var shadow = CreateRoundedPanel($"{name} Shadow", titleRoot, new Color(0f, 0f, 0f, 0.28f));
-            SetAnchors(shadow, new Vector2(0.08f, 0.04f), new Vector2(0.92f, 0.86f), new Vector2(0f, -8f), new Vector2(0f, -8f));
+            var shadow = CreateRoundedPanel($"{name} Shadow", titleRoot, new Color(0f, 0f, 0f, 0.16f));
+            SetAnchors(shadow, new Vector2(0.09f, 0.08f), new Vector2(0.91f, 0.84f), new Vector2(0f, -5f), new Vector2(0f, -5f));
 
-            var leftCap = CreateTitlePlateCap($"{name} Left Cap", titleRoot, new Color(0.12f, 0.18f, 0.26f, 0.98f));
-            SetAnchors(leftCap, new Vector2(0.00f, 0.16f), new Vector2(0.18f, 0.86f), Vector2.zero, Vector2.zero);
+            var plate = CreateRoundedPanel($"{name} Plate", titleRoot, new Color(0.21f, 0.45f, 0.56f, 0.98f));
+            SetAnchors(plate, new Vector2(0.08f, 0.10f), new Vector2(0.92f, 0.90f), Vector2.zero, Vector2.zero);
 
-            var rightCap = CreateTitlePlateCap($"{name} Right Cap", titleRoot, new Color(0.12f, 0.18f, 0.26f, 0.98f));
-            SetAnchors(rightCap, new Vector2(0.82f, 0.16f), new Vector2(1.00f, 0.86f), Vector2.zero, Vector2.zero);
+            var topHighlight = CreateRoundedPanel($"{name} Top Highlight", titleRoot, new Color(1f, 1f, 1f, 0.15f));
+            SetAnchors(topHighlight, new Vector2(0.15f, 0.74f), new Vector2(0.85f, 0.86f), Vector2.zero, Vector2.zero);
 
-            var plate = CreateRoundedPanel($"{name} Plate", titleRoot, new Color(0.25f, 0.30f, 0.45f, 0.98f));
-            SetAnchors(plate, new Vector2(0.10f, 0.08f), new Vector2(0.90f, 0.92f), Vector2.zero, Vector2.zero);
+            var underline = CreateRoundedPanel($"{name} Underline", titleRoot, new Color(1.00f, 0.74f, 0.22f, 0.52f));
+            SetAnchors(underline, new Vector2(0.24f, 0.13f), new Vector2(0.76f, 0.20f), Vector2.zero, Vector2.zero);
 
-            var inner = CreateRoundedPanel($"{name} Inner", titleRoot, new Color(0.19f, 0.23f, 0.36f, 0.94f));
-            SetAnchors(inner, new Vector2(0.13f, 0.18f), new Vector2(0.87f, 0.82f), Vector2.zero, Vector2.zero);
-
-            var topHighlight = CreateRoundedPanel($"{name} Top Highlight", titleRoot, new Color(0.66f, 0.74f, 0.94f, 0.20f));
-            SetAnchors(topHighlight, new Vector2(0.16f, 0.74f), new Vector2(0.84f, 0.86f), Vector2.zero, Vector2.zero);
-
-            var bottomShadow = CreateRoundedPanel($"{name} Bottom Shadow", titleRoot, new Color(0.03f, 0.05f, 0.09f, 0.28f));
-            SetAnchors(bottomShadow, new Vector2(0.16f, 0.18f), new Vector2(0.84f, 0.28f), Vector2.zero, Vector2.zero);
-
-            var leftLight = CreateTitlePlateCap($"{name} Left Light", titleRoot, new Color(0.22f, 0.84f, 0.86f, 0.95f));
-            SetAnchors(leftLight, new Vector2(0.055f, 0.40f), new Vector2(0.105f, 0.60f), Vector2.zero, Vector2.zero);
-
-            var rightLight = CreateTitlePlateCap($"{name} Right Light", titleRoot, new Color(0.96f, 0.32f, 0.45f, 0.95f));
-            SetAnchors(rightLight, new Vector2(0.895f, 0.40f), new Vector2(0.945f, 0.60f), Vector2.zero, Vector2.zero);
-
-            var title = CreateText($"{name} Text", titleRoot, TextAnchor.MiddleCenter, 50, FontStyle.Bold);
+            var title = CreateText($"{name} Text", titleRoot, TextAnchor.MiddleCenter, 46, FontStyle.Bold);
             title.text = label;
             title.color = new Color(0.98f, 0.99f, 1f);
-            title.resizeTextMinSize = 34;
-            SetAnchors(title.rectTransform, new Vector2(0.18f, 0.14f), new Vector2(0.82f, 0.88f), new Vector2(8f, 2f), new Vector2(-8f, -2f));
+            title.resizeTextMinSize = 32;
+            SetAnchors(title.rectTransform, new Vector2(0.16f, 0.18f), new Vector2(0.84f, 0.86f), new Vector2(8f, 1f), new Vector2(-8f, -2f));
 
             return titleRoot;
-        }
-
-        private static RectTransform CreateTitlePlateCap(string name, Transform parent, Color color)
-        {
-            var capObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            capObject.transform.SetParent(parent, false);
-
-            var capImage = capObject.GetComponent<Image>();
-            capImage.sprite = GetCircleSprite();
-            capImage.color = color;
-            capImage.raycastTarget = false;
-            return capObject.GetComponent<RectTransform>();
         }
 
         private static RectTransform CreateRectTransform(string name, Transform parent)

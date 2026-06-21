@@ -20,6 +20,7 @@ namespace BusPuzzle
 
             var modal = CreateGameDialog("Settings Modal", settingsPanel);
             SetAnchors(modal, new Vector2(0.12f, 0.30f), new Vector2(0.88f, 0.70f), Vector2.zero, Vector2.zero);
+            CreateOverlayDismissButton("Settings Outside Close Button", settingsPanel, HideSettingsPanel);
 
             var titlePlate = CreateDialogTitlePlate("Settings Title Plate", modal, Localization.Text("settings_title"));
             settingsTitleText = titlePlate.GetComponentInChildren<Text>();
@@ -134,6 +135,7 @@ namespace BusPuzzle
             settingsPanel.gameObject.SetActive(shouldShow);
             if (shouldShow)
             {
+                HideDailyRewardPrompt();
                 RefreshSettingsToggles();
                 RefreshLocalizedTexts();
             }
@@ -174,6 +176,7 @@ namespace BusPuzzle
             languagePrompt = CreatePromptOverlay("Language Overlay");
             var modal = CreateGameDialog("Language Modal", languagePrompt);
             SetAnchors(modal, new Vector2(0.06f, 0.14f), new Vector2(0.94f, 0.82f), Vector2.zero, Vector2.zero);
+            CreateOverlayDismissButton("Language Outside Close Button", languagePrompt, () => HideLanguagePrompt(true));
 
             var titlePlate = CreateDialogTitlePlate("Language Title Plate", modal, Localization.Text("language_title"));
             languagePromptTitleText = titlePlate.GetComponentInChildren<Text>();
@@ -363,6 +366,11 @@ namespace BusPuzzle
                 nicknameSaveButtonText.text = Localization.Text("nickname_save");
             }
 
+            if (nicknamePrompt != null && nicknamePrompt.gameObject.activeSelf)
+            {
+                RefreshNicknameValidation();
+            }
+
             if (clearPromptTitleText != null)
             {
                 clearPromptTitleText.text = Localization.Text("clear_title");
@@ -421,6 +429,23 @@ namespace BusPuzzle
             if (departPromptTitleText != null)
             {
                 departPromptTitleText.text = Localization.Text("depart");
+            }
+
+            if (dailyRewardPromptTitleText != null)
+            {
+                dailyRewardPromptTitleText.text = Localization.Text("daily_reward_title");
+            }
+
+            if (dailyRewardPromptMessageText != null)
+            {
+                dailyRewardPromptMessageText.text = Localization.Text(
+                    dailyRewardPromptCanClaim ? "daily_reward_message" : "daily_reward_claimed_message");
+            }
+
+            if (dailyRewardClaimButtonText != null)
+            {
+                dailyRewardClaimButtonText.text = Localization.Text(
+                    dailyRewardPromptCanClaim ? "daily_reward_claim" : "daily_reward_claimed");
             }
 
             RefreshLanguageOptionButtons();

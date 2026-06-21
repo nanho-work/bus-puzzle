@@ -10,6 +10,13 @@ namespace BusPuzzle
             nicknamePrompt = CreatePromptOverlay("Nickname Overlay");
             var modal = CreateGameDialog("Nickname Modal", nicknamePrompt);
             SetAnchors(modal, new Vector2(0.08f, 0.29f), new Vector2(0.92f, 0.68f), Vector2.zero, Vector2.zero);
+            CreateOverlayDismissButton("Nickname Outside Close Button", nicknamePrompt, () =>
+            {
+                if (!nicknamePromptIsInitial)
+                {
+                    HideNicknamePrompt(true);
+                }
+            });
 
             var titlePlate = CreateDialogTitlePlate("Nickname Title Plate", modal, Localization.Text("nickname_title"));
             nicknamePromptTitleText = titlePlate.GetComponentInChildren<Text>();
@@ -27,6 +34,11 @@ namespace BusPuzzle
             nicknameInput = CreateNicknameInputField(modal);
             SetAnchors(nicknameInput.GetComponent<RectTransform>(), new Vector2(0.10f, 0.41f), new Vector2(0.90f, 0.58f), Vector2.zero, Vector2.zero);
 
+            nicknameValidationText = CreateText("Nickname Validation", modal, TextAnchor.MiddleCenter, 23, FontStyle.Normal);
+            ApplySettingsTextWeight(nicknameValidationText);
+            nicknameValidationText.color = new Color(1f, 0.32f, 0.32f, 0.98f);
+            SetAnchors(nicknameValidationText.rectTransform, new Vector2(0.08f, 0.31f), new Vector2(0.92f, 0.39f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
+
             nicknameSaveButton = CreatePromptTextButton(
                 "Nickname Save Button",
                 modal,
@@ -34,7 +46,7 @@ namespace BusPuzzle
                 UiPrimaryActionColor,
                 out nicknameSaveButtonText);
             ApplySettingsTextWeight(nicknameSaveButtonText);
-            SetAnchors(nicknameSaveButton.GetComponent<RectTransform>(), new Vector2(0.24f, 0.04f), new Vector2(0.76f, 0.32f), new Vector2(0f, 10f), new Vector2(0f, -8f));
+            SetAnchors(nicknameSaveButton.GetComponent<RectTransform>(), new Vector2(0.24f, 0.04f), new Vector2(0.76f, 0.29f), new Vector2(0f, 10f), new Vector2(0f, -8f));
             nicknameSaveButton.onClick.AddListener(SubmitNicknamePrompt);
 
             HideNicknamePrompt(false);
@@ -48,7 +60,7 @@ namespace BusPuzzle
             var image = inputObject.GetComponent<Image>();
             image.sprite = GetRoundedPanelSprite();
             image.type = Image.Type.Sliced;
-            image.color = new Color(0.06f, 0.10f, 0.13f, 0.94f);
+            image.color = new Color(0.11f, 0.24f, 0.30f, 0.88f);
             image.raycastTarget = true;
 
             var text = CreateText("Nickname Input Text", inputObject.transform, TextAnchor.MiddleLeft, 31, FontStyle.Normal);
@@ -61,7 +73,7 @@ namespace BusPuzzle
             nicknameInputPlaceholderText = CreateText("Nickname Input Placeholder", inputObject.transform, TextAnchor.MiddleLeft, 29, FontStyle.Normal);
             ApplySettingsTextWeight(nicknameInputPlaceholderText);
             nicknameInputPlaceholderText.text = Localization.Text("nickname_placeholder");
-            nicknameInputPlaceholderText.color = new Color(0.72f, 0.82f, 0.88f, 0.50f);
+            nicknameInputPlaceholderText.color = new Color(0.82f, 0.92f, 0.96f, 0.62f);
             SetAnchors(nicknameInputPlaceholderText.rectTransform, Vector2.zero, Vector2.one, new Vector2(22f, 4f), new Vector2(-22f, -4f));
 
             var inputField = inputObject.GetComponent<InputField>();
@@ -71,7 +83,7 @@ namespace BusPuzzle
             inputField.characterLimit = 16;
             inputField.lineType = InputField.LineType.SingleLine;
             inputField.contentType = InputField.ContentType.Standard;
-            inputField.onValueChanged.AddListener(_ => SetNicknamePromptMessage(Localization.Text("nickname_hint")));
+            inputField.onValueChanged.AddListener(_ => RefreshNicknameValidation());
             return inputField;
         }
 
@@ -119,6 +131,7 @@ namespace BusPuzzle
 
             nicknameInput.SetTextWithoutNotify(PlayerIdentityService.Nickname);
             SetNicknamePromptMessage(Localization.Text(initialPrompt ? "nickname_initial_hint" : "nickname_hint"));
+            RefreshNicknameValidation();
 
             nicknamePrompt.SetAsLastSibling();
             nicknamePrompt.gameObject.SetActive(true);
@@ -135,7 +148,7 @@ namespace BusPuzzle
             var wasInitialPrompt = nicknamePromptIsInitial;
             if (!PlayerIdentityService.TrySetNickname(nicknameInput.text, out var normalizedNickname, out var validationMessage))
             {
-                SetNicknamePromptMessage(Localization.Text(validationMessage));
+                ApplyNicknameValidationState(false, validationMessage);
                 return;
             }
 
@@ -176,6 +189,35 @@ namespace BusPuzzle
             {
                 nicknamePromptMessageText.text = message;
             }
+        }
+
+        private void RefreshNicknameValidation()
+        {
+            if (nicknameInput == null)
+            {
+                return;
+            }
+
+            var isValid = PlayerIdentityService.TryValidateNickname(nicknameInput.text, out _, out var validationMessage);
+            ApplyNicknameValidationState(isValid, validationMessage);
+            SetNicknamePromptMessage(Localization.Text(nicknamePromptIsInitial ? "nickname_initial_hint" : "nickname_hint"));
+        }
+
+        private void ApplyNicknameValidationState(bool isValid, string validationMessage)
+        {
+            if (nicknameSaveButton != null)
+            {
+                nicknameSaveButton.interactable = isValid;
+            }
+
+            if (nicknameValidationText == null)
+            {
+                return;
+            }
+
+            var hasMessage = !isValid && !string.IsNullOrWhiteSpace(validationMessage);
+            nicknameValidationText.gameObject.SetActive(hasMessage);
+            nicknameValidationText.text = hasMessage ? Localization.Text(validationMessage) : string.Empty;
         }
     }
 }

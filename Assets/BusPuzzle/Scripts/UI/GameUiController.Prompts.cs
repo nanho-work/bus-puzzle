@@ -12,6 +12,26 @@ namespace BusPuzzle
             return overlay;
         }
 
+        private static Button CreateOverlayDismissButton(string name, RectTransform overlay, System.Action dismissAction)
+        {
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(overlay, false);
+
+            var buttonRect = buttonObject.GetComponent<RectTransform>();
+            SetAnchors(buttonRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            var buttonImage = buttonObject.GetComponent<Image>();
+            buttonImage.color = new Color(1f, 1f, 1f, 0f);
+            buttonImage.raycastTarget = true;
+
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = buttonImage;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(() => dismissAction?.Invoke());
+            buttonObject.transform.SetAsFirstSibling();
+            return button;
+        }
+
         private RectTransform CreatePromptModal(
             RectTransform overlay,
             string name,
@@ -86,6 +106,16 @@ namespace BusPuzzle
             return CreateImageTextButton(name, parent, PromptButtonBaseResource, GoldIconResource, label, fallbackColor, out labelText);
         }
 
+        private static Button CreatePromptSkipButton(
+            string name,
+            Transform parent,
+            string label,
+            Color fallbackColor,
+            out Text labelText)
+        {
+            return CreateImageTextButton(name, parent, PromptButtonBaseResource, SkipIconResource, label, fallbackColor, out labelText);
+        }
+
         private static void AddPromptAdBadge(Button button)
         {
             if (button == null)
@@ -132,7 +162,7 @@ namespace BusPuzzle
             clearPromptText = CreateText("Clear Prompt Text", modal, TextAnchor.MiddleCenter, 42, FontStyle.Bold);
             SetAnchors(clearPromptText.rectTransform, new Vector2(0f, 0.58f), new Vector2(1f, 0.80f), new Vector2(24f, 4f), new Vector2(-24f, -4f));
 
-            var rewardPanel = CreateRoundedPanel("Clear Reward Panel", modal, new Color(0.15f, 0.20f, 0.23f, 0.94f));
+            var rewardPanel = CreateRoundedPanel("Clear Reward Panel", modal, new Color(0.16f, 0.33f, 0.38f, 0.90f));
             var rewardShadow = rewardPanel.gameObject.AddComponent<Shadow>();
             rewardShadow.effectColor = new Color(0f, 0f, 0f, 0.20f);
             rewardShadow.effectDistance = new Vector2(0f, -4f);
@@ -392,6 +422,7 @@ namespace BusPuzzle
                 new Vector2(0.12f, 0.36f),
                 new Vector2(0.88f, 0.62f),
                 out exitPromptTitleText);
+            CreateOverlayDismissButton("Exit Outside Close Button", exitPrompt, HideExitPrompt);
 
             exitPromptText = CreateText("Exit Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             exitPromptText.text = Localization.Text("exit_game");
@@ -419,6 +450,134 @@ namespace BusPuzzle
             }
         }
 
+        private void BuildDailyRewardPrompt()
+        {
+            dailyRewardPrompt = CreatePromptOverlay("Daily Reward Overlay");
+            var modal = CreatePromptModal(
+                dailyRewardPrompt,
+                "Daily Reward Prompt",
+                Localization.Text("daily_reward_title"),
+                new Vector2(0.08f, 0.33f),
+                new Vector2(0.92f, 0.66f),
+                out dailyRewardPromptTitleText);
+            CreateOverlayDismissButton("Daily Reward Outside Close Button", dailyRewardPrompt, HideDailyRewardPrompt);
+
+            dailyRewardPromptMessageText = CreateText("Daily Reward Message", modal, TextAnchor.MiddleCenter, 28, FontStyle.Normal);
+            ApplySettingsTextWeight(dailyRewardPromptMessageText);
+            dailyRewardPromptMessageText.color = new Color(0.86f, 0.94f, 1f, 0.94f);
+            dailyRewardPromptMessageText.text = Localization.Text("daily_reward_message");
+            SetAnchors(dailyRewardPromptMessageText.rectTransform, new Vector2(0.06f, 0.61f), new Vector2(0.94f, 0.79f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
+
+            var rewardPanel = CreateRoundedPanel("Daily Reward Item Panel", modal, new Color(0.14f, 0.30f, 0.35f, 0.88f));
+            var rewardShadow = rewardPanel.gameObject.AddComponent<Shadow>();
+            rewardShadow.effectColor = new Color(0f, 0f, 0f, 0.20f);
+            rewardShadow.effectDistance = new Vector2(0f, -4f);
+            SetAnchors(rewardPanel, new Vector2(0.12f, 0.34f), new Vector2(0.88f, 0.58f), Vector2.zero, Vector2.zero);
+
+            var iconObject = new GameObject("Daily Reward Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(rewardPanel, false);
+            var iconRect = iconObject.GetComponent<RectTransform>();
+            SetAnchors(iconRect, new Vector2(0.08f, 0.08f), new Vector2(0.28f, 0.92f), Vector2.zero, Vector2.zero);
+
+            dailyRewardIconImage = iconObject.GetComponent<Image>();
+            dailyRewardIconImage.color = Color.white;
+            dailyRewardIconImage.preserveAspect = true;
+            dailyRewardIconImage.raycastTarget = false;
+
+            dailyRewardText = CreateText("Daily Reward Text", rewardPanel, TextAnchor.MiddleLeft, 34, FontStyle.Normal);
+            ApplySettingsTextWeight(dailyRewardText);
+            SetAnchors(dailyRewardText.rectTransform, new Vector2(0.32f, 0f), Vector2.one, new Vector2(0f, 2f), new Vector2(-16f, -2f));
+
+            dailyRewardClaimButton = CreatePromptTextButton(
+                "Daily Reward Claim Button",
+                modal,
+                Localization.Text("daily_reward_claim"),
+                UiPrimaryActionColor,
+                out dailyRewardClaimButtonText);
+            ApplySettingsTextWeight(dailyRewardClaimButtonText);
+            SetAnchors(dailyRewardClaimButton.GetComponent<RectTransform>(), new Vector2(0.22f, 0.02f), new Vector2(0.78f, 0.30f), new Vector2(0f, 12f), new Vector2(0f, -8f));
+            dailyRewardClaimButton.onClick.AddListener(() =>
+            {
+                if (!dailyRewardPromptCanClaim)
+                {
+                    return;
+                }
+
+                HideDailyRewardPrompt();
+                DailyRewardClaimRequested?.Invoke();
+            });
+
+            HideDailyRewardPrompt();
+        }
+
+        internal void ShowDailyRewardPrompt(DailyReward reward, bool canClaim)
+        {
+            if (dailyRewardPrompt == null)
+            {
+                return;
+            }
+
+            dailyRewardPromptCanClaim = canClaim;
+            HideSettingsPanel();
+            HideClearPrompt();
+            HideFailPrompt();
+            HideExitPrompt();
+            HideStationUnlockPrompt();
+            HideVipTeleportPrompt();
+            HideMixShufflePrompt();
+            HideDepartPrompt();
+
+            if (dailyRewardPromptTitleText != null)
+            {
+                dailyRewardPromptTitleText.text = Localization.Text("daily_reward_title");
+            }
+
+            if (dailyRewardPromptMessageText != null)
+            {
+                dailyRewardPromptMessageText.text = Localization.Text(
+                    canClaim ? "daily_reward_message" : "daily_reward_claimed_message");
+            }
+
+            if (dailyRewardText != null)
+            {
+                dailyRewardText.text = GetDailyRewardText(reward);
+                dailyRewardText.color = reward.Type == DailyRewardType.Gold
+                    ? UiGoldTextColor
+                    : new Color(0.88f, 0.96f, 1f, 0.98f);
+            }
+
+            if (dailyRewardIconImage != null)
+            {
+                var iconSprite = reward.Type == DailyRewardType.Gold
+                    ? LoadGoldIconSprite()
+                    : LoadResourceSprite(SkipIconResource);
+                dailyRewardIconImage.sprite = iconSprite;
+                dailyRewardIconImage.enabled = iconSprite != null;
+            }
+
+            if (dailyRewardClaimButton != null)
+            {
+                dailyRewardClaimButton.interactable = canClaim;
+            }
+
+            if (dailyRewardClaimButtonText != null)
+            {
+                dailyRewardClaimButtonText.text = Localization.Text(
+                    canClaim ? "daily_reward_claim" : "daily_reward_claimed");
+            }
+
+            dailyRewardPrompt.SetAsLastSibling();
+            dailyRewardPrompt.gameObject.SetActive(true);
+        }
+
+        internal void HideDailyRewardPrompt()
+        {
+            if (dailyRewardPrompt != null)
+            {
+                dailyRewardPrompt.gameObject.SetActive(false);
+            }
+        }
+
         private void BuildStationUnlockPrompt()
         {
             stationUnlockPrompt = CreatePromptOverlay("Station Unlock Overlay");
@@ -429,6 +588,7 @@ namespace BusPuzzle
                 new Vector2(0.10f, 0.35f),
                 new Vector2(0.90f, 0.62f),
                 out stationUnlockPromptTitleText);
+            CreateOverlayDismissButton("Station Unlock Outside Close Button", stationUnlockPrompt, () => CancelRecoveryPrompt(stationUnlockPrompt));
 
             stationUnlockPromptText = CreateText("Station Unlock Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(stationUnlockPromptText.rectTransform, new Vector2(0f, 0.46f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -437,12 +597,21 @@ namespace BusPuzzle
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(stationUnlockPrompt));
 
             stationUnlockConfirmButton = CreatePromptAdButton("Station Unlock Confirm Button", modal, Localization.Text("watch"), UiAdActionColor, out stationUnlockConfirmButtonText);
-            SetAnchors(stationUnlockConfirmButton.GetComponent<RectTransform>(), new Vector2(0.18f, 0f), new Vector2(0.82f, 0.40f), new Vector2(0f, 16f), new Vector2(0f, -12f));
+            SetAnchors(stationUnlockConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.40f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             stationUnlockConfirmButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
                 HideStationUnlockPrompt();
                 StationUnlockConfirmed?.Invoke();
+            });
+
+            stationUnlockSkipButton = CreatePromptSkipButton("Station Unlock Skip Button", modal, Localization.Text("ad_skip_ticket_none"), UiSecondaryActionColor, out stationUnlockSkipButtonText);
+            SetAnchors(stationUnlockSkipButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.40f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            stationUnlockSkipButton.onClick.AddListener(() =>
+            {
+                shouldReturnToFailPromptOnRecoveryCancel = false;
+                HideStationUnlockPrompt();
+                StationUnlockSkipConfirmed?.Invoke();
             });
 
             HideStationUnlockPrompt();
@@ -458,6 +627,7 @@ namespace BusPuzzle
                 new Vector2(0.08f, 0.34f),
                 new Vector2(0.92f, 0.63f),
                 out vipTeleportPromptTitleText);
+            CreateOverlayDismissButton("VIP Teleport Outside Close Button", vipTeleportPrompt, () => CancelRecoveryPrompt(vipTeleportPrompt));
 
             vipTeleportPromptText = CreateText("VIP Teleport Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(vipTeleportPromptText.rectTransform, new Vector2(0f, 0.48f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -466,7 +636,7 @@ namespace BusPuzzle
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(vipTeleportPrompt));
 
             vipTeleportGoldConfirmButton = CreatePromptGoldButton("VIP Teleport Gold Button", modal, Localization.Text("cost_gold", 120), UiGoldActionColor, out vipTeleportGoldButtonText);
-            SetAnchors(vipTeleportGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            SetAnchors(vipTeleportGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.04f, 0f), new Vector2(0.32f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             vipTeleportGoldConfirmButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
@@ -475,12 +645,21 @@ namespace BusPuzzle
             });
 
             vipTeleportConfirmButton = CreatePromptAdButton("VIP Teleport Confirm Button", modal, Localization.Text("watch"), UiAdActionColor, out vipTeleportWatchButtonText);
-            SetAnchors(vipTeleportConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            SetAnchors(vipTeleportConfirmButton.GetComponent<RectTransform>(), new Vector2(0.34f, 0f), new Vector2(0.62f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             vipTeleportConfirmButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
                 HideVipTeleportPrompt();
                 VipTeleportConfirmed?.Invoke();
+            });
+
+            vipTeleportSkipConfirmButton = CreatePromptSkipButton("VIP Teleport Skip Button", modal, Localization.Text("ad_skip_ticket_none"), UiSecondaryActionColor, out vipTeleportSkipButtonText);
+            SetAnchors(vipTeleportSkipConfirmButton.GetComponent<RectTransform>(), new Vector2(0.64f, 0f), new Vector2(0.92f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            vipTeleportSkipConfirmButton.onClick.AddListener(() =>
+            {
+                shouldReturnToFailPromptOnRecoveryCancel = false;
+                HideVipTeleportPrompt();
+                VipTeleportSkipConfirmed?.Invoke();
             });
 
             HideVipTeleportPrompt();
@@ -496,6 +675,7 @@ namespace BusPuzzle
                 new Vector2(0.08f, 0.34f),
                 new Vector2(0.92f, 0.63f),
                 out mixShufflePromptTitleText);
+            CreateOverlayDismissButton("Mix Shuffle Outside Close Button", mixShufflePrompt, () => CancelRecoveryPrompt(mixShufflePrompt));
 
             mixShufflePromptText = CreateText("Mix Shuffle Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(mixShufflePromptText.rectTransform, new Vector2(0f, 0.48f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -504,7 +684,7 @@ namespace BusPuzzle
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(mixShufflePrompt));
 
             mixShuffleGoldConfirmButton = CreatePromptGoldButton("Mix Shuffle Gold Button", modal, Localization.Text("cost_gold", 90), UiGoldActionColor, out mixShuffleGoldButtonText);
-            SetAnchors(mixShuffleGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            SetAnchors(mixShuffleGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.04f, 0f), new Vector2(0.32f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             mixShuffleGoldConfirmButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
@@ -513,12 +693,21 @@ namespace BusPuzzle
             });
 
             mixShuffleConfirmButton = CreatePromptAdButton("Mix Shuffle Confirm Button", modal, Localization.Text("watch"), UiPrimaryActionColor, out mixShuffleWatchButtonText);
-            SetAnchors(mixShuffleConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            SetAnchors(mixShuffleConfirmButton.GetComponent<RectTransform>(), new Vector2(0.34f, 0f), new Vector2(0.62f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             mixShuffleConfirmButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
                 HideMixShufflePrompt();
                 MixShuffleConfirmed?.Invoke();
+            });
+
+            mixShuffleSkipConfirmButton = CreatePromptSkipButton("Mix Shuffle Skip Button", modal, Localization.Text("ad_skip_ticket_none"), UiSecondaryActionColor, out mixShuffleSkipButtonText);
+            SetAnchors(mixShuffleSkipConfirmButton.GetComponent<RectTransform>(), new Vector2(0.64f, 0f), new Vector2(0.92f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            mixShuffleSkipConfirmButton.onClick.AddListener(() =>
+            {
+                shouldReturnToFailPromptOnRecoveryCancel = false;
+                HideMixShufflePrompt();
+                MixShuffleSkipConfirmed?.Invoke();
             });
 
             HideMixShufflePrompt();
@@ -534,6 +723,7 @@ namespace BusPuzzle
                 new Vector2(0.08f, 0.34f),
                 new Vector2(0.92f, 0.63f),
                 out departPromptTitleText);
+            CreateOverlayDismissButton("Depart Outside Close Button", departPrompt, () => CancelRecoveryPrompt(departPrompt));
 
             departPromptText = CreateText("Depart Prompt Text", modal, TextAnchor.MiddleCenter, 32, FontStyle.Normal);
             SetAnchors(departPromptText.rectTransform, new Vector2(0f, 0.48f), new Vector2(1f, 0.80f), new Vector2(20f, 4f), new Vector2(-20f, -8f));
@@ -542,7 +732,7 @@ namespace BusPuzzle
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(departPrompt));
 
             departGoldConfirmButton = CreatePromptGoldButton("Depart Gold Button", modal, Localization.Text("cost_gold", 90), UiGoldActionColor, out departGoldButtonText);
-            SetAnchors(departGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            SetAnchors(departGoldConfirmButton.GetComponent<RectTransform>(), new Vector2(0.04f, 0f), new Vector2(0.32f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             departGoldConfirmButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
@@ -551,7 +741,7 @@ namespace BusPuzzle
             });
 
             departConfirmButton = CreatePromptAdButton("Depart Confirm Button", modal, Localization.Text("watch"), UiAdActionColor, out departWatchButtonText);
-            SetAnchors(departConfirmButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            SetAnchors(departConfirmButton.GetComponent<RectTransform>(), new Vector2(0.34f, 0f), new Vector2(0.62f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             departConfirmButton.onClick.AddListener(() =>
             {
                 shouldReturnToFailPromptOnRecoveryCancel = false;
@@ -559,29 +749,66 @@ namespace BusPuzzle
                 DepartConfirmed?.Invoke();
             });
 
+            departSkipConfirmButton = CreatePromptSkipButton("Depart Skip Button", modal, Localization.Text("ad_skip_ticket_none"), UiSecondaryActionColor, out departSkipButtonText);
+            SetAnchors(departSkipConfirmButton.GetComponent<RectTransform>(), new Vector2(0.64f, 0f), new Vector2(0.92f, 0.42f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            departSkipConfirmButton.onClick.AddListener(() =>
+            {
+                shouldReturnToFailPromptOnRecoveryCancel = false;
+                HideDepartPrompt();
+                DepartSkipConfirmed?.Invoke();
+            });
+
             HideDepartPrompt();
         }
 
-        private void ApplyStationUnlockPromptState(int lockedSlotsRemaining, bool adReady, bool adInProgress)
+        private void ApplyStationUnlockPromptState(int lockedSlotsRemaining, bool adReady, int adSkipTickets, bool adInProgress)
         {
+            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var canUseSkipTicket = adSkipTickets > 0;
+
             if (stationUnlockPromptText != null)
             {
-                stationUnlockPromptText.text = adInProgress
-                    ? Localization.Text("loading_ad")
-                    : adReady
-                        ? Localization.Text("watch_ad_stop", lockedSlotsRemaining)
-                        : Localization.Text("ad_unavailable_try_later");
+                if (adInProgress)
+                {
+                    stationUnlockPromptText.text = Localization.Text("loading_ad");
+                }
+                else if (adReady)
+                {
+                    stationUnlockPromptText.text = Localization.Text("watch_ad_stop", lockedSlotsRemaining);
+                }
+                else if (canUseSkipTicket)
+                {
+                    stationUnlockPromptText.text = Localization.Text("ad_skip_ticket_stop", lockedSlotsRemaining);
+                }
+                else
+                {
+                    stationUnlockPromptText.text = Localization.Text("ad_unavailable_try_later");
+                }
             }
 
             if (stationUnlockConfirmButton != null)
             {
-                stationUnlockConfirmButton.interactable = adReady && !adInProgress;
+                stationUnlockConfirmButton.gameObject.SetActive(adsEnabled);
+                stationUnlockConfirmButton.interactable = adsEnabled && adReady && !adInProgress;
             }
 
             if (stationUnlockConfirmButtonText != null)
             {
                 stationUnlockConfirmButtonText.text = GetRewardedAdButtonLabel(adReady, adInProgress);
             }
+
+            if (stationUnlockSkipButton != null)
+            {
+                stationUnlockSkipButton.gameObject.SetActive(canUseSkipTicket);
+                stationUnlockSkipButton.interactable = canUseSkipTicket && !adInProgress;
+            }
+
+            if (stationUnlockSkipButtonText != null)
+            {
+                stationUnlockSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
+            }
+
+            SetStationRecoveryButtonLayout(stationUnlockConfirmButton, stationUnlockSkipButton, adsEnabled, canUseSkipTicket);
         }
 
         private void ApplyVipTeleportPromptState(
@@ -590,10 +817,12 @@ namespace BusPuzzle
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
             var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var canUseSkipTicket = adSkipTickets > 0;
 
             if (vipTeleportPromptText != null)
             {
@@ -618,7 +847,6 @@ namespace BusPuzzle
             if (vipTeleportGoldConfirmButton != null)
             {
                 vipTeleportGoldConfirmButton.interactable = canSpendGold && !adInProgress && usedCount < maxUses;
-                SetRecoveryGoldButtonLayout(vipTeleportGoldConfirmButton, adsEnabled);
             }
 
             if (vipTeleportConfirmButton != null)
@@ -626,16 +854,31 @@ namespace BusPuzzle
                 vipTeleportConfirmButton.gameObject.SetActive(adsEnabled);
                 vipTeleportConfirmButton.interactable = adReady && !adInProgress && usedCount < maxUses;
             }
+
+            if (vipTeleportSkipConfirmButton != null)
+            {
+                vipTeleportSkipConfirmButton.gameObject.SetActive(canUseSkipTicket);
+                vipTeleportSkipConfirmButton.interactable = canUseSkipTicket && !adInProgress && usedCount < maxUses;
+            }
+
+            if (vipTeleportSkipButtonText != null)
+            {
+                vipTeleportSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
+            }
+
+            SetRecoveryChoiceButtonLayout(vipTeleportGoldConfirmButton, vipTeleportConfirmButton, vipTeleportSkipConfirmButton, adsEnabled, canUseSkipTicket);
         }
 
         private void ApplyMixShufflePromptState(
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
             var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var canUseSkipTicket = adSkipTickets > 0;
 
             if (mixShufflePromptText != null)
             {
@@ -659,7 +902,6 @@ namespace BusPuzzle
             if (mixShuffleGoldConfirmButton != null)
             {
                 mixShuffleGoldConfirmButton.interactable = canSpendGold && !adInProgress;
-                SetRecoveryGoldButtonLayout(mixShuffleGoldConfirmButton, adsEnabled);
             }
 
             if (mixShuffleConfirmButton != null)
@@ -667,16 +909,31 @@ namespace BusPuzzle
                 mixShuffleConfirmButton.gameObject.SetActive(adsEnabled);
                 mixShuffleConfirmButton.interactable = adReady && !adInProgress;
             }
+
+            if (mixShuffleSkipConfirmButton != null)
+            {
+                mixShuffleSkipConfirmButton.gameObject.SetActive(canUseSkipTicket);
+                mixShuffleSkipConfirmButton.interactable = canUseSkipTicket && !adInProgress;
+            }
+
+            if (mixShuffleSkipButtonText != null)
+            {
+                mixShuffleSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
+            }
+
+            SetRecoveryChoiceButtonLayout(mixShuffleGoldConfirmButton, mixShuffleConfirmButton, mixShuffleSkipConfirmButton, adsEnabled, canUseSkipTicket);
         }
 
         private void ApplyDepartPromptState(
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
             var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var canUseSkipTicket = adSkipTickets > 0;
 
             if (departPromptText != null)
             {
@@ -700,7 +957,6 @@ namespace BusPuzzle
             if (departGoldConfirmButton != null)
             {
                 departGoldConfirmButton.interactable = canSpendGold && !adInProgress;
-                SetRecoveryGoldButtonLayout(departGoldConfirmButton, adsEnabled);
             }
 
             if (departConfirmButton != null)
@@ -708,9 +964,68 @@ namespace BusPuzzle
                 departConfirmButton.gameObject.SetActive(adsEnabled);
                 departConfirmButton.interactable = adReady && !adInProgress;
             }
+
+            if (departSkipConfirmButton != null)
+            {
+                departSkipConfirmButton.gameObject.SetActive(canUseSkipTicket);
+                departSkipConfirmButton.interactable = canUseSkipTicket && !adInProgress;
+            }
+
+            if (departSkipButtonText != null)
+            {
+                departSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
+            }
+
+            SetRecoveryChoiceButtonLayout(departGoldConfirmButton, departConfirmButton, departSkipConfirmButton, adsEnabled, canUseSkipTicket);
         }
 
-        private static void SetRecoveryGoldButtonLayout(Button button, bool adsEnabled)
+        private static void SetStationRecoveryButtonLayout(Button adButton, Button skipButton, bool showAdButton, bool showSkipButton)
+        {
+            if (showAdButton && showSkipButton)
+            {
+                SetButtonAnchors(adButton, new Vector2(0.09f, 0f), new Vector2(0.49f, 0.40f));
+                SetButtonAnchors(skipButton, new Vector2(0.51f, 0f), new Vector2(0.91f, 0.40f));
+                return;
+            }
+
+            if (showAdButton)
+            {
+                SetButtonAnchors(adButton, new Vector2(0.18f, 0f), new Vector2(0.82f, 0.40f));
+            }
+            else if (showSkipButton)
+            {
+                SetButtonAnchors(skipButton, new Vector2(0.18f, 0f), new Vector2(0.82f, 0.40f));
+            }
+        }
+
+        private static void SetRecoveryChoiceButtonLayout(Button goldButton, Button adButton, Button skipButton, bool showAdButton, bool showSkipButton)
+        {
+            if (showAdButton && showSkipButton)
+            {
+                SetButtonAnchors(goldButton, new Vector2(0.04f, 0f), new Vector2(0.32f, 0.42f));
+                SetButtonAnchors(adButton, new Vector2(0.34f, 0f), new Vector2(0.62f, 0.42f));
+                SetButtonAnchors(skipButton, new Vector2(0.64f, 0f), new Vector2(0.92f, 0.42f));
+                return;
+            }
+
+            if (showAdButton)
+            {
+                SetButtonAnchors(goldButton, new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f));
+                SetButtonAnchors(adButton, new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f));
+                return;
+            }
+
+            if (showSkipButton)
+            {
+                SetButtonAnchors(goldButton, new Vector2(0.09f, 0f), new Vector2(0.49f, 0.42f));
+                SetButtonAnchors(skipButton, new Vector2(0.51f, 0f), new Vector2(0.91f, 0.42f));
+                return;
+            }
+
+            SetButtonAnchors(goldButton, new Vector2(0.18f, 0f), new Vector2(0.82f, 0.42f));
+        }
+
+        private static void SetButtonAnchors(Button button, Vector2 anchorMin, Vector2 anchorMax)
         {
             if (button == null)
             {
@@ -719,10 +1034,10 @@ namespace BusPuzzle
 
             SetAnchors(
                 button.GetComponent<RectTransform>(),
-                adsEnabled ? new Vector2(0.09f, 0f) : new Vector2(0.18f, 0f),
-                adsEnabled ? new Vector2(0.49f, 0.42f) : new Vector2(0.82f, 0.42f),
-                adsEnabled ? new Vector2(6f, 16f) : new Vector2(0f, 16f),
-                adsEnabled ? new Vector2(-6f, -12f) : new Vector2(0f, -12f));
+                anchorMin,
+                anchorMax,
+                new Vector2(6f, 16f),
+                new Vector2(-6f, -12f));
         }
 
         private static string GetRewardedAdButtonLabel(bool adReady, bool adInProgress)
@@ -733,6 +1048,20 @@ namespace BusPuzzle
             }
 
             return adReady ? Localization.Text("watch") : Localization.Text("ad_unavailable");
+        }
+
+        private static string GetAdSkipTicketButtonLabel(int tickets)
+        {
+            return tickets > 0
+                ? Localization.Text("ad_skip_ticket_button", tickets)
+                : Localization.Text("ad_skip_ticket_none");
+        }
+
+        private static string GetDailyRewardText(DailyReward reward)
+        {
+            return reward.Type == DailyRewardType.Gold
+                ? Localization.Text("daily_reward_gold", reward.Amount)
+                : Localization.Text("daily_reward_skip_ticket", reward.Amount);
         }
     }
 }

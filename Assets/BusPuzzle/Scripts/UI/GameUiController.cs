@@ -19,6 +19,8 @@ namespace BusPuzzle
         private const string PromptButtonBaseResource = "UI/Boosters/base";
         private const string AdIconResource = "UI/Boosters/ad";
         private const string GoldIconResource = "UI/Boosters/gold 1";
+        private const string SkipIconResource = "UI/Boosters/skip";
+        private const string DailyRewardIconResource = "UI/Boosters/day";
         private const string LanguageIconResource = "UI/Boosters/Language";
         private const string StartupSplashResource = "UI/Boosters/main";
         private const float HeaderIconSize = 117f;
@@ -26,10 +28,10 @@ namespace BusPuzzle
         private const int HeaderGoldFontSize = 34;
         private const float BoosterIconSize = 144f;
         private const float PromptButtonAspectRatio = 1588f / 596f;
-        private static readonly Color UiOverlayColor = new Color(0.03f, 0.05f, 0.07f, 0.56f);
-        private static readonly Color UiPanelColor = new Color(0.11f, 0.15f, 0.18f, 0.96f);
-        private static readonly Color UiPanelAccentColor = new Color(0.18f, 0.56f, 0.74f, 0.34f);
-        private static readonly Color UiPanelStrokeColor = new Color(0.56f, 0.74f, 0.82f, 0.10f);
+        private static readonly Color UiOverlayColor = new Color(0.05f, 0.12f, 0.16f, 0.46f);
+        private static readonly Color UiPanelColor = new Color(0.16f, 0.33f, 0.39f, 0.96f);
+        private static readonly Color UiPanelAccentColor = new Color(0.54f, 0.86f, 0.92f, 0.20f);
+        private static readonly Color UiPanelStrokeColor = new Color(0.83f, 0.98f, 1f, 0.12f);
         private static readonly Color UiStageTextColor = new Color(0.98f, 0.99f, 1f, 0.98f);
         private static readonly Color UiStageTextOutlineColor = new Color(0.02f, 0.03f, 0.04f, 0.42f);
         private static readonly Color UiGoldTextColor = new Color(1.00f, 0.78f, 0.16f);
@@ -37,7 +39,7 @@ namespace BusPuzzle
         private static readonly Color UiPrimaryActionColor = new Color(0.12f, 0.55f, 0.75f);
         private static readonly Color UiGoldActionColor = new Color(0.88f, 0.57f, 0.10f);
         private static readonly Color UiDangerActionColor = new Color(0.72f, 0.27f, 0.20f);
-        private static readonly Color UiSecondaryActionColor = new Color(0.27f, 0.35f, 0.41f);
+        private static readonly Color UiSecondaryActionColor = new Color(0.28f, 0.48f, 0.56f);
         private static readonly Color UiAdActionColor = new Color(0.15f, 0.55f, 0.38f);
         private static readonly Color UiBoosterGoldColor = new Color(0.92f, 0.62f, 0.10f);
         private static readonly Color UiBoosterBlueColor = new Color(0.16f, 0.48f, 0.70f);
@@ -56,6 +58,9 @@ namespace BusPuzzle
         private Button menuButton;
         private Button settingsButton;
         private Button rankingButton;
+        private Button dailyRewardButton;
+        private RectTransform dailyRewardBadge;
+        private CanvasGroup dailyRewardGlowCanvasGroup;
         private Button vipButton;
         private Button mixButton;
         private Button departButton;
@@ -85,6 +90,7 @@ namespace BusPuzzle
         private RectTransform nicknamePrompt;
         private Text nicknamePromptTitleText;
         private Text nicknamePromptMessageText;
+        private Text nicknameValidationText;
         private InputField nicknameInput;
         private Text nicknameInputPlaceholderText;
         private Button nicknameCloseButton;
@@ -121,6 +127,8 @@ namespace BusPuzzle
         private Text stationUnlockPromptText;
         private Button stationUnlockConfirmButton;
         private Text stationUnlockConfirmButtonText;
+        private Button stationUnlockSkipButton;
+        private Text stationUnlockSkipButtonText;
         private RectTransform vipTeleportPrompt;
         private Text vipTeleportPromptTitleText;
         private Text vipTeleportPromptText;
@@ -128,6 +136,8 @@ namespace BusPuzzle
         private Text vipTeleportGoldButtonText;
         private Button vipTeleportConfirmButton;
         private Text vipTeleportWatchButtonText;
+        private Button vipTeleportSkipConfirmButton;
+        private Text vipTeleportSkipButtonText;
         private RectTransform mixShufflePrompt;
         private Text mixShufflePromptTitleText;
         private Text mixShufflePromptText;
@@ -135,6 +145,8 @@ namespace BusPuzzle
         private Text mixShuffleGoldButtonText;
         private Button mixShuffleConfirmButton;
         private Text mixShuffleWatchButtonText;
+        private Button mixShuffleSkipConfirmButton;
+        private Text mixShuffleSkipButtonText;
         private RectTransform departPrompt;
         private Text departPromptTitleText;
         private Text departPromptText;
@@ -142,6 +154,17 @@ namespace BusPuzzle
         private Text departGoldButtonText;
         private Button departConfirmButton;
         private Text departWatchButtonText;
+        private Button departSkipConfirmButton;
+        private Text departSkipButtonText;
+        private RectTransform dailyRewardPrompt;
+        private Text dailyRewardPromptTitleText;
+        private Text dailyRewardPromptMessageText;
+        private Text dailyRewardText;
+        private Image dailyRewardIconImage;
+        private Button dailyRewardClaimButton;
+        private Text dailyRewardClaimButtonText;
+        private bool dailyRewardButtonHasReward;
+        private bool dailyRewardPromptCanClaim = true;
         private RectTransform remoteConfigPrompt;
         private Text remoteConfigPromptTitleText;
         private Text remoteConfigPromptText;
@@ -164,18 +187,26 @@ namespace BusPuzzle
         public event Action ExitConfirmed;
         public event Action StationUnlockRequested;
         public event Action StationUnlockConfirmed;
+        public event Action StationUnlockSkipConfirmed;
         public event Action VipTeleportRequested;
         public event Action VipTeleportGoldConfirmed;
         public event Action VipTeleportConfirmed;
+        public event Action VipTeleportSkipConfirmed;
         public event Action MixShuffleRequested;
         public event Action MixShuffleGoldConfirmed;
         public event Action MixShuffleConfirmed;
+        public event Action MixShuffleSkipConfirmed;
         public event Action DepartRequested;
         public event Action DepartGoldConfirmed;
         public event Action DepartConfirmed;
+        public event Action DepartSkipConfirmed;
+        public event Action DailyRewardRequested;
+        public event Action DailyRewardClaimRequested;
         public event Action RecoveryPromptCancelled;
         public event Action RemoteConfigActionRequested;
         public event Action InitialNicknamePromptCompleted;
+
+        public bool IsStartupSplashActive => startupSplashRoot != null;
 
         public bool IsInitialNicknamePromptBlocking =>
             nicknamePrompt != null &&
@@ -205,6 +236,7 @@ namespace BusPuzzle
         {
             UpdateSafeArea();
             UpdateTutorialOverlay();
+            UpdateDailyRewardButtonPulse();
             TryShowInitialNicknamePrompt();
         }
 
@@ -236,6 +268,41 @@ namespace BusPuzzle
             }
         }
 
+        public void SetDailyRewardButtonState(bool visible, bool canClaim)
+        {
+            dailyRewardButtonHasReward = visible && canClaim;
+
+            if (dailyRewardButton != null)
+            {
+                dailyRewardButton.gameObject.SetActive(visible);
+                dailyRewardButton.interactable = visible;
+            }
+
+            if (dailyRewardBadge != null)
+            {
+                dailyRewardBadge.gameObject.SetActive(dailyRewardButtonHasReward);
+            }
+
+            if (dailyRewardGlowCanvasGroup != null)
+            {
+                dailyRewardGlowCanvasGroup.gameObject.SetActive(dailyRewardButtonHasReward);
+                dailyRewardGlowCanvasGroup.alpha = dailyRewardButtonHasReward ? 0.26f : 0f;
+                dailyRewardGlowCanvasGroup.transform.localScale = Vector3.one;
+            }
+        }
+
+        private void UpdateDailyRewardButtonPulse()
+        {
+            if (!dailyRewardButtonHasReward || dailyRewardGlowCanvasGroup == null)
+            {
+                return;
+            }
+
+            var pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5f);
+            dailyRewardGlowCanvasGroup.alpha = Mathf.Lerp(0.15f, 0.42f, pulse);
+            dailyRewardGlowCanvasGroup.transform.localScale = Vector3.one * Mathf.Lerp(0.96f, 1.10f, pulse);
+        }
+
         public void SetRemaining(int remainingCount)
         {
             if (remainingText != null)
@@ -252,7 +319,7 @@ namespace BusPuzzle
             }
         }
 
-        public void SetStationUnlock(int lockedSlotsRemaining, bool canUnlock, bool adReady, bool adInProgress)
+        public void SetStationUnlock(int lockedSlotsRemaining, bool canUnlock, bool adReady, int adSkipTickets, bool adInProgress)
         {
             if (stationUnlockPrompt == null)
             {
@@ -270,7 +337,7 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyStationUnlockPromptState(lockedSlotsRemaining, adReady, adInProgress);
+            ApplyStationUnlockPromptState(lockedSlotsRemaining, adReady, adSkipTickets, adInProgress);
         }
 
         public void SetVipTeleport(
@@ -282,6 +349,7 @@ namespace BusPuzzle
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
@@ -306,7 +374,7 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adReady, adInProgress);
+            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
         }
 
         public void SetMixShuffle(
@@ -314,6 +382,7 @@ namespace BusPuzzle
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
@@ -327,7 +396,7 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adReady, adInProgress);
+            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
         }
 
         public void SetDepart(
@@ -335,6 +404,7 @@ namespace BusPuzzle
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
@@ -348,10 +418,10 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adReady, adInProgress);
+            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
         }
 
-        public void ShowStationUnlockPrompt(int lockedSlotsRemaining, bool adReady, bool adInProgress)
+        public void ShowStationUnlockPrompt(int lockedSlotsRemaining, bool adReady, int adSkipTickets, bool adInProgress)
         {
             if (stationUnlockPrompt == null || lockedSlotsRemaining <= 0)
             {
@@ -360,11 +430,12 @@ namespace BusPuzzle
 
             HideSettingsPanel();
             HideFailPrompt();
+            HideDailyRewardPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
             HideDepartPrompt();
             stationUnlockPrompt.gameObject.SetActive(true);
-            ApplyStationUnlockPromptState(lockedSlotsRemaining, adReady, adInProgress);
+            ApplyStationUnlockPromptState(lockedSlotsRemaining, adReady, adSkipTickets, adInProgress);
         }
 
         public void HideStationUnlockPrompt()
@@ -381,6 +452,7 @@ namespace BusPuzzle
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
@@ -391,11 +463,12 @@ namespace BusPuzzle
 
             HideSettingsPanel();
             HideFailPrompt();
+            HideDailyRewardPrompt();
             HideStationUnlockPrompt();
             HideMixShufflePrompt();
             HideDepartPrompt();
             vipTeleportPrompt.gameObject.SetActive(true);
-            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adReady, adInProgress);
+            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
         }
 
         public void HideVipTeleportPrompt()
@@ -410,6 +483,7 @@ namespace BusPuzzle
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
@@ -420,11 +494,12 @@ namespace BusPuzzle
 
             HideSettingsPanel();
             HideFailPrompt();
+            HideDailyRewardPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideDepartPrompt();
             mixShufflePrompt.gameObject.SetActive(true);
-            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adReady, adInProgress);
+            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
         }
 
         public void HideMixShufflePrompt()
@@ -439,6 +514,7 @@ namespace BusPuzzle
             int goldBalance,
             int goldCost,
             bool canSpendGold,
+            int adSkipTickets,
             bool adReady,
             bool adInProgress)
         {
@@ -449,11 +525,12 @@ namespace BusPuzzle
 
             HideSettingsPanel();
             HideFailPrompt();
+            HideDailyRewardPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
             departPrompt.gameObject.SetActive(true);
-            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adReady, adInProgress);
+            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
         }
 
         public void HideDepartPrompt()
@@ -474,6 +551,7 @@ namespace BusPuzzle
             HideClearPrompt();
             HideFailPrompt();
             HideExitPrompt();
+            HideDailyRewardPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -494,11 +572,12 @@ namespace BusPuzzle
             statusText.text = hasNextLevel ? Localization.Text("status_clear") : Localization.Text("status_all_clear");
             SetRestartButtonInteractable(false);
             shouldReturnToFailPromptOnRecoveryCancel = false;
-            SetStationUnlock(0, false, false, false);
-            SetVipTeleport(0, 0, false, false, false, 0, 0, false, false, false);
-            SetMixShuffle(false, 0, 0, false, false, false);
-            SetDepart(false, 0, 0, false, false, false);
+            SetStationUnlock(0, false, false, 0, false);
+            SetVipTeleport(0, 0, false, false, false, 0, 0, false, 0, false, false);
+            SetMixShuffle(false, 0, 0, false, 0, false, false);
+            SetDepart(false, 0, 0, false, 0, false, false);
             HideSettingsPanel();
+            HideDailyRewardPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -558,6 +637,7 @@ namespace BusPuzzle
             SetRestartButtonInteractable(true);
             shouldReturnToFailPromptOnRecoveryCancel = false;
             HideSettingsPanel();
+            HideDailyRewardPrompt();
             HideClearPrompt();
             HideExitPrompt();
             if (nextButton != null)
@@ -565,10 +645,10 @@ namespace BusPuzzle
                 nextButton.interactable = false;
             }
 
-            SetStationUnlock(0, false, false, false);
-            SetVipTeleport(0, 0, false, false, false, 0, 0, false, false, false);
-            SetMixShuffle(false, 0, 0, false, false, false);
-            SetDepart(false, 0, 0, false, false, false);
+            SetStationUnlock(0, false, false, 0, false);
+            SetVipTeleport(0, 0, false, false, false, 0, 0, false, 0, false, false);
+            SetMixShuffle(false, 0, 0, false, 0, false, false);
+            SetDepart(false, 0, 0, false, 0, false, false);
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -585,6 +665,7 @@ namespace BusPuzzle
 
             HideSettingsPanel();
             HideFailPrompt();
+            HideDailyRewardPrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();

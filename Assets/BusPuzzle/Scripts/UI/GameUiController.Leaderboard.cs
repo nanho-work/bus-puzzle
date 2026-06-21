@@ -11,6 +11,7 @@ namespace BusPuzzle
             leaderboardPrompt = CreatePromptOverlay("Leaderboard Overlay");
             var modal = CreateGameDialog("Leaderboard Modal", leaderboardPrompt);
             SetAnchors(modal, new Vector2(0.06f, 0.11f), new Vector2(0.94f, 0.84f), Vector2.zero, Vector2.zero);
+            CreateOverlayDismissButton("Leaderboard Outside Close Button", leaderboardPrompt, () => HideLeaderboardPrompt(false));
 
             var titlePlate = CreateDialogTitlePlate("Leaderboard Title Plate", modal, Localization.Text("leaderboard_title"));
             leaderboardPromptTitleText = titlePlate.GetComponentInChildren<Text>();
@@ -20,7 +21,7 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Leaderboard Close Button", modal);
             closeButton.onClick.AddListener(() => HideLeaderboardPrompt(false));
 
-            var personalRecordPanel = CreateRoundedPanel("Leaderboard Personal Record Panel", modal, new Color(0.12f, 0.32f, 0.40f, 0.72f));
+            var personalRecordPanel = CreateRoundedPanel("Leaderboard Personal Record Panel", modal, new Color(0.16f, 0.42f, 0.48f, 0.68f));
             SetAnchors(personalRecordPanel, new Vector2(0.08f, 0.76f), new Vector2(0.92f, 0.84f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
             leaderboardStatusText = CreateText("Leaderboard Status", personalRecordPanel, TextAnchor.MiddleCenter, 25, FontStyle.Normal);
@@ -28,7 +29,7 @@ namespace BusPuzzle
             leaderboardStatusText.color = new Color(0.86f, 0.94f, 1f, 0.96f);
             SetAnchors(leaderboardStatusText.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
 
-            var viewport = CreateRoundedPanel("Leaderboard Viewport", modal, new Color(0.05f, 0.08f, 0.11f, 0.86f));
+            var viewport = CreateRoundedPanel("Leaderboard Viewport", modal, new Color(0.08f, 0.19f, 0.24f, 0.78f));
             SetAnchors(viewport, new Vector2(0.06f, 0.17f), new Vector2(0.94f, 0.75f), Vector2.zero, Vector2.zero);
             viewport.gameObject.AddComponent<RectMask2D>();
 
@@ -92,6 +93,7 @@ namespace BusPuzzle
                 settingsPanel.gameObject.SetActive(false);
             }
 
+            HideDailyRewardPrompt();
             leaderboardPrompt.SetAsLastSibling();
             leaderboardPrompt.gameObject.SetActive(true);
             RefreshLocalizedTexts();
@@ -163,7 +165,7 @@ namespace BusPuzzle
 
             if (entries == null || entries.Count == 0)
             {
-                CreateLeaderboardMessageRow("Leaderboard Empty Row", Localization.Text("leaderboard_empty"), 28, new Color(0.10f, 0.14f, 0.18f, 0.62f));
+                CreateLeaderboardMessageRow("Leaderboard Empty Row", Localization.Text("leaderboard_empty"), 28, new Color(0.16f, 0.30f, 0.36f, 0.52f));
                 return;
             }
 
@@ -173,7 +175,7 @@ namespace BusPuzzle
                 Localization.Text("leaderboard_column_nickname"),
                 Localization.Text("leaderboard_column_stage"),
                 22,
-                new Color(0.16f, 0.24f, 0.32f, 0.90f),
+                new Color(0.24f, 0.44f, 0.52f, 0.82f),
                 44f);
 
             for (var index = 0; index < entries.Count; index++)
@@ -181,10 +183,10 @@ namespace BusPuzzle
                 var entry = entries[index];
                 var isMine = IsLocalLeaderboardEntry(entry);
                 var rowColor = isMine
-                    ? new Color(0.15f, 0.45f, 0.58f, 0.92f)
+                    ? new Color(0.20f, 0.58f, 0.66f, 0.88f)
                     : index % 2 == 0
-                    ? new Color(0.10f, 0.14f, 0.18f, 0.72f)
-                    : new Color(0.08f, 0.12f, 0.16f, 0.72f);
+                    ? new Color(0.12f, 0.25f, 0.30f, 0.64f)
+                    : new Color(0.10f, 0.22f, 0.27f, 0.64f);
                 CreateLeaderboardTableRow(
                     $"Leaderboard Row {index:00}",
                     entry.Rank.ToString(),

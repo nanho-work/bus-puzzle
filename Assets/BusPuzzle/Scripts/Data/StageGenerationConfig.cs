@@ -239,6 +239,11 @@ namespace BusPuzzle
         [SerializeField, Range(LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity)] private int post50NormalRotaryCapacity = 20;
         [SerializeField, Range(LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity)] private int post50HardRotaryCapacity = 22;
         [SerializeField, Range(LevelData.MinRotaryUnitCapacity, LevelData.MaxRotaryUnitCapacity)] private int post50SuperHardRotaryCapacity = 22;
+        [SerializeField, Range(1, 5000)] private int longRunVehicleRampStartStage = 60;
+        [SerializeField, Range(1f, 2000f)] private float longRunVehicleRampSoftnessStages = 220f;
+        [SerializeField, Range(4, 80)] private int longRunNormalVehicleCap = 56;
+        [SerializeField, Range(4, 80)] private int longRunHardVehicleCap = 62;
+        [SerializeField, Range(4, 80)] private int longRunSuperHardVehicleCap = 72;
         [SerializeField] private int baseSeed = 10000;
         [SerializeField, Range(1, 300)] private int candidateAttemptsPerStage = 36;
         [SerializeField, Range(1, 80)] private int releaseVehicleGenerationAttempts = 8;
@@ -410,6 +415,37 @@ namespace BusPuzzle
             return Mathf.Clamp01(Mathf.InverseLerp(startStage, Post50RampMaxStage, stageNumber));
         }
 
+        public LevelDifficultyProfile ApplyLongRunVehicleGrowth(LevelDifficultyProfile profile, int stageNumber)
+        {
+            if (profile == null)
+            {
+                return null;
+            }
+
+            var pressure = GetLongRunVehiclePressure(stageNumber);
+            if (pressure <= 0f)
+            {
+                return profile;
+            }
+
+            var baseVehicleCount = profile.TargetVehicleCount;
+            var targetVehicleCount = Mathf.Max(baseVehicleCount, GetLongRunVehicleCap(profile.Difficulty));
+            var vehicleCount = Mathf.RoundToInt(Mathf.Lerp(baseVehicleCount, targetVehicleCount, pressure));
+            if (vehicleCount <= baseVehicleCount)
+            {
+                return profile;
+            }
+
+            return LevelDifficultyProfile.CreateCustom(
+                profile.Difficulty,
+                profile.PassengerFlowRule,
+                vehicleCount,
+                profile.TargetColorCount,
+                profile.ParkingTension,
+                profile.StationPressure,
+                profile.RequireSolutionRoute);
+        }
+
         public void GetSolutionRange(
             LevelDifficulty difficulty,
             int baseMinSolutionCount,
@@ -461,6 +497,31 @@ namespace BusPuzzle
             return GeneratedStageCount <= 1
                 ? 0f
                 : Mathf.Clamp01((stageNumber - 1f) / (GeneratedStageCount - 1f));
+        }
+
+        private float GetLongRunVehiclePressure(int stageNumber)
+        {
+            var startStage = Mathf.Max(1, longRunVehicleRampStartStage);
+            if (stageNumber <= startStage)
+            {
+                return 0f;
+            }
+
+            var softness = Mathf.Max(1f, longRunVehicleRampSoftnessStages);
+            return Mathf.Clamp01(1f - Mathf.Exp(-(stageNumber - startStage) / softness));
+        }
+
+        private int GetLongRunVehicleCap(LevelDifficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    return Mathf.Clamp(longRunHardVehicleCap, 4, 80);
+                case LevelDifficulty.SuperHard:
+                    return Mathf.Clamp(longRunSuperHardVehicleCap, 4, 80);
+                default:
+                    return Mathf.Clamp(longRunNormalVehicleCap, 4, 80);
+            }
         }
 
         private int GetPost50MinSolutionCount(LevelDifficulty difficulty)

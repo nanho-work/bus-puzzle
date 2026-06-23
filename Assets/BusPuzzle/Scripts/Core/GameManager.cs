@@ -487,6 +487,7 @@ namespace BusPuzzle
             isDailyChallengeMode = false;
             activeDailyChallengeStepIndex = 0;
             activeDailyChallengeDateKey = string.Empty;
+            BackgroundMusicPlayer.PlayDefault();
             currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
             dailyChallengeReturnLevelIndex = currentLevelIndex;
             UserProgress.SaveLastStageIndex(currentLevelIndex, levelSequence.Count);
@@ -556,6 +557,7 @@ namespace BusPuzzle
             isDailyChallengeMode = true;
             activeDailyChallengeStepIndex = Mathf.Clamp(stepIndex, 1, 3);
             activeDailyChallengeDateKey = DailyChallengeService.CurrentDateKey;
+            BackgroundMusicPlayer.PlayDailyChallengeEvent();
             currentLevel = challengeLevel;
             UpdateBannerAdState(false);
 

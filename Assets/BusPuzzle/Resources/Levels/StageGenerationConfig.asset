@@ -26,6 +26,11 @@ MonoBehaviour:
   post50NormalRotaryCapacity: 20
   post50HardRotaryCapacity: 22
   post50SuperHardRotaryCapacity: 22
+  longRunVehicleRampStartStage: 60
+  longRunVehicleRampSoftnessStages: 220
+  longRunNormalVehicleCap: 56
+  longRunHardVehicleCap: 62
+  longRunSuperHardVehicleCap: 72
   baseSeed: 10000
   candidateAttemptsPerStage: 36
   releaseVehicleGenerationAttempts: 8

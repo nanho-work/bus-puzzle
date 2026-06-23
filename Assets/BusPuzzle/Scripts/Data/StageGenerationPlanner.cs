@@ -97,7 +97,7 @@ namespace BusPuzzle
             var post50Pressure = config.GetPost50Pressure(stageNumber);
             var modifiers = config.GetPost50AdjustedModifiers(difficulty, patternEntry.Modifiers, post50Pressure);
             var rule = config.GetRule(difficulty);
-            var profile = rule.CreateProfile(progress);
+            var profile = config.ApplyLongRunVehicleGrowth(rule.CreateProfile(progress), stageNumber);
             var seed = config.BaseSeed + stageNumber * 1009;
             var random = new System.Random(seed);
             var garageCount = (modifiers & StageModifierFlags.Garages) != 0

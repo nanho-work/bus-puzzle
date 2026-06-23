@@ -1911,10 +1911,22 @@ namespace BusPuzzle
                     break;
                 case TutorialStep.FastForwardHint:
                     ClearTutorialTargetHighlights();
-                    uiController.ShowTutorialForScreen(
-                        new Vector2(Screen.width * 0.50f, Screen.height * 0.42f),
-                        104f,
-                        Localization.Text("tutorial_fast_forward"));
+                    if (TryFindTutorialEmptyBoardWorldPosition(out var emptyPosition))
+                    {
+                        uiController.ShowTutorialForWorld(
+                            gameCamera,
+                            emptyPosition + Vector3.up * 0.12f,
+                            58f,
+                            Localization.Text("tutorial_fast_forward"));
+                    }
+                    else
+                    {
+                        uiController.ShowTutorialForScreen(
+                            new Vector2(Screen.width * 0.50f, Screen.height * 0.42f),
+                            104f,
+                            Localization.Text("tutorial_fast_forward"));
+                    }
+
                     if (IsPassengerFastForwardHeld())
                     {
                         AdvanceTutorial(TutorialStep.PlusFree);
@@ -2199,10 +2211,10 @@ namespace BusPuzzle
             }
 
             SetTutorialBusHighlight(targetBus);
-            uiController.ShowTutorialForWorld(
+            uiController.ShowTutorialForWorldRect(
                 gameCamera,
-                targetBus.transform.position + Vector3.up * 0.35f,
-                52f,
+                targetBus.GetTutorialHighlightWorldCorners(),
+                18f,
                 message);
         }
 
@@ -2222,11 +2234,68 @@ namespace BusPuzzle
             }
 
             SetTutorialBusHighlight(targetBus);
-            uiController.ShowTutorialForWorld(
+            uiController.ShowTutorialForWorldRect(
                 gameCamera,
-                targetBus.transform.position + Vector3.up * 0.35f,
-                54f,
+                targetBus.GetTutorialHighlightWorldCorners(),
+                18f,
                 message);
+        }
+
+        private bool TryFindTutorialEmptyBoardWorldPosition(out Vector3 position)
+        {
+            position = Vector3.zero;
+            var bestScore = float.NegativeInfinity;
+            var preferredCell = new Vector2((BoardLayoutConfig.GridColumns - 1) * 0.5f, BoardLayoutConfig.GridRows * 0.60f);
+
+            for (var y = BoardLayoutConfig.GridRows - 2; y >= 2; y--)
+            {
+                for (var x = 2; x <= BoardLayoutConfig.GridColumns - 3; x++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    if (IsTutorialCellOccupied(cell))
+                    {
+                        continue;
+                    }
+
+                    var distance = Vector2.Distance(new Vector2(x, y), preferredCell);
+                    var score = -distance + y * 0.025f;
+                    if (score <= bestScore)
+                    {
+                        continue;
+                    }
+
+                    bestScore = score;
+                    position = BoardLayoutConfig.GridToWorld(cell);
+                }
+            }
+
+            return !float.IsNegativeInfinity(bestScore);
+        }
+
+        private bool IsTutorialCellOccupied(Vector2Int cell)
+        {
+            var cellFootprint = new VehicleFootprint(
+                BoardLayoutConfig.GridToWorld(cell),
+                Vector3.right,
+                Vector3.forward,
+                BoardLayoutConfig.CellSize * 0.46f,
+                BoardLayoutConfig.CellSize * 0.46f);
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                if (bus == null || bus.IsDeparted || !bus.IsOnBoard)
+                {
+                    continue;
+                }
+
+                if (bus.CurrentFootprint.Overlaps(cellFootprint))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool IsTutorialDepartHintComplete()

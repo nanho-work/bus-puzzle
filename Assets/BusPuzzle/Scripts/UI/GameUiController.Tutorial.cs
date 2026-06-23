@@ -23,10 +23,13 @@ namespace BusPuzzle
         private Text tutorialText;
         private Camera tutorialWorldCamera;
         private RectTransform tutorialRectTarget;
+        private Vector3[] tutorialWorldCorners;
         private Vector3 tutorialWorldTarget;
         private Vector2 tutorialScreenTarget;
         private string tutorialMessage;
         private float tutorialRadiusPixels;
+        private float tutorialRectPaddingPixels;
+        private bool tutorialUsesWorldRect;
         private bool tutorialUsesWorldTarget;
         private bool tutorialUsesRectTarget;
         private float tutorialPulseTime;
@@ -39,7 +42,35 @@ namespace BusPuzzle
             tutorialWorldTarget = worldPosition;
             tutorialRadiusPixels = Mathf.Max(40f, radiusPixels);
             tutorialMessage = message ?? string.Empty;
+            tutorialUsesWorldRect = false;
             tutorialUsesWorldTarget = true;
+            tutorialUsesRectTarget = false;
+            tutorialRectTarget = null;
+            tutorialWorldCorners = null;
+            EnsureTutorialOverlay();
+            tutorialOverlay.gameObject.SetActive(true);
+            UpdateTutorialOverlay();
+        }
+
+        public void ShowTutorialForWorldRect(Camera camera, Vector3[] worldCorners, float paddingPixels, string message)
+        {
+            if (camera == null || worldCorners == null || worldCorners.Length == 0)
+            {
+                HideTutorial();
+                return;
+            }
+
+            tutorialWorldCamera = camera;
+            tutorialWorldCorners = new Vector3[worldCorners.Length];
+            for (var index = 0; index < worldCorners.Length; index++)
+            {
+                tutorialWorldCorners[index] = worldCorners[index];
+            }
+
+            tutorialRectPaddingPixels = Mathf.Max(0f, paddingPixels);
+            tutorialMessage = message ?? string.Empty;
+            tutorialUsesWorldRect = true;
+            tutorialUsesWorldTarget = false;
             tutorialUsesRectTarget = false;
             tutorialRectTarget = null;
             EnsureTutorialOverlay();
@@ -52,9 +83,11 @@ namespace BusPuzzle
             tutorialScreenTarget = screenPosition;
             tutorialRadiusPixels = Mathf.Max(40f, radiusPixels);
             tutorialMessage = message ?? string.Empty;
+            tutorialUsesWorldRect = false;
             tutorialUsesWorldTarget = false;
             tutorialUsesRectTarget = false;
             tutorialRectTarget = null;
+            tutorialWorldCorners = null;
             EnsureTutorialOverlay();
             tutorialOverlay.gameObject.SetActive(true);
             UpdateTutorialOverlay();
@@ -79,6 +112,8 @@ namespace BusPuzzle
         {
             tutorialWorldCamera = null;
             tutorialRectTarget = null;
+            tutorialWorldCorners = null;
+            tutorialUsesWorldRect = false;
             tutorialUsesWorldTarget = false;
             tutorialUsesRectTarget = false;
             HideTutorialUiHighlight();
@@ -100,8 +135,10 @@ namespace BusPuzzle
             tutorialRectTarget = iconRoot != null ? iconRoot : button.GetComponent<RectTransform>();
             tutorialRadiusPixels = 72f;
             tutorialMessage = message ?? string.Empty;
+            tutorialUsesWorldRect = false;
             tutorialUsesWorldTarget = false;
             tutorialUsesRectTarget = true;
+            tutorialWorldCorners = null;
             EnsureTutorialOverlay();
             tutorialOverlay.gameObject.SetActive(true);
             UpdateTutorialOverlay();
@@ -143,7 +180,7 @@ namespace BusPuzzle
             calloutShadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
             calloutShadow.effectDistance = new Vector2(0f, -7f);
 
-            tutorialText = CreateText("Tutorial Text", tutorialCallout, TextAnchor.MiddleCenter, 36, FontStyle.Bold);
+            tutorialText = CreateText("Tutorial Text", tutorialCallout, TextAnchor.MiddleCenter, 36, FontStyle.Normal);
             tutorialText.color = new Color(0.98f, 1f, 1f, 0.98f);
             tutorialText.resizeTextMinSize = 22;
             SetAnchors(tutorialText.rectTransform, Vector2.zero, Vector2.one, new Vector2(30f, 10f), new Vector2(-30f, -10f));
@@ -240,6 +277,11 @@ namespace BusPuzzle
                 return TryGetRectTargetHole(tutorialRectTarget, out hole);
             }
 
+            if (tutorialUsesWorldRect && tutorialWorldCorners != null)
+            {
+                return TryGetWorldRectTargetHole(tutorialWorldCorners, tutorialRectPaddingPixels, out hole);
+            }
+
             var screenPosition = tutorialScreenTarget;
             if (tutorialUsesWorldTarget)
             {
@@ -253,6 +295,55 @@ namespace BusPuzzle
             }
 
             return TryGetScreenTargetHole(screenPosition, tutorialRadiusPixels, out hole);
+        }
+
+        private bool TryGetWorldRectTargetHole(Vector3[] worldCorners, float paddingPixels, out Rect hole)
+        {
+            if (tutorialWorldCamera == null || worldCorners == null || worldCorners.Length == 0)
+            {
+                hole = default;
+                return false;
+            }
+
+            var hasPoint = false;
+            var screenMin = new Vector2(float.MaxValue, float.MaxValue);
+            var screenMax = new Vector2(float.MinValue, float.MinValue);
+            for (var index = 0; index < worldCorners.Length; index++)
+            {
+                var screenPoint3 = tutorialWorldCamera.WorldToScreenPoint(worldCorners[index]);
+                if (screenPoint3.z < 0f)
+                {
+                    continue;
+                }
+
+                var screenPoint = new Vector2(screenPoint3.x, screenPoint3.y);
+                hasPoint = true;
+                screenMin = Vector2.Min(screenMin, screenPoint);
+                screenMax = Vector2.Max(screenMax, screenPoint);
+            }
+
+            if (!hasPoint)
+            {
+                hole = default;
+                return false;
+            }
+
+            var padding = Vector2.one * Mathf.Max(0f, paddingPixels);
+            screenMin -= padding;
+            screenMax += padding;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(safeAreaRoot, screenMin, null, out var localMin) ||
+                !RectTransformUtility.ScreenPointToLocalPointInRectangle(safeAreaRoot, screenMax, null, out var localMax))
+            {
+                hole = default;
+                return false;
+            }
+
+            hole = Rect.MinMaxRect(
+                Mathf.Min(localMin.x, localMax.x),
+                Mathf.Min(localMin.y, localMax.y),
+                Mathf.Max(localMin.x, localMax.x),
+                Mathf.Max(localMin.y, localMax.y));
+            return true;
         }
 
         private bool TryGetScreenTargetHole(Vector2 screenPosition, float radiusPixels, out Rect hole)

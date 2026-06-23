@@ -223,6 +223,20 @@ namespace BusPuzzle
 
         public VehicleFootprint CurrentFootprint => GetFootprint(transform.position, transform.rotation);
 
+        public Vector3[] GetTutorialHighlightWorldCorners()
+        {
+            var footprint = BoardLayoutConfig.GetVehicleVisualFootprint(transform.position, transform.rotation, Size, cellSize);
+            var topY = Mathf.Max(VisualHeight * 0.85f, GetVisualBodyMarkerHeight());
+            var corners = new Vector3[8];
+            for (var index = 0; index < 4; index++)
+            {
+                corners[index] = footprint.GetCorner(index, cellSize * 0.035f);
+                corners[index + 4] = footprint.GetCorner(index, topY);
+            }
+
+            return corners;
+        }
+
         public VehicleFootprint GetFootprint(Vector3 rootPosition, Quaternion rotation)
         {
             return BoardLayoutConfig.GetVehicleFootprint(rootPosition, rotation, Size, cellSize);

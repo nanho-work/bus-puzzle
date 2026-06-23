@@ -181,8 +181,13 @@ namespace BusPuzzle
                 new Vector2(0.10f, 0.32f),
                 new Vector2(0.90f, 0.66f),
                 out clearPromptTitleText);
+            if (clearPromptTitleText != null)
+            {
+                clearPromptTitleText.fontSize += 1;
+                clearPromptTitleText.resizeTextMaxSize = clearPromptTitleText.fontSize;
+            }
 
-            clearPromptText = CreateText("Clear Prompt Text", modal, TextAnchor.MiddleCenter, 42, FontStyle.Bold);
+            clearPromptText = CreateText("Clear Prompt Text", modal, TextAnchor.MiddleCenter, 42, FontStyle.Normal);
             SetAnchors(clearPromptText.rectTransform, new Vector2(0f, 0.58f), new Vector2(1f, 0.80f), new Vector2(24f, 4f), new Vector2(-24f, -4f));
 
             var rewardPanel = CreateRoundedPanel("Clear Reward Panel", modal, new Color(0.16f, 0.33f, 0.38f, 0.90f));
@@ -201,11 +206,12 @@ namespace BusPuzzle
             goldIconImage.preserveAspect = true;
             goldIconImage.raycastTarget = false;
 
-            clearRewardText = CreateText("Clear Reward Text", rewardPanel, TextAnchor.MiddleLeft, 34, FontStyle.Bold);
+            clearRewardText = CreateText("Clear Reward Text", rewardPanel, TextAnchor.MiddleLeft, 34, FontStyle.Normal);
             clearRewardText.color = new Color(1.00f, 0.78f, 0.16f);
             SetAnchors(clearRewardText.rectTransform, new Vector2(0.31f, 0f), Vector2.one, new Vector2(0f, 2f), new Vector2(-16f, -2f));
 
             clearRewardDoubleButton = CreatePromptAdButton("Clear Reward Double Button", modal, Localization.Text("reward_double_ad"), UiAdActionColor, out clearRewardDoubleButtonText);
+            GameFontProvider.ApplyMediumToText(clearRewardDoubleButtonText);
             SetAnchors(clearRewardDoubleButton.GetComponent<RectTransform>(), new Vector2(0.08f, 0.01f), new Vector2(0.48f, 0.31f), new Vector2(6f, 16f), new Vector2(-6f, -10f));
             clearRewardDoubleButton.onClick.AddListener(() =>
             {
@@ -214,6 +220,7 @@ namespace BusPuzzle
 
             nextButton = CreateImageActionButton("Clear Next Button", modal, NextButtonIconResource, Localization.Text("next"), UiPrimaryActionColor);
             nextButtonText = GetButtonLabel(nextButton);
+            GameFontProvider.ApplyMediumToText(nextButtonText);
             SetAnchors(nextButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.01f), new Vector2(0.92f, 0.31f), new Vector2(6f, 16f), new Vector2(-6f, -10f));
             nextButton.onClick.AddListener(() =>
             {

@@ -136,6 +136,7 @@ namespace BusPuzzle
             if (shouldShow)
             {
                 HideDailyRewardPrompt();
+                HideDailyChallengePrompt();
                 RefreshSettingsToggles();
                 RefreshLocalizedTexts();
             }
@@ -156,6 +157,11 @@ namespace BusPuzzle
             if (leaderboardPrompt != null)
             {
                 leaderboardPrompt.gameObject.SetActive(false);
+            }
+
+            if (dailyChallengePrompt != null)
+            {
+                dailyChallengePrompt.gameObject.SetActive(false);
             }
 
             if (nicknamePrompt != null)
@@ -446,6 +452,16 @@ namespace BusPuzzle
             {
                 dailyRewardClaimButtonText.text = Localization.Text(
                     dailyRewardPromptCanClaim ? "daily_reward_claim" : "daily_reward_claimed");
+            }
+
+            if (dailyChallengePromptTitleText != null)
+            {
+                dailyChallengePromptTitleText.text = Localization.Text("daily_challenge_title");
+            }
+
+            if (dailyChallengePromptMessageText != null)
+            {
+                dailyChallengePromptMessageText.text = Localization.Text("daily_challenge_message");
             }
 
             RefreshLanguageOptionButtons();

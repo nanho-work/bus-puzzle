@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -139,6 +140,28 @@ namespace BusPuzzle
             badgeImage.color = Color.white;
             badgeImage.preserveAspect = true;
             badgeImage.raycastTarget = false;
+        }
+
+        private static RectTransform AddRewardClaimBadge(Button button, string namePrefix)
+        {
+            if (button == null)
+            {
+                return null;
+            }
+
+            var badge = CreateRoundedPanel($"{namePrefix} Reward Badge", button.transform, new Color(0.96f, 0.17f, 0.28f, 0.98f));
+            SetAnchors(badge, new Vector2(0.74f, 0.68f), new Vector2(1.08f, 1.08f), Vector2.zero, Vector2.zero);
+
+            var badgeImage = badge.GetComponent<Image>();
+            badgeImage.raycastTarget = false;
+
+            var badgeText = CreateText($"{namePrefix} Reward Badge Text", badge, TextAnchor.MiddleCenter, 28, FontStyle.Bold);
+            badgeText.text = "1";
+            badgeText.color = Color.white;
+            badgeText.resizeTextMinSize = 18;
+            badgeText.raycastTarget = false;
+            SetAnchors(badgeText.rectTransform, Vector2.zero, Vector2.one, new Vector2(2f, 0f), new Vector2(-2f, -2f));
+            return badge;
         }
 
         private Button CreatePromptCloseButton(string name, RectTransform modal)
@@ -431,7 +454,8 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Exit Close Button", modal);
             closeButton.onClick.AddListener(HideExitPrompt);
 
-            var exitButton = CreatePromptTextButton("Exit Confirm Button", modal, Localization.Text("exit"), UiDangerActionColor, out exitButtonText);
+            var exitButton = CreateImageActionButton("Exit Confirm Button", modal, ExitButtonIconResource, Localization.Text("exit"), UiDangerActionColor);
+            exitButtonText = GetButtonLabel(exitButton);
             SetAnchors(exitButton.GetComponent<RectTransform>(), new Vector2(0.18f, 0f), new Vector2(0.82f, 0.40f), new Vector2(0f, 16f), new Vector2(0f, -12f));
             exitButton.onClick.AddListener(() =>
             {
@@ -496,6 +520,12 @@ namespace BusPuzzle
                 out dailyRewardClaimButtonText);
             ApplySettingsTextWeight(dailyRewardClaimButtonText);
             SetAnchors(dailyRewardClaimButton.GetComponent<RectTransform>(), new Vector2(0.22f, 0.02f), new Vector2(0.78f, 0.30f), new Vector2(0f, 12f), new Vector2(0f, -8f));
+            dailyRewardClaimBadge = AddRewardClaimBadge(dailyRewardClaimButton, "Daily Reward Claim");
+            if (dailyRewardClaimBadge != null)
+            {
+                dailyRewardClaimBadge.gameObject.SetActive(false);
+            }
+
             dailyRewardClaimButton.onClick.AddListener(() =>
             {
                 if (!dailyRewardPromptCanClaim)
@@ -522,6 +552,7 @@ namespace BusPuzzle
             HideClearPrompt();
             HideFailPrompt();
             HideExitPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -560,6 +591,11 @@ namespace BusPuzzle
                 dailyRewardClaimButton.interactable = canClaim;
             }
 
+            if (dailyRewardClaimBadge != null)
+            {
+                dailyRewardClaimBadge.gameObject.SetActive(canClaim);
+            }
+
             if (dailyRewardClaimButtonText != null)
             {
                 dailyRewardClaimButtonText.text = Localization.Text(
@@ -575,6 +611,332 @@ namespace BusPuzzle
             if (dailyRewardPrompt != null)
             {
                 dailyRewardPrompt.gameObject.SetActive(false);
+            }
+        }
+
+        private void BuildDailyChallengePrompt()
+        {
+            dailyChallengePrompt = CreatePromptOverlay("Daily Challenge Overlay");
+            var modal = CreatePromptModal(
+                dailyChallengePrompt,
+                "Daily Challenge Prompt",
+                Localization.Text("daily_challenge_title"),
+                new Vector2(0.05f, 0.20f),
+                new Vector2(0.95f, 0.78f),
+                out dailyChallengePromptTitleText);
+            if (dailyChallengePromptTitleText != null)
+            {
+                ApplySettingsTextWeight(dailyChallengePromptTitleText);
+                dailyChallengePromptTitleText.fontSize = 49;
+                dailyChallengePromptTitleText.resizeTextMaxSize = 49;
+                dailyChallengePromptTitleText.resizeTextMinSize = 35;
+            }
+
+            CreateOverlayDismissButton("Daily Challenge Outside Close Button", dailyChallengePrompt, HideDailyChallengePrompt);
+
+            dailyChallengePromptMessageText = CreateText("Daily Challenge Message", modal, TextAnchor.MiddleCenter, 28, FontStyle.Normal);
+            ApplySettingsTextWeight(dailyChallengePromptMessageText);
+            dailyChallengePromptMessageText.color = new Color(0.86f, 0.94f, 1f, 0.94f);
+            dailyChallengePromptMessageText.text = Localization.Text("daily_challenge_message");
+            SetAnchors(dailyChallengePromptMessageText.rectTransform, new Vector2(0.06f, 0.74f), new Vector2(0.94f, 0.84f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
+
+            dailyChallengeListContent = CreateRoundedPanel("Daily Challenge List", modal, new Color(0.08f, 0.19f, 0.24f, 0.78f));
+            var listShadow = dailyChallengeListContent.gameObject.AddComponent<Shadow>();
+            listShadow.effectColor = new Color(0f, 0f, 0f, 0.20f);
+            listShadow.effectDistance = new Vector2(0f, -4f);
+            SetAnchors(dailyChallengeListContent, new Vector2(0.05f, 0.10f), new Vector2(0.95f, 0.70f), Vector2.zero, Vector2.zero);
+
+            var closeButton = CreatePromptCloseButton("Daily Challenge Close Button", modal);
+            closeButton.onClick.AddListener(HideDailyChallengePrompt);
+
+            HideDailyChallengePrompt();
+        }
+
+        internal void ShowDailyChallengePrompt(IReadOnlyList<DailyChallengeStepSnapshot> steps)
+        {
+            if (dailyChallengePrompt == null)
+            {
+                return;
+            }
+
+            HideSettingsPanel();
+            HideClearPrompt();
+            HideFailPrompt();
+            HideExitPrompt();
+            HideDailyRewardPrompt();
+            HideStationUnlockPrompt();
+            HideVipTeleportPrompt();
+            HideMixShufflePrompt();
+            HideDepartPrompt();
+
+            if (dailyChallengePromptTitleText != null)
+            {
+                dailyChallengePromptTitleText.text = Localization.Text("daily_challenge_title");
+            }
+
+            if (dailyChallengePromptMessageText != null)
+            {
+                dailyChallengePromptMessageText.text = Localization.Text("daily_challenge_message");
+            }
+
+            RebuildDailyChallengeRows(steps);
+            dailyChallengePrompt.SetAsLastSibling();
+            dailyChallengePrompt.gameObject.SetActive(true);
+        }
+
+        internal void HideDailyChallengePrompt()
+        {
+            if (dailyChallengePrompt != null)
+            {
+                dailyChallengePrompt.gameObject.SetActive(false);
+            }
+        }
+
+        private void BuildDailyChallengeLoadingOverlay()
+        {
+            dailyChallengeLoadingOverlay = CreatePromptOverlay("Daily Challenge Loading Overlay");
+            dailyChallengeLoadingCanvasGroup = dailyChallengeLoadingOverlay.gameObject.AddComponent<CanvasGroup>();
+            dailyChallengeLoadingCanvasGroup.alpha = 1f;
+            dailyChallengeLoadingCanvasGroup.blocksRaycasts = true;
+            dailyChallengeLoadingCanvasGroup.interactable = true;
+
+            var modal = CreateGameDialog("Daily Challenge Loading Panel", dailyChallengeLoadingOverlay);
+            SetAnchors(modal, new Vector2(0.18f, 0.40f), new Vector2(0.82f, 0.60f), Vector2.zero, Vector2.zero);
+
+            var iconRoot = CreateCenteredSquare("Daily Challenge Loading Icon Root", modal, 112f);
+            SetAnchors(iconRoot, new Vector2(0.10f, 0.18f), new Vector2(0.32f, 0.82f), Vector2.zero, Vector2.zero);
+
+            var iconObject = new GameObject("Daily Challenge Loading Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(iconRoot, false);
+            SetAnchors(iconObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            dailyChallengeLoadingIcon = iconObject.GetComponent<Image>();
+            dailyChallengeLoadingIcon.sprite = LoadResourceSprite(DailyChallengeIconResource);
+            dailyChallengeLoadingIcon.color = Color.white;
+            dailyChallengeLoadingIcon.preserveAspect = true;
+            dailyChallengeLoadingIcon.raycastTarget = false;
+
+            dailyChallengeLoadingText = CreateText("Daily Challenge Loading Text", modal, TextAnchor.MiddleLeft, 36, FontStyle.Normal);
+            ApplySettingsTextWeight(dailyChallengeLoadingText);
+            dailyChallengeLoadingText.color = new Color(0.96f, 0.99f, 1f, 0.98f);
+            dailyChallengeLoadingText.text = Localization.Text("daily_challenge_loading");
+            SetAnchors(dailyChallengeLoadingText.rectTransform, new Vector2(0.34f, 0.36f), new Vector2(0.92f, 0.80f), new Vector2(0f, 0f), new Vector2(-12f, 0f));
+
+            dailyChallengeLoadingSpinnerRoot = CreateRectTransform("Daily Challenge Loading Spinner", modal);
+            SetAnchors(dailyChallengeLoadingSpinnerRoot, new Vector2(0.48f, 0.11f), new Vector2(0.76f, 0.35f), Vector2.zero, Vector2.zero);
+            BuildDailyChallengeLoadingSpinnerDots(dailyChallengeLoadingSpinnerRoot);
+
+            HideDailyChallengeLoading();
+        }
+
+        internal void ShowDailyChallengeLoading()
+        {
+            if (dailyChallengeLoadingOverlay == null)
+            {
+                return;
+            }
+
+            HideSettingsPanel();
+            HideClearPrompt();
+            HideFailPrompt();
+            HideExitPrompt();
+            HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
+            HideStationUnlockPrompt();
+            HideVipTeleportPrompt();
+            HideMixShufflePrompt();
+            HideDepartPrompt();
+
+            if (dailyChallengeLoadingText != null)
+            {
+                dailyChallengeLoadingText.text = Localization.Text("daily_challenge_loading");
+            }
+
+            if (dailyChallengeLoadingCanvasGroup != null)
+            {
+                dailyChallengeLoadingCanvasGroup.alpha = 1f;
+                dailyChallengeLoadingCanvasGroup.blocksRaycasts = true;
+                dailyChallengeLoadingCanvasGroup.interactable = true;
+            }
+
+            ResetDailyChallengeLoadingSpinner();
+            dailyChallengeLoadingOverlay.SetAsLastSibling();
+            dailyChallengeLoadingOverlay.gameObject.SetActive(true);
+        }
+
+        internal void HideDailyChallengeLoading()
+        {
+            if (dailyChallengeLoadingOverlay != null)
+            {
+                dailyChallengeLoadingOverlay.gameObject.SetActive(false);
+            }
+
+            if (dailyChallengeLoadingIcon != null)
+            {
+                dailyChallengeLoadingIcon.transform.localScale = Vector3.one;
+            }
+
+            ResetDailyChallengeLoadingSpinner();
+        }
+
+        private void UpdateDailyChallengeLoadingOverlay()
+        {
+            if (dailyChallengeLoadingOverlay == null ||
+                !dailyChallengeLoadingOverlay.gameObject.activeSelf ||
+                dailyChallengeLoadingIcon == null)
+            {
+                return;
+            }
+
+            var pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5.5f);
+            dailyChallengeLoadingIcon.transform.localScale = Vector3.one * Mathf.Lerp(0.94f, 1.08f, pulse);
+            UpdateDailyChallengeLoadingSpinner();
+        }
+
+        private void BuildDailyChallengeLoadingSpinnerDots(Transform parent)
+        {
+            const float radius = 32f;
+            const float dotSize = 12f;
+            for (var index = 0; index < dailyChallengeLoadingSpinnerDots.Length; index++)
+            {
+                var angle = index * Mathf.PI * 2f / dailyChallengeLoadingSpinnerDots.Length;
+                var center = new Vector2(Mathf.Sin(angle), Mathf.Cos(angle)) * radius;
+                var dot = CreateRoundedPanel($"Daily Challenge Loading Spinner Dot {index + 1}", parent, UiGoldTextColor);
+                SetAnchors(
+                    dot,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    center - Vector2.one * (dotSize * 0.5f),
+                    center + Vector2.one * (dotSize * 0.5f));
+                dot.GetComponent<Image>().raycastTarget = false;
+                dailyChallengeLoadingSpinnerDots[index] = dot;
+            }
+        }
+
+        private void ResetDailyChallengeLoadingSpinner()
+        {
+            if (dailyChallengeLoadingSpinnerRoot != null)
+            {
+                dailyChallengeLoadingSpinnerRoot.localRotation = Quaternion.identity;
+            }
+
+            UpdateDailyChallengeLoadingSpinnerDots(0f);
+        }
+
+        private void UpdateDailyChallengeLoadingSpinner()
+        {
+            var time = Time.unscaledTime;
+            if (dailyChallengeLoadingSpinnerRoot != null)
+            {
+                dailyChallengeLoadingSpinnerRoot.localRotation = Quaternion.Euler(0f, 0f, -time * 240f);
+            }
+
+            UpdateDailyChallengeLoadingSpinnerDots(time);
+        }
+
+        private void UpdateDailyChallengeLoadingSpinnerDots(float time)
+        {
+            for (var index = 0; index < dailyChallengeLoadingSpinnerDots.Length; index++)
+            {
+                var dot = dailyChallengeLoadingSpinnerDots[index];
+                if (dot == null)
+                {
+                    continue;
+                }
+
+                var phase = Mathf.Repeat(index / (float)dailyChallengeLoadingSpinnerDots.Length + time * 1.4f, 1f);
+                var strength = Mathf.Lerp(0.28f, 1f, phase);
+                dot.localScale = Vector3.one * Mathf.Lerp(0.70f, 1.08f, phase);
+                var image = dot.GetComponent<Image>();
+                if (image != null)
+                {
+                    image.color = Color.Lerp(new Color(0.40f, 0.82f, 1f, 0.46f), UiGoldTextColor, strength);
+                }
+            }
+        }
+
+        private void RebuildDailyChallengeRows(IReadOnlyList<DailyChallengeStepSnapshot> steps)
+        {
+            if (dailyChallengeListContent == null)
+            {
+                return;
+            }
+
+            for (var index = dailyChallengeListContent.childCount - 1; index >= 0; index--)
+            {
+                Destroy(dailyChallengeListContent.GetChild(index).gameObject);
+            }
+
+            if (steps == null || steps.Count == 0)
+            {
+                return;
+            }
+
+            var rowHeight = 1f / steps.Count;
+            for (var index = 0; index < steps.Count; index++)
+            {
+                var yMax = 1f - index * rowHeight;
+                var yMin = yMax - rowHeight;
+                CreateDailyChallengeRow(steps[index], yMin, yMax);
+            }
+        }
+
+        private void CreateDailyChallengeRow(DailyChallengeStepSnapshot step, float yMin, float yMax)
+        {
+            var row = CreateRoundedPanel(
+                $"Daily Challenge Step {step.StepIndex:00}",
+                dailyChallengeListContent,
+                GetDailyChallengeStateColor(step.State));
+            SetAnchors(row, new Vector2(0.03f, yMin), new Vector2(0.97f, yMax), new Vector2(0f, 7f), new Vector2(0f, -7f));
+
+            var titleText = CreateText($"Daily Challenge Step {step.StepIndex:00} Title", row, TextAnchor.MiddleLeft, 31, FontStyle.Normal);
+            ApplySettingsTextWeight(titleText);
+            titleText.color = new Color(0.96f, 0.99f, 1f, step.State == DailyChallengeStepState.Locked ? 0.50f : 0.98f);
+            titleText.text = Localization.Text($"daily_challenge_step_{step.StepIndex}");
+            SetAnchors(titleText.rectTransform, new Vector2(0.05f, 0.56f), new Vector2(0.66f, 0.92f), Vector2.zero, Vector2.zero);
+
+            var detailText = CreateText($"Daily Challenge Step {step.StepIndex:00} Detail", row, TextAnchor.MiddleLeft, 24, FontStyle.Normal);
+            ApplySettingsTextWeight(detailText);
+            detailText.color = new Color(0.78f, 0.88f, 0.94f, step.State == DailyChallengeStepState.Locked ? 0.44f : 0.86f);
+            detailText.text = Localization.Text(
+                "daily_challenge_step_detail",
+                step.VehicleCount,
+                step.ColorCount,
+                step.PassengerBatchSize);
+            SetAnchors(detailText.rectTransform, new Vector2(0.05f, 0.28f), new Vector2(0.66f, 0.56f), Vector2.zero, Vector2.zero);
+
+            var rewardText = CreateText($"Daily Challenge Step {step.StepIndex:00} Reward", row, TextAnchor.MiddleLeft, 25, FontStyle.Normal);
+            ApplySettingsTextWeight(rewardText);
+            rewardText.color = step.State == DailyChallengeStepState.Locked
+                ? new Color(0.86f, 0.94f, 1f, 0.42f)
+                : UiGoldTextColor;
+            rewardText.text = GetDailyChallengeRewardText(step.Reward);
+            SetAnchors(rewardText.rectTransform, new Vector2(0.05f, 0.06f), new Vector2(0.66f, 0.31f), Vector2.zero, Vector2.zero);
+
+            var button = CreatePromptTextButton(
+                $"Daily Challenge Step {step.StepIndex:00} Button",
+                row,
+                GetDailyChallengeButtonLabel(step.State),
+                step.State == DailyChallengeStepState.Cleared ? UiGoldActionColor : UiPrimaryActionColor,
+                out var buttonText);
+            ApplySettingsTextWeight(buttonText);
+            button.interactable = step.State == DailyChallengeStepState.Available ||
+                                  step.State == DailyChallengeStepState.Cleared;
+            SetAnchors(button.GetComponent<RectTransform>(), new Vector2(0.68f, 0.13f), new Vector2(0.96f, 0.87f), new Vector2(0f, 0f), new Vector2(0f, 0f));
+
+            if (step.State == DailyChallengeStepState.Cleared)
+            {
+                AddRewardClaimBadge(button, $"Daily Challenge Step {step.StepIndex:00}");
+            }
+
+            var stepIndex = step.StepIndex;
+            if (step.State == DailyChallengeStepState.Available)
+            {
+                button.onClick.AddListener(() => DailyChallengeStartRequested?.Invoke(stepIndex));
+            }
+            else if (step.State == DailyChallengeStepState.Cleared)
+            {
+                button.onClick.AddListener(() => DailyChallengeRewardClaimRequested?.Invoke(stepIndex));
             }
         }
 
@@ -1055,6 +1417,56 @@ namespace BusPuzzle
             return tickets > 0
                 ? Localization.Text("ad_skip_ticket_button", tickets)
                 : Localization.Text("ad_skip_ticket_none");
+        }
+
+        private static string GetDailyChallengeRewardText(DailyChallengeReward reward)
+        {
+            if (reward.Gold > 0 && reward.AdSkipTickets > 0)
+            {
+                return Localization.Text("daily_challenge_reward_gold_skip", reward.Gold, reward.AdSkipTickets);
+            }
+
+            if (reward.Gold > 0)
+            {
+                return Localization.Text("daily_reward_gold", reward.Gold);
+            }
+
+            if (reward.AdSkipTickets > 0)
+            {
+                return Localization.Text("daily_reward_skip_ticket", reward.AdSkipTickets);
+            }
+
+            return string.Empty;
+        }
+
+        private static string GetDailyChallengeButtonLabel(DailyChallengeStepState state)
+        {
+            switch (state)
+            {
+                case DailyChallengeStepState.Available:
+                    return Localization.Text("daily_challenge_start");
+                case DailyChallengeStepState.Cleared:
+                    return Localization.Text("daily_challenge_claim_reward");
+                case DailyChallengeStepState.RewardClaimed:
+                    return Localization.Text("daily_reward_claimed");
+                default:
+                    return Localization.Text("locked");
+            }
+        }
+
+        private static Color GetDailyChallengeStateColor(DailyChallengeStepState state)
+        {
+            switch (state)
+            {
+                case DailyChallengeStepState.Available:
+                    return new Color(0.13f, 0.30f, 0.36f, 0.90f);
+                case DailyChallengeStepState.Cleared:
+                    return new Color(0.30f, 0.34f, 0.18f, 0.92f);
+                case DailyChallengeStepState.RewardClaimed:
+                    return new Color(0.12f, 0.25f, 0.24f, 0.78f);
+                default:
+                    return new Color(0.10f, 0.17f, 0.20f, 0.62f);
+            }
         }
 
         private static string GetDailyRewardText(DailyReward reward)

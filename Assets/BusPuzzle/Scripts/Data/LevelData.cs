@@ -4,6 +4,12 @@ using UnityEngine;
 
 namespace BusPuzzle
 {
+    public enum LevelPresentationMode
+    {
+        Standard = 0,
+        DailyChallengeEvent = 1
+    }
+
     [CreateAssetMenu(menuName = "Bus Puzzle/Level Data", fileName = "LevelData")]
     public sealed class LevelData : ScriptableObject
     {
@@ -14,6 +20,7 @@ namespace BusPuzzle
         [SerializeField] private LevelDifficultyProfile difficultyProfile = LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
         [SerializeField] private RotaryRoadPresetId roadPresetId = RotaryRoadPresetId.Large;
         [SerializeField] private RoadPresetAsset roadPresetAsset = null;
+        [SerializeField] private LevelPresentationMode presentationMode = LevelPresentationMode.Standard;
         [SerializeField] private int rotaryUnitCapacity = MaxRotaryUnitCapacity;
         [SerializeField] private List<PuzzleColor> passengerUnits = new List<PuzzleColor>();
         [SerializeField] private PassengerFlowPlan passengerFlowPlan = new PassengerFlowPlan();
@@ -31,6 +38,7 @@ namespace BusPuzzle
             : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
         public RotaryRoadPresetId RoadPresetId => roadPresetId;
         public RoadPresetDefinition RoadPreset => roadPresetAsset != null ? roadPresetAsset.ToDefinition() : RoadPresetLibrary.Get(roadPresetId);
+        public LevelPresentationMode PresentationMode => presentationMode;
         public int RotaryStartCapacity => Mathf.Clamp(rotaryUnitCapacity, MinRotaryUnitCapacity, MaxRotaryUnitCapacity);
         public int RotaryUnitCapacity => RotaryStartCapacity;
         public IReadOnlyList<PuzzleColor> PassengerUnits => GetResolvedPassengerUnits();
@@ -109,6 +117,7 @@ namespace BusPuzzle
             levelName = newLevelName;
             difficultyProfile = LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             roadPresetId = newRoadPresetId;
+            presentationMode = LevelPresentationMode.Standard;
             rotaryUnitCapacity = Mathf.Clamp(newRotaryUnitCapacity, MinRotaryUnitCapacity, MaxRotaryUnitCapacity);
             passengerUnits = new List<PuzzleColor>(units);
             buses = new List<BusDefinition>(busDefinitions);
@@ -126,11 +135,13 @@ namespace BusPuzzle
             int newRotaryUnitCapacity = MaxRotaryUnitCapacity,
             RotaryRoadPresetId newRoadPresetId = RotaryRoadPresetId.Large,
             IEnumerable<PuzzleColor> fallbackUnits = null,
-            IEnumerable<GarageDefinition> garageDefinitions = null)
+            IEnumerable<GarageDefinition> garageDefinitions = null,
+            LevelPresentationMode newPresentationMode = LevelPresentationMode.Standard)
         {
             levelName = newLevelName;
             difficultyProfile = newDifficultyProfile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             roadPresetId = newRoadPresetId;
+            presentationMode = newPresentationMode;
             rotaryUnitCapacity = Mathf.Clamp(newRotaryUnitCapacity, MinRotaryUnitCapacity, MaxRotaryUnitCapacity);
             passengerUnits = fallbackUnits != null ? new List<PuzzleColor>(fallbackUnits) : new List<PuzzleColor>();
             passengerFlowPlan = newPassengerFlowPlan ?? new PassengerFlowPlan();

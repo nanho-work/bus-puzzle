@@ -16,13 +16,17 @@ namespace BusPuzzle
         private const string RankingButtonIconResource = "UI/Boosters/ranking";
         private const string RetryButtonIconResource = "UI/Boosters/retry";
         private const string NextButtonIconResource = "UI/Boosters/NEXT";
+        private const string DailyChallengeReturnIconResource = "UI/Boosters/exit";
+        private const string ExitButtonIconResource = "UI/Boosters/exit";
         private const string PromptButtonBaseResource = "UI/Boosters/base";
         private const string AdIconResource = "UI/Boosters/ad";
         private const string GoldIconResource = "UI/Boosters/gold 1";
         private const string SkipIconResource = "UI/Boosters/skip";
         private const string DailyRewardIconResource = "UI/Boosters/day";
+        private const string DailyChallengeIconResource = "UI/Boosters/datily";
         private const string LanguageIconResource = "UI/Boosters/Language";
         private const string StartupSplashResource = "UI/Boosters/main";
+        private const int DailyChallengeLoadingSpinnerDotCount = 8;
         private const float HeaderIconSize = 117f;
         private const int HeaderStageFontSize = 60;
         private const int HeaderGoldFontSize = 34;
@@ -56,11 +60,15 @@ namespace BusPuzzle
         private Text stationText;
         private Text vipBadgeText;
         private Button menuButton;
+        private Button dailyChallengeReturnButton;
         private Button settingsButton;
         private Button rankingButton;
         private Button dailyRewardButton;
         private RectTransform dailyRewardBadge;
         private CanvasGroup dailyRewardGlowCanvasGroup;
+        private Button dailyChallengeButton;
+        private RectTransform dailyChallengeBadge;
+        private CanvasGroup dailyChallengeGlowCanvasGroup;
         private Button vipButton;
         private Button mixButton;
         private Button departButton;
@@ -163,8 +171,20 @@ namespace BusPuzzle
         private Image dailyRewardIconImage;
         private Button dailyRewardClaimButton;
         private Text dailyRewardClaimButtonText;
+        private RectTransform dailyRewardClaimBadge;
         private bool dailyRewardButtonHasReward;
         private bool dailyRewardPromptCanClaim = true;
+        private RectTransform dailyChallengePrompt;
+        private Text dailyChallengePromptTitleText;
+        private Text dailyChallengePromptMessageText;
+        private RectTransform dailyChallengeListContent;
+        private bool dailyChallengeButtonHasNotification;
+        private RectTransform dailyChallengeLoadingOverlay;
+        private CanvasGroup dailyChallengeLoadingCanvasGroup;
+        private Image dailyChallengeLoadingIcon;
+        private Text dailyChallengeLoadingText;
+        private RectTransform dailyChallengeLoadingSpinnerRoot;
+        private readonly RectTransform[] dailyChallengeLoadingSpinnerDots = new RectTransform[DailyChallengeLoadingSpinnerDotCount];
         private RectTransform remoteConfigPrompt;
         private Text remoteConfigPromptTitleText;
         private Text remoteConfigPromptText;
@@ -202,6 +222,10 @@ namespace BusPuzzle
         public event Action DepartSkipConfirmed;
         public event Action DailyRewardRequested;
         public event Action DailyRewardClaimRequested;
+        public event Action DailyChallengeRequested;
+        public event Action<int> DailyChallengeStartRequested;
+        public event Action<int> DailyChallengeRewardClaimRequested;
+        public event Action DailyChallengeReturnRequested;
         public event Action RecoveryPromptCancelled;
         public event Action RemoteConfigActionRequested;
         public event Action InitialNicknamePromptCompleted;
@@ -237,6 +261,8 @@ namespace BusPuzzle
             UpdateSafeArea();
             UpdateTutorialOverlay();
             UpdateDailyRewardButtonPulse();
+            UpdateDailyChallengeButtonPulse();
+            UpdateDailyChallengeLoadingOverlay();
             TryShowInitialNicknamePrompt();
         }
 
@@ -257,6 +283,23 @@ namespace BusPuzzle
             if (levelText != null)
             {
                 levelText.text = $"Stage {levelNumber:00}";
+            }
+        }
+
+        public void SetDailyChallengeLevel(int stepIndex)
+        {
+            if (levelText != null)
+            {
+                levelText.text = Localization.Text("daily_challenge_stage_label", Mathf.Clamp(stepIndex, 1, 3));
+            }
+        }
+
+        public void SetDailyChallengeReturnButtonState(bool visible)
+        {
+            if (dailyChallengeReturnButton != null)
+            {
+                dailyChallengeReturnButton.gameObject.SetActive(visible);
+                dailyChallengeReturnButton.interactable = visible;
             }
         }
 
@@ -293,14 +336,47 @@ namespace BusPuzzle
 
         private void UpdateDailyRewardButtonPulse()
         {
-            if (!dailyRewardButtonHasReward || dailyRewardGlowCanvasGroup == null)
+            UpdateHeaderNotificationPulse(dailyRewardButtonHasReward, dailyRewardGlowCanvasGroup);
+        }
+
+        public void SetDailyChallengeButtonState(bool visible, bool hasNotification)
+        {
+            dailyChallengeButtonHasNotification = visible && hasNotification;
+
+            if (dailyChallengeButton != null)
+            {
+                dailyChallengeButton.gameObject.SetActive(visible);
+                dailyChallengeButton.interactable = visible;
+            }
+
+            if (dailyChallengeBadge != null)
+            {
+                dailyChallengeBadge.gameObject.SetActive(dailyChallengeButtonHasNotification);
+            }
+
+            if (dailyChallengeGlowCanvasGroup != null)
+            {
+                dailyChallengeGlowCanvasGroup.gameObject.SetActive(dailyChallengeButtonHasNotification);
+                dailyChallengeGlowCanvasGroup.alpha = dailyChallengeButtonHasNotification ? 0.26f : 0f;
+                dailyChallengeGlowCanvasGroup.transform.localScale = Vector3.one;
+            }
+        }
+
+        private void UpdateDailyChallengeButtonPulse()
+        {
+            UpdateHeaderNotificationPulse(dailyChallengeButtonHasNotification, dailyChallengeGlowCanvasGroup);
+        }
+
+        private static void UpdateHeaderNotificationPulse(bool shouldPulse, CanvasGroup glowCanvasGroup)
+        {
+            if (!shouldPulse || glowCanvasGroup == null)
             {
                 return;
             }
 
             var pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5f);
-            dailyRewardGlowCanvasGroup.alpha = Mathf.Lerp(0.15f, 0.42f, pulse);
-            dailyRewardGlowCanvasGroup.transform.localScale = Vector3.one * Mathf.Lerp(0.96f, 1.10f, pulse);
+            glowCanvasGroup.alpha = Mathf.Lerp(0.15f, 0.42f, pulse);
+            glowCanvasGroup.transform.localScale = Vector3.one * Mathf.Lerp(0.96f, 1.10f, pulse);
         }
 
         public void SetRemaining(int remainingCount)
@@ -431,6 +507,7 @@ namespace BusPuzzle
             HideSettingsPanel();
             HideFailPrompt();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
             HideDepartPrompt();
@@ -464,6 +541,7 @@ namespace BusPuzzle
             HideSettingsPanel();
             HideFailPrompt();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideMixShufflePrompt();
             HideDepartPrompt();
@@ -495,6 +573,7 @@ namespace BusPuzzle
             HideSettingsPanel();
             HideFailPrompt();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideDepartPrompt();
@@ -526,6 +605,7 @@ namespace BusPuzzle
             HideSettingsPanel();
             HideFailPrompt();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -552,6 +632,7 @@ namespace BusPuzzle
             HideFailPrompt();
             HideExitPrompt();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -578,6 +659,7 @@ namespace BusPuzzle
             SetDepart(false, 0, 0, false, 0, false, false);
             HideSettingsPanel();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
@@ -638,6 +720,7 @@ namespace BusPuzzle
             shouldReturnToFailPromptOnRecoveryCancel = false;
             HideSettingsPanel();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideClearPrompt();
             HideExitPrompt();
             if (nextButton != null)
@@ -666,6 +749,7 @@ namespace BusPuzzle
             HideSettingsPanel();
             HideFailPrompt();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();

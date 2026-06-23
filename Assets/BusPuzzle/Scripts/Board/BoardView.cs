@@ -25,7 +25,7 @@ namespace BusPuzzle
 
         private RotaryLayout rotaryLayout;
         private VehicleTrafficEngine vehicleTraffic;
-        private PassengerTrafficEngine passengerTraffic;
+        private IPassengerTrafficEngine passengerTraffic;
         private int rotaryActiveTarget;
         private Transform passengerRoot;
         private Transform busRoot;
@@ -38,6 +38,7 @@ namespace BusPuzzle
         private int currentPassengerUnitCount;
         private float rotaryCenterZ = BoardLayoutConfig.RotaryCenterZ;
         private bool vipStationSlotOccupied;
+        private bool usesDailyChallengeEventMap;
 
         public int StationCapacity => stationSlots.Capacity;
 
@@ -99,10 +100,12 @@ namespace BusPuzzle
                 roadProfile);
             rotaryCenterZ = CalculateRotaryCenterZ(rotaryLayout);
             rotaryActiveTarget = GetStartingRotaryUnitCount(levelData.PassengerUnits.Count, roadPreset);
-            currentPassengerUnitCount = levelData.PassengerUnits.Count;
-            passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
-            vehicleTraffic = new VehicleTrafficEngine(CreateVehicleTrafficSettings());
             activeTheme = BoardThemePalette.GetThemeForStage(stageNumber);
+            usesDailyChallengeEventMap = levelData != null &&
+                levelData.PresentationMode == LevelPresentationMode.DailyChallengeEvent;
+            currentPassengerUnitCount = levelData.PassengerUnits.Count;
+            passengerTraffic = CreatePassengerTraffic();
+            vehicleTraffic = new VehicleTrafficEngine(CreateVehicleTrafficSettings());
 
             ClearBoard();
             ResetStationSlots();
@@ -120,6 +123,7 @@ namespace BusPuzzle
             for (var index = 0; index < levelData.PassengerUnits.Count; index++)
             {
                 var passenger = PassengerView.Create(levelData.PassengerUnits[index], passengerRoot);
+                passenger.SetSingleRepresentativeVisual(usesDailyChallengeEventMap);
                 passengerTraffic.PlacePassenger(passenger, index);
                 passengers.Add(passenger);
             }
@@ -168,6 +172,11 @@ namespace BusPuzzle
 
         public bool HasRotaryPassengerColor(IReadOnlyList<PassengerView> passengers, PuzzleColor color)
         {
+            if (usesDailyChallengeEventMap)
+            {
+                return GetPassengerTraffic().TryFindBoardingReservationPassenger(passengers, color, out _);
+            }
+
             return PassengerTrafficEngine.HasRotaryPassengerColor(passengers, color);
         }
 
@@ -482,6 +491,7 @@ namespace BusPuzzle
         private BusView CreateBusView(BusDefinition definition)
         {
             var bus = BusView.Create(definition, busRoot, BoardLayoutConfig.CellSize);
+            bus.SetBoardingCounterCountsPassengerUnits(usesDailyChallengeEventMap);
             bus.SetGridPosition(definition.GridPosition, BoardLayoutConfig.GridToWorld(definition.GridPosition, definition.PositionOffsetCells));
             return bus;
         }
@@ -712,33 +722,64 @@ namespace BusPuzzle
             return vehicleTraffic;
         }
 
-        private PassengerTrafficEngine GetPassengerTraffic()
+        private IPassengerTrafficEngine GetPassengerTraffic()
         {
             if (passengerTraffic == null)
             {
-                passengerTraffic = new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
+                passengerTraffic = CreatePassengerTraffic();
             }
 
             return passengerTraffic;
         }
 
+        private IPassengerTrafficEngine CreatePassengerTraffic()
+        {
+            return usesDailyChallengeEventMap
+                ? new LinearPassengerTrafficEngine(CreatePassengerTrafficSettings())
+                : new PassengerTrafficEngine(rotaryLayout, CreatePassengerTrafficSettings(), rotaryActiveTarget);
+        }
+
         private void CreateGround()
         {
+            if (usesDailyChallengeEventMap)
+            {
+                DailyChallengeEventMapBuilder.CreateGround(transform, activeTheme);
+                return;
+            }
+
             RotaryRoadBuilder.CreateGround(transform, rotaryLayout, CreateRotaryRoadBuildSettings(), activeTheme);
         }
 
         private void CreateTheme()
         {
+            if (usesDailyChallengeEventMap)
+            {
+                DailyChallengeEventMapBuilder.Create(themeRoot, activeTheme);
+                return;
+            }
+
             CityTerminalThemeBuilder.Create(themeRoot, rotaryLayout, CreateRotaryRoadBuildSettings(), activeTheme);
         }
 
         private void CreatePassengerRotary()
         {
+            if (usesDailyChallengeEventMap)
+            {
+                DailyChallengeEventMapBuilder.CreatePassengerQueueArea(transform, activeTheme);
+                return;
+            }
+
             RotaryRoadBuilder.CreatePassengerRotary(transform, rotaryLayout, CreateRotaryRoadBuildSettings(), activeTheme);
         }
 
         private void CreateGrid()
         {
+            if (usesDailyChallengeEventMap)
+            {
+                DailyChallengeEventMapBuilder.CreateVehiclePuzzleArea(transform, activeTheme);
+                return;
+            }
+
             ParkingGridBuilder.Create(
                 transform,
                 BoardLayoutConfig.GridColumns,

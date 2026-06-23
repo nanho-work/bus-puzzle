@@ -94,6 +94,7 @@ namespace BusPuzzle
             }
 
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             leaderboardPrompt.SetAsLastSibling();
             leaderboardPrompt.gameObject.SetActive(true);
             RefreshLocalizedTexts();

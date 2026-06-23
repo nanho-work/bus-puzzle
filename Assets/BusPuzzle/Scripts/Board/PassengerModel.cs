@@ -4,6 +4,8 @@ namespace BusPuzzle
 {
     internal sealed class PassengerModel
     {
+        private const int RepresentativePersonIndex = 1;
+
         private readonly Transform[] personRoots;
         private readonly Vector3[] defaultPersonLocalPositions;
         private readonly Transform[] leftLegs;
@@ -23,6 +25,7 @@ namespace BusPuzzle
         private readonly Quaternion[] defaultLeftArmLocalRotations;
         private readonly Quaternion[] defaultRightArmLocalRotations;
         private readonly bool swingLegsAroundLocalX;
+        private bool singleRepresentativeVisual;
 
         public PassengerModel(
             Transform[] personRoots,
@@ -59,10 +62,23 @@ namespace BusPuzzle
         }
 
         public int PersonCount => personRoots != null ? personRoots.Length : 0;
+        public int BoardingPersonCount => singleRepresentativeVisual && PersonCount > 0 ? 1 : PersonCount;
 
         public Transform GetPersonRoot(int index)
         {
             return IsValidPersonIndex(index) ? personRoots[index] : null;
+        }
+
+        public int GetBoardingPersonIndex(int boardingIndex)
+        {
+            return singleRepresentativeVisual ? GetRepresentativePersonIndex() : boardingIndex;
+        }
+
+        public void SetSingleRepresentativeVisual(bool enabled)
+        {
+            singleRepresentativeVisual = enabled;
+            RefreshPersonVisibility();
+            ApplyDefaultPersonLocalPositions();
         }
 
         public bool IsValidPersonIndex(int index)
@@ -156,6 +172,11 @@ namespace BusPuzzle
 
         public Vector3 GetPosePersonLocalPosition(PassengerUnitRoadPose pose, int index)
         {
+            if (singleRepresentativeVisual && index == GetRepresentativePersonIndex())
+            {
+                return Vector3.zero;
+            }
+
             if (!pose.HasCustomPersonLocalPositions)
             {
                 return GetDefaultPersonLocalPosition(index);
@@ -176,6 +197,11 @@ namespace BusPuzzle
 
         public Vector3 GetDefaultPersonLocalPosition(int index)
         {
+            if (singleRepresentativeVisual && index == GetRepresentativePersonIndex())
+            {
+                return Vector3.zero;
+            }
+
             if (defaultPersonLocalPositions == null || defaultPersonLocalPositions.Length == 0)
             {
                 return Vector3.zero;
@@ -188,6 +214,24 @@ namespace BusPuzzle
         {
             var root = GetPersonRoot(index);
             return root != null ? Vector3.SqrMagnitude(root.position - entryPosition) : float.MaxValue;
+        }
+
+        private int GetRepresentativePersonIndex()
+        {
+            return Mathf.Clamp(RepresentativePersonIndex, 0, Mathf.Max(0, PersonCount - 1));
+        }
+
+        private void RefreshPersonVisibility()
+        {
+            var representativeIndex = GetRepresentativePersonIndex();
+            for (var index = 0; index < PersonCount; index++)
+            {
+                var root = GetPersonRoot(index);
+                if (root != null)
+                {
+                    root.gameObject.SetActive(!singleRepresentativeVisual || index == representativeIndex);
+                }
+            }
         }
 
         private Quaternion GetLegSwingRotation(float swing)

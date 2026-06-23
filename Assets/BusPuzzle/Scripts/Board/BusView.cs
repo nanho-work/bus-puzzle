@@ -39,6 +39,7 @@ namespace BusPuzzle
         private int reservedUnits;
         private int boardingUnitsInProgress;
         private bool usingModelVisual;
+        private bool showBoardingCounterAsUnits;
         private Vector3 baseLocalScale = Vector3.one;
         private Vector3 baseVisualBodyLocalPosition = Vector3.zero;
         private Vector3 baseVisualBodyLocalScale = Vector3.one;
@@ -78,6 +79,9 @@ namespace BusPuzzle
         private float BodyVisualCenterZ => VisualCenterZ;
         private float BodyVisualFrontZ => BodyVisualCenterZ + BodyVisualLength * 0.5f;
         private float BodyVisualRearZ => BodyVisualCenterZ - BodyVisualLength * 0.5f;
+        private int RemainingBoardingCounterValue => showBoardingCounterAsUnits
+            ? Mathf.Max(0, CapacityUnits - boardedUnits)
+            : RemainingPeople;
         public Vector3 VehicleForwardWorld
         {
             get
@@ -109,6 +113,7 @@ namespace BusPuzzle
             boardedUnits = 0;
             reservedUnits = 0;
             boardingUnitsInProgress = 0;
+            showBoardingCounterAsUnits = false;
             StationSlotIndex = -1;
             IsOnBoard = true;
             IsParkedAtStation = false;
@@ -132,6 +137,12 @@ namespace BusPuzzle
         {
             GridPosition = gridPosition;
             transform.position = worldPosition;
+        }
+
+        public void SetBoardingCounterCountsPassengerUnits(bool enabled)
+        {
+            showBoardingCounterAsUnits = enabled;
+            UpdateBoardingCounter();
         }
 
         internal void SetSourceGarage(GarageView garage)
@@ -919,7 +930,7 @@ namespace BusPuzzle
 
         private void ShowBoardingCounter()
         {
-            boardingCounter?.Show(RemainingPeople);
+            boardingCounter?.Show(RemainingBoardingCounterValue);
         }
 
         private void HideBoardingCounter()
@@ -937,7 +948,7 @@ namespace BusPuzzle
 
         private void UpdateBoardingCounter()
         {
-            boardingCounter?.UpdateText(RemainingPeople);
+            boardingCounter?.UpdateText(RemainingBoardingCounterValue);
         }
 
         private void CreateUnitMarkers()

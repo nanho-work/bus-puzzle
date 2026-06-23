@@ -39,6 +39,7 @@ namespace BusPuzzle
             HideFailPrompt();
             HideExitPrompt();
             HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();

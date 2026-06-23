@@ -32,20 +32,29 @@ namespace BusPuzzle
 
         private static RectTransform CreateGameDialog(string name, Transform parent)
         {
-            var panel = CreateRoundedPanel(name, parent, UiPanelColor);
+            var panel = CreateRoundedPanel(name, parent, new Color(0.04f, 0.15f, 0.27f, 0.98f));
             var panelImage = panel.GetComponent<Image>();
             panelImage.raycastTarget = true;
 
             var shadow = panel.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.18f);
-            shadow.effectDistance = new Vector2(0f, -5f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.30f);
+            shadow.effectDistance = new Vector2(0f, -8f);
             shadow.useGraphicAlpha = true;
 
-            var accent = CreateRoundedPanel($"{name} Accent", panel, UiPanelAccentColor);
-            SetAnchors(accent, new Vector2(0.06f, 0.84f), new Vector2(0.94f, 0.95f), Vector2.zero, Vector2.zero);
+            var rim = CreateRoundedPanel($"{name} Gold Rim", panel, new Color(1.00f, 0.64f, 0.06f, 0.98f));
+            SetAnchors(rim, new Vector2(0.015f, 0.018f), new Vector2(0.985f, 0.982f), Vector2.zero, Vector2.zero);
 
-            var stroke = CreateRoundedPanel($"{name} Stroke", panel, UiPanelStrokeColor);
-            SetAnchors(stroke, new Vector2(0.04f, 0.06f), new Vector2(0.96f, 0.82f), Vector2.zero, Vector2.zero);
+            var face = CreateRoundedPanel($"{name} Face", panel, new Color(0.06f, 0.34f, 0.67f, 0.98f));
+            SetAnchors(face, new Vector2(0.038f, 0.048f), new Vector2(0.962f, 0.952f), Vector2.zero, Vector2.zero);
+
+            var topHighlight = CreateRoundedPanel($"{name} Top Highlight", panel, new Color(1f, 1f, 1f, 0.18f));
+            SetAnchors(topHighlight, new Vector2(0.09f, 0.84f), new Vector2(0.91f, 0.93f), Vector2.zero, Vector2.zero);
+
+            var contentWell = CreateRoundedPanel($"{name} Content Well", panel, new Color(0.03f, 0.13f, 0.22f, 0.34f));
+            SetAnchors(contentWell, new Vector2(0.055f, 0.075f), new Vector2(0.945f, 0.815f), Vector2.zero, Vector2.zero);
+
+            var bottomShade = CreateRoundedPanel($"{name} Bottom Shade", panel, new Color(0f, 0f, 0f, 0.12f));
+            SetAnchors(bottomShade, new Vector2(0.08f, 0.055f), new Vector2(0.92f, 0.18f), Vector2.zero, Vector2.zero);
             return panel;
         }
 
@@ -53,22 +62,29 @@ namespace BusPuzzle
         {
             var titleRoot = CreateRectTransform(name, parent);
 
-            var shadow = CreateRoundedPanel($"{name} Shadow", titleRoot, new Color(0f, 0f, 0f, 0.16f));
-            SetAnchors(shadow, new Vector2(0.09f, 0.08f), new Vector2(0.91f, 0.84f), new Vector2(0f, -5f), new Vector2(0f, -5f));
+            var shadow = CreateRoundedPanel($"{name} Shadow", titleRoot, new Color(0f, 0f, 0f, 0.24f));
+            SetAnchors(shadow, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.86f), new Vector2(0f, -6f), new Vector2(0f, -6f));
 
-            var plate = CreateRoundedPanel($"{name} Plate", titleRoot, new Color(0.21f, 0.45f, 0.56f, 0.98f));
-            SetAnchors(plate, new Vector2(0.08f, 0.10f), new Vector2(0.92f, 0.90f), Vector2.zero, Vector2.zero);
+            var rim = CreateRoundedPanel($"{name} Rim", titleRoot, new Color(1.00f, 0.68f, 0.08f, 0.98f));
+            SetAnchors(rim, new Vector2(0.07f, 0.08f), new Vector2(0.93f, 0.92f), Vector2.zero, Vector2.zero);
+
+            var plate = CreateRoundedPanel($"{name} Plate", titleRoot, new Color(0.04f, 0.38f, 0.78f, 0.98f));
+            SetAnchors(plate, new Vector2(0.095f, 0.13f), new Vector2(0.905f, 0.87f), Vector2.zero, Vector2.zero);
 
             var topHighlight = CreateRoundedPanel($"{name} Top Highlight", titleRoot, new Color(1f, 1f, 1f, 0.15f));
-            SetAnchors(topHighlight, new Vector2(0.15f, 0.74f), new Vector2(0.85f, 0.86f), Vector2.zero, Vector2.zero);
+            SetAnchors(topHighlight, new Vector2(0.18f, 0.72f), new Vector2(0.82f, 0.84f), Vector2.zero, Vector2.zero);
 
-            var underline = CreateRoundedPanel($"{name} Underline", titleRoot, new Color(1.00f, 0.74f, 0.22f, 0.52f));
-            SetAnchors(underline, new Vector2(0.24f, 0.13f), new Vector2(0.76f, 0.20f), Vector2.zero, Vector2.zero);
+            var underline = CreateRoundedPanel($"{name} Underline", titleRoot, new Color(1.00f, 0.84f, 0.20f, 0.68f));
+            SetAnchors(underline, new Vector2(0.24f, 0.16f), new Vector2(0.76f, 0.23f), Vector2.zero, Vector2.zero);
 
             var title = CreateText($"{name} Text", titleRoot, TextAnchor.MiddleCenter, 46, FontStyle.Bold);
             title.text = label;
             title.color = new Color(0.98f, 0.99f, 1f);
             title.resizeTextMinSize = 32;
+            var titleOutline = title.gameObject.AddComponent<Outline>();
+            titleOutline.effectColor = new Color(0.01f, 0.06f, 0.12f, 0.52f);
+            titleOutline.effectDistance = new Vector2(1.5f, -1.5f);
+            titleOutline.useGraphicAlpha = true;
             SetAnchors(title.rectTransform, new Vector2(0.16f, 0.18f), new Vector2(0.84f, 0.86f), new Vector2(8f, 1f), new Vector2(-8f, -2f));
 
             return titleRoot;

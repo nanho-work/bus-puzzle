@@ -139,7 +139,7 @@ namespace BusPuzzle
         {
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
 
-            targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 50);
+            targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 80);
             maxGenerationAttempts = Mathf.Clamp(maxGenerationAttempts, 1, DefaultMaxGenerationAttempts);
             var bestVehicles = new List<BusDefinition>();
             var bestExitCount = -1;

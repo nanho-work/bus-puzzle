@@ -35,7 +35,19 @@ namespace BusPuzzle
         }
     }
 
-    internal sealed class PassengerTrafficEngine
+    internal interface IPassengerTrafficEngine
+    {
+        void PlacePassenger(PassengerView passenger, int passengerIndex);
+        void Advance(IReadOnlyList<PassengerView> passengers, float deltaTime, float trafficTimeScale);
+        bool TryFindBoardingPassenger(IReadOnlyList<PassengerView> passengers, PuzzleColor color, out int passengerIndex);
+        bool TryFindBoardingReservationPassenger(IReadOnlyList<PassengerView> passengers, PuzzleColor color, out int passengerIndex);
+        bool IsPassengerReadyToBoard(PassengerView passenger);
+        PassengerUnitRoadPose GetBoardingGatePose();
+        bool HasPendingRotaryFill(IReadOnlyList<PassengerView> passengers);
+        void CompactFeederQueues(IReadOnlyList<PassengerView> passengers);
+    }
+
+    internal sealed class PassengerTrafficEngine : IPassengerTrafficEngine
     {
         private readonly PassengerFlowController passengerFlow = new PassengerFlowController();
         private readonly RotaryLayout rotaryLayout;

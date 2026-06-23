@@ -62,6 +62,11 @@ namespace BusPuzzle
             model = PassengerModelBuilder.Create(color, transform);
         }
 
+        public void SetSingleRepresentativeVisual(bool enabled)
+        {
+            model?.SetSingleRepresentativeVisual(enabled);
+        }
+
         public void AssignTrafficDistance(float routeDistance, float routePathLength, float circulationSpeed, int rotarySlotIndex)
         {
             RoutePathLength = Mathf.Max(0.01f, routePathLength);
@@ -200,6 +205,18 @@ namespace BusPuzzle
             }
 
             StartMoveRoutine(PassengerPoseAnimator.MoveToPose(transform, model, targetPose, duration, CreateMoveComplete(onComplete)));
+        }
+
+        internal void MoveToPoseFlat(PassengerUnitRoadPose targetPose, float duration, Action onComplete = null)
+        {
+            if (!isActiveAndEnabled || duration <= 0f)
+            {
+                SetPose(targetPose);
+                onComplete?.Invoke();
+                return;
+            }
+
+            StartMoveRoutine(PassengerPoseAnimator.MoveToPoseFlat(transform, model, targetPose, duration, CreateMoveComplete(onComplete)));
         }
 
         internal void MoveAlongPoses(PassengerUnitRoadPose[] poses, float duration, Action onComplete = null)

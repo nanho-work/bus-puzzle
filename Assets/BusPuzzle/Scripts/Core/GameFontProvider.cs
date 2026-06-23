@@ -17,7 +17,7 @@ namespace BusPuzzle
 
         public static Font GetFont(FontStyle fontStyle)
         {
-            var requestedFont = IsBoldStyle(fontStyle) ? GetBoldFont() : GetLightFont();
+            var requestedFont = IsBoldStyle(fontStyle) ? GetBoldFont() : GetMediumFont();
             if (requestedFont != null)
             {
                 return requestedFont;

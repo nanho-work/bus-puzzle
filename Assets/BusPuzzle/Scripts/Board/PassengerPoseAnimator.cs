@@ -85,6 +85,34 @@ namespace BusPuzzle
             onComplete?.Invoke();
         }
 
+        public static IEnumerator MoveToPoseFlat(
+            Transform target,
+            PassengerModel model,
+            PassengerUnitRoadPose targetPose,
+            float duration,
+            Action onComplete)
+        {
+            var startPosition = target.position;
+            var startRotation = target.rotation;
+            var elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                var normalizedTime = Mathf.Clamp01(elapsed / duration);
+                var easedTime = Mathf.SmoothStep(0f, 1f, normalizedTime);
+                target.SetPositionAndRotation(
+                    Vector3.Lerp(startPosition, targetPose.Position, easedTime),
+                    Quaternion.Slerp(startRotation, targetPose.Rotation, easedTime));
+                model.ApplyPosePersonLocalPositions(targetPose);
+                yield return null;
+            }
+
+            ApplyPose(target, model, targetPose);
+            model.ResetWalkCycle();
+            onComplete?.Invoke();
+        }
+
         public static IEnumerator MoveAlongPoses(
             Transform target,
             PassengerModel model,

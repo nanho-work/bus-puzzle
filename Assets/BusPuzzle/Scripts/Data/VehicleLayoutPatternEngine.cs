@@ -122,7 +122,7 @@ namespace BusPuzzle
         {
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             random = random ?? new System.Random(0);
-            targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 50);
+            targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 80);
 
             var slots = new List<VehicleLayoutSlot>(targetVehicleCount * 3);
             var occupiedCells = new HashSet<int>();

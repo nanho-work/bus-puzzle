@@ -56,7 +56,17 @@ namespace BusPuzzle
                 CreateBayDividers(stationRoot, totalStationSlots, slotSpacing, slotDepth, stationZ, stationRotation, dividerMaterial);
             }
 
-            CreateVipStationSlot(stationRoot, getFreeStationPosition(), slotWidth, slotDepth, cellSize, stationRotation, useTerminalSkin);
+            CreateVipStationSlot(
+                stationRoot,
+                getFreeStationPosition(),
+                slotWidth,
+                slotDepth,
+                cellSize,
+                stationRotation,
+                useTerminalSkin,
+                slotOutlineMaterial,
+                platformRoadMaterial,
+                slotShadowMaterial);
 
             for (var index = 0; index < activeSlotCount; index++)
             {
@@ -152,13 +162,27 @@ namespace BusPuzzle
             float slotDepth,
             float cellSize,
             Quaternion stationRotation,
-            bool useTerminalSkin)
+            bool useTerminalSkin,
+            Material slotOutlineMaterial,
+            Material platformRoadMaterial,
+            Material slotShadowMaterial)
         {
             const float VipVisualInset = 0.018f;
-            var vipSlotWidth = slotWidth - VipVisualInset;
-            var vipSlotDepth = slotDepth - VipVisualInset;
+            var vipSlotWidth = useTerminalSkin ? slotWidth : slotWidth - VipVisualInset;
+            var vipSlotDepth = useTerminalSkin ? slotDepth : slotDepth - VipVisualInset;
             if (useTerminalSkin)
             {
+                CreateStationSlotOutline(
+                    root,
+                    "Vip Station Slot",
+                    position,
+                    slotWidth,
+                    slotDepth,
+                    stationRotation,
+                    slotOutlineMaterial,
+                    platformRoadMaterial,
+                    slotShadowMaterial);
+
                 CreateTerminalVipStationSlot(root, position, vipSlotWidth, vipSlotDepth, cellSize, stationRotation);
                 return;
             }

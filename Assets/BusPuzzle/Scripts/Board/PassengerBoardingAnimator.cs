@@ -174,11 +174,11 @@ namespace BusPuzzle
 
         private static int[] BuildBoardingOrder(PassengerModel model, Vector3 doorPosition)
         {
-            var count = model.PersonCount;
+            var count = model.BoardingPersonCount;
             var order = new int[count];
             for (var index = 0; index < count; index++)
             {
-                order[index] = index;
+                order[index] = model.GetBoardingPersonIndex(index);
             }
 
             Array.Sort(order, (first, second) =>

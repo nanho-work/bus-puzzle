@@ -15,7 +15,7 @@ namespace BusPuzzle
     {
         [SerializeField] private LevelDifficulty difficulty = LevelDifficulty.Normal;
         [SerializeField] private PassengerFlowDifficultyRule passengerFlowRule = PassengerFlowDifficultyRule.DefaultFor(LevelDifficulty.Normal);
-        [SerializeField, Range(4, 50)] private int targetVehicleCount = 12;
+        [SerializeField, Range(4, 80)] private int targetVehicleCount = 12;
         [SerializeField, Range(2, 12)] private int targetColorCount = 6;
         [SerializeField, Range(0f, 1f)] private float parkingTension = 0.35f;
         [SerializeField, Range(0f, 1f)] private float stationPressure = 0.30f;
@@ -25,7 +25,7 @@ namespace BusPuzzle
         public PassengerFlowDifficultyRule PassengerFlowRule => passengerFlowRule.HasUsableValues
             ? passengerFlowRule
             : PassengerFlowDifficultyRule.DefaultFor(difficulty);
-        public int TargetVehicleCount => Mathf.Clamp(targetVehicleCount, 4, 50);
+        public int TargetVehicleCount => Mathf.Clamp(targetVehicleCount, 4, 80);
         public int TargetColorCount => Mathf.Clamp(targetColorCount, 2, 12);
         public float ParkingTension => Mathf.Clamp01(parkingTension);
         public float StationPressure => Mathf.Clamp01(stationPressure);
@@ -84,7 +84,30 @@ namespace BusPuzzle
             {
                 difficulty = difficulty,
                 passengerFlowRule = PassengerFlowDifficultyRule.DefaultFor(difficulty),
-                targetVehicleCount = Mathf.Clamp(targetVehicleCount, 4, 50),
+                targetVehicleCount = Mathf.Clamp(targetVehicleCount, 4, 80),
+                targetColorCount = Mathf.Clamp(targetColorCount, 2, 12),
+                parkingTension = Mathf.Clamp01(parkingTension),
+                stationPressure = Mathf.Clamp01(stationPressure),
+                requireSolutionRoute = requireSolutionRoute
+            };
+        }
+
+        public static LevelDifficultyProfile CreateCustom(
+            LevelDifficulty difficulty,
+            PassengerFlowDifficultyRule passengerFlowRule,
+            int targetVehicleCount,
+            int targetColorCount,
+            float parkingTension,
+            float stationPressure,
+            bool requireSolutionRoute)
+        {
+            return new LevelDifficultyProfile
+            {
+                difficulty = difficulty,
+                passengerFlowRule = passengerFlowRule.HasUsableValues
+                    ? passengerFlowRule
+                    : PassengerFlowDifficultyRule.DefaultFor(difficulty),
+                targetVehicleCount = Mathf.Clamp(targetVehicleCount, 4, 80),
                 targetColorCount = Mathf.Clamp(targetColorCount, 2, 12),
                 parkingTension = Mathf.Clamp01(parkingTension),
                 stationPressure = Mathf.Clamp01(stationPressure),

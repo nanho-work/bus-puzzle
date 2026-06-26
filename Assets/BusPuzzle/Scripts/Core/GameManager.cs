@@ -47,7 +47,8 @@ namespace BusPuzzle
 
         private const float PassengerFastForwardMultiplier = 3.0f;
         private const float EndgamePassengerSpeedMultiplier = 1.35f;
-        private const float StagePreloadStartDelay = 0.20f;
+        private const float ClearNextStagePreloadSettleSeconds = 0.05f;
+        private const float StageTransitionLoadingSettleSeconds = 0.05f;
         private const float DailyChallengeLoadingSettleSeconds = 0.08f;
         private const int EndgameRemainingBusThreshold = 4;
         private const int VipTeleportAdLimitPerStage = 3;
@@ -73,7 +74,8 @@ namespace BusPuzzle
         private GameInputController inputController;
         private VehicleDispatchController vehicleDispatchController;
         private BoardingFlowController boardingFlowController;
-        private Coroutine stagePreloadRoutine;
+        private Coroutine clearNextStagePreloadRoutine;
+        private Coroutine nextLevelLoadRoutine;
         private Coroutine dailyChallengeStartRoutine;
         private Coroutine dailyRewardPromptRoutine;
         private IRewardedAdService rewardedAdService;
@@ -159,7 +161,8 @@ namespace BusPuzzle
         {
             SetTutorialGameplayPaused(false);
             boardingFlowController?.Stop();
-            StopStagePreload();
+            StopClearNextStagePreload();
+            StopNextLevelLoad();
             StopDailyChallengeStart();
             StopDailyRewardPromptCheck();
             RemoteConfigService.ValuesUpdated -= ApplyRemoteConfigState;
@@ -478,6 +481,8 @@ namespace BusPuzzle
 
         private void LoadLevel(int levelIndex)
         {
+            StopNextLevelLoad();
+            StopClearNextStagePreload();
             boardingFlowController.Reset();
             ResetVipTeleportState();
             ResetMixShuffleState();
@@ -533,7 +538,6 @@ namespace BusPuzzle
             CheckBlocked();
             StartTutorialIfNeeded();
             ScheduleDailyRewardPromptCheck();
-            ScheduleStagePreload();
         }
 
         private void LoadDailyChallengeLevel(int stepIndex)
@@ -552,7 +556,6 @@ namespace BusPuzzle
             ResetClearRewardDoubleState();
             ResetTutorialState();
             StopDailyRewardPromptCheck();
-            StopStagePreload();
 
             isDailyChallengeMode = true;
             activeDailyChallengeStepIndex = Mathf.Clamp(stepIndex, 1, 3);
@@ -685,7 +688,17 @@ namespace BusPuzzle
                 return;
             }
 
-            LoadLevel(currentLevelIndex + 1);
+            var nextLevelIndex = currentLevelIndex + 1;
+            if (levelSequence.IsLevelCached(nextLevelIndex))
+            {
+                LoadLevel(nextLevelIndex);
+                return;
+            }
+
+            if (nextLevelLoadRoutine == null)
+            {
+                nextLevelLoadRoutine = StartCoroutine(LoadNextLevelRoutine(nextLevelIndex));
+            }
         }
 
         private void ShowExitPrompt()
@@ -3049,26 +3062,98 @@ namespace BusPuzzle
             return passenger != null && passenger.State == PassengerState.Rotary ? 0 : 1;
         }
 
-        private void ScheduleStagePreload()
+        private void ScheduleClearNextStagePreload(int nextLevelIndex)
         {
-            StopStagePreload();
-            if (levelSequence == null || !levelSequence.UsesRuntimeGeneration || levelSequence.RuntimePreloadAheadCount <= 0)
+            StopClearNextStagePreload();
+            if (levelSequence == null ||
+                !levelSequence.UsesRuntimeGeneration ||
+                nextLevelIndex < 0 ||
+                nextLevelIndex >= levelSequence.Count ||
+                levelSequence.IsLevelCached(nextLevelIndex))
             {
+                uiController?.SetClearNextPreparing(false, levelSequence != null && nextLevelIndex >= 0 && nextLevelIndex < levelSequence.Count);
                 return;
             }
 
-            stagePreloadRoutine = StartCoroutine(PreloadUpcomingStagesRoutine(currentLevelIndex));
+            uiController?.SetClearNextPreparing(true, true);
+            clearNextStagePreloadRoutine = StartCoroutine(PreloadClearNextStageRoutine(nextLevelIndex));
         }
 
-        private void StopStagePreload()
+        private void StopClearNextStagePreload()
         {
-            if (stagePreloadRoutine == null)
+            if (clearNextStagePreloadRoutine == null)
             {
                 return;
             }
 
-            StopCoroutine(stagePreloadRoutine);
-            stagePreloadRoutine = null;
+            StopCoroutine(clearNextStagePreloadRoutine);
+            clearNextStagePreloadRoutine = null;
+            uiController?.SetClearNextPreparing(false, levelSequence != null && currentLevelIndex + 1 < levelSequence.Count);
+        }
+
+        private void StopNextLevelLoad()
+        {
+            if (nextLevelLoadRoutine != null)
+            {
+                StopCoroutine(nextLevelLoadRoutine);
+                nextLevelLoadRoutine = null;
+            }
+
+            uiController?.HideStageTransitionLoading();
+        }
+
+        private IEnumerator LoadNextLevelRoutine(int nextLevelIndex)
+        {
+            StopClearNextStagePreload();
+            uiController?.ShowStageTransitionLoading();
+            yield return null;
+            yield return new WaitForSecondsRealtime(StageTransitionLoadingSettleSeconds);
+
+            if (gameState != GameState.Cleared ||
+                levelSequence == null ||
+                nextLevelIndex != currentLevelIndex + 1 ||
+                nextLevelIndex >= levelSequence.Count)
+            {
+                nextLevelLoadRoutine = null;
+                uiController?.HideStageTransitionLoading();
+                yield break;
+            }
+
+            if (!levelSequence.IsLevelCached(nextLevelIndex))
+            {
+                levelSequence.PreloadLevel(nextLevelIndex);
+                yield return null;
+            }
+
+            nextLevelLoadRoutine = null;
+            LoadLevel(nextLevelIndex);
+        }
+
+        private IEnumerator PreloadClearNextStageRoutine(int nextLevelIndex)
+        {
+            yield return null;
+            yield return new WaitForSecondsRealtime(ClearNextStagePreloadSettleSeconds);
+
+            if (gameState == GameState.Cleared &&
+                !isDailyChallengeMode &&
+                levelSequence != null &&
+                levelSequence.UsesRuntimeGeneration &&
+                nextLevelIndex == currentLevelIndex + 1 &&
+                nextLevelIndex < levelSequence.Count &&
+                !levelSequence.IsLevelCached(nextLevelIndex))
+            {
+                levelSequence.PreloadLevel(nextLevelIndex);
+            }
+
+            clearNextStagePreloadRoutine = null;
+            if (gameState == GameState.Cleared &&
+                !isDailyChallengeMode &&
+                levelSequence != null &&
+                nextLevelIndex == currentLevelIndex + 1 &&
+                nextLevelIndex < levelSequence.Count)
+            {
+                uiController?.SetClearNextPreparing(false, true);
+            }
         }
 
         private void StopDailyChallengeStart()
@@ -3081,28 +3166,6 @@ namespace BusPuzzle
             StopCoroutine(dailyChallengeStartRoutine);
             dailyChallengeStartRoutine = null;
             uiController?.HideDailyChallengeLoading();
-        }
-
-        private IEnumerator PreloadUpcomingStagesRoutine(int baseLevelIndex)
-        {
-            yield return new WaitForSeconds(StagePreloadStartDelay);
-
-            for (var offset = 1; offset <= levelSequence.RuntimePreloadAheadCount; offset++)
-            {
-                var levelIndex = baseLevelIndex + offset;
-                if (levelIndex >= levelSequence.Count)
-                {
-                    break;
-                }
-
-                if (!levelSequence.IsLevelCached(levelIndex))
-                {
-                    levelSequence.PreloadLevel(levelIndex);
-                    yield return null;
-                }
-            }
-
-            stagePreloadRoutine = null;
         }
 
         private void StartBoardingResolver()
@@ -3155,6 +3218,7 @@ namespace BusPuzzle
             uiController.ShowClear(clearedStageNumber, clearedStageNumber < levelSequence.Count, goldReward);
             UpdateRewardedAdUi();
             EffectAudioPlayer.PlayVictory();
+            ScheduleClearNextStagePreload(currentLevelIndex + 1);
         }
 
         private void CompleteDailyChallengeLevel()

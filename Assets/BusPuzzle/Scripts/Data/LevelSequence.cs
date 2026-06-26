@@ -133,7 +133,15 @@ namespace BusPuzzle
                 if (!RuntimeGeneratedLevelCache.TryLoad(runtimeGenerationConfig, request, out level))
                 {
                     level = StageCandidateBuilder.BuildRuntimeStageCandidate(runtimeGenerationConfig, request);
-                    RuntimeGeneratedLevelCache.Save(runtimeGenerationConfig, request, level);
+                    if (StageCandidateBuilder.ShouldCacheRuntimeStage(request, level))
+                    {
+                        RuntimeGeneratedLevelCache.Save(runtimeGenerationConfig, request, level);
+                    }
+                    else
+                    {
+                        Debug.LogWarning(
+                            $"Runtime stage {stageNumber:000} was not cached because it used an emergency fallback.");
+                    }
                 }
 
                 runtimeGeneratedLevels[runtimeLevelIndex] = level;

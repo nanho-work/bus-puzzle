@@ -222,6 +222,10 @@ namespace BusPuzzle
             nextButtonText = GetButtonLabel(nextButton);
             GameFontProvider.ApplyMediumToText(nextButtonText);
             SetAnchors(nextButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.01f), new Vector2(0.92f, 0.31f), new Vector2(6f, 16f), new Vector2(-6f, -10f));
+            clearNextPreparingSpinnerRoot = CreateRectTransform("Clear Next Preparing Spinner", nextButton.transform);
+            SetAnchors(clearNextPreparingSpinnerRoot, new Vector2(0.66f, 0.48f), new Vector2(0.93f, 0.88f), Vector2.zero, Vector2.zero);
+            BuildLoadingSpinnerDots(clearNextPreparingSpinnerRoot, clearNextPreparingSpinnerDots, "Clear Next Preparing");
+            clearNextPreparingSpinnerRoot.gameObject.SetActive(false);
             nextButton.onClick.AddListener(() =>
             {
                 HideClearPrompt();
@@ -251,15 +255,7 @@ namespace BusPuzzle
                     : Localization.Text("reward_claimed");
             }
 
-            if (nextButton != null)
-            {
-                nextButton.interactable = hasNextLevel;
-            }
-
-            if (nextButtonText != null)
-            {
-                nextButtonText.text = hasNextLevel ? Localization.Text("next") : Localization.Text("done");
-            }
+            SetClearNextPreparing(false, hasNextLevel);
 
             SetClearRewardDouble(goldReward, false, false, false, false);
         }
@@ -269,6 +265,35 @@ namespace BusPuzzle
             if (clearPrompt != null)
             {
                 clearPrompt.gameObject.SetActive(false);
+            }
+
+            if (clearNextPreparingSpinnerRoot != null)
+            {
+                clearNextPreparingSpinnerRoot.gameObject.SetActive(false);
+            }
+        }
+
+        internal void SetClearNextPreparing(bool preparing, bool hasNextLevel)
+        {
+            if (nextButton != null)
+            {
+                nextButton.interactable = hasNextLevel && !preparing;
+            }
+
+            if (nextButtonText != null)
+            {
+                nextButtonText.text = hasNextLevel
+                    ? (preparing ? Localization.Text("stage_loading") : Localization.Text("next"))
+                    : Localization.Text("done");
+            }
+
+            if (clearNextPreparingSpinnerRoot != null)
+            {
+                clearNextPreparingSpinnerRoot.gameObject.SetActive(hasNextLevel && preparing);
+                if (hasNextLevel && preparing)
+                {
+                    ResetLoadingSpinner(clearNextPreparingSpinnerRoot, clearNextPreparingSpinnerDots);
+                }
             }
         }
 
@@ -759,6 +784,11 @@ namespace BusPuzzle
                 dailyChallengeLoadingText.text = Localization.Text("daily_challenge_loading");
             }
 
+            if (dailyChallengeLoadingIcon != null)
+            {
+                dailyChallengeLoadingIcon.sprite = LoadResourceSprite(DailyChallengeIconResource);
+            }
+
             if (dailyChallengeLoadingCanvasGroup != null)
             {
                 dailyChallengeLoadingCanvasGroup.alpha = 1f;
@@ -769,6 +799,51 @@ namespace BusPuzzle
             ResetDailyChallengeLoadingSpinner();
             dailyChallengeLoadingOverlay.SetAsLastSibling();
             dailyChallengeLoadingOverlay.gameObject.SetActive(true);
+        }
+
+        internal void ShowStageTransitionLoading()
+        {
+            if (dailyChallengeLoadingOverlay == null)
+            {
+                return;
+            }
+
+            HideSettingsPanel();
+            HideClearPrompt();
+            HideFailPrompt();
+            HideExitPrompt();
+            HideDailyRewardPrompt();
+            HideDailyChallengePrompt();
+            HideStationUnlockPrompt();
+            HideVipTeleportPrompt();
+            HideMixShufflePrompt();
+            HideDepartPrompt();
+
+            if (dailyChallengeLoadingText != null)
+            {
+                dailyChallengeLoadingText.text = Localization.Text("stage_loading");
+            }
+
+            if (dailyChallengeLoadingIcon != null)
+            {
+                dailyChallengeLoadingIcon.sprite = LoadResourceSprite(NextButtonIconResource);
+            }
+
+            if (dailyChallengeLoadingCanvasGroup != null)
+            {
+                dailyChallengeLoadingCanvasGroup.alpha = 1f;
+                dailyChallengeLoadingCanvasGroup.blocksRaycasts = true;
+                dailyChallengeLoadingCanvasGroup.interactable = true;
+            }
+
+            ResetDailyChallengeLoadingSpinner();
+            dailyChallengeLoadingOverlay.SetAsLastSibling();
+            dailyChallengeLoadingOverlay.gameObject.SetActive(true);
+        }
+
+        internal void HideStageTransitionLoading()
+        {
+            HideDailyChallengeLoading();
         }
 
         internal void HideDailyChallengeLoading()
@@ -802,13 +877,21 @@ namespace BusPuzzle
 
         private void BuildDailyChallengeLoadingSpinnerDots(Transform parent)
         {
-            const float radius = 32f;
-            const float dotSize = 12f;
-            for (var index = 0; index < dailyChallengeLoadingSpinnerDots.Length; index++)
+            BuildLoadingSpinnerDots(parent, dailyChallengeLoadingSpinnerDots, "Daily Challenge Loading", 32f, 12f);
+        }
+
+        private void BuildLoadingSpinnerDots(Transform parent, RectTransform[] dots, string namePrefix)
+        {
+            BuildLoadingSpinnerDots(parent, dots, namePrefix, 22f, 8f);
+        }
+
+        private void BuildLoadingSpinnerDots(Transform parent, RectTransform[] dots, string namePrefix, float radius, float dotSize)
+        {
+            for (var index = 0; index < dots.Length; index++)
             {
-                var angle = index * Mathf.PI * 2f / dailyChallengeLoadingSpinnerDots.Length;
+                var angle = index * Mathf.PI * 2f / dots.Length;
                 var center = new Vector2(Mathf.Sin(angle), Mathf.Cos(angle)) * radius;
-                var dot = CreateRoundedPanel($"Daily Challenge Loading Spinner Dot {index + 1}", parent, UiGoldTextColor);
+                var dot = CreateRoundedPanel($"{namePrefix} Spinner Dot {index + 1}", parent, UiGoldTextColor);
                 SetAnchors(
                     dot,
                     new Vector2(0.5f, 0.5f),
@@ -816,18 +899,13 @@ namespace BusPuzzle
                     center - Vector2.one * (dotSize * 0.5f),
                     center + Vector2.one * (dotSize * 0.5f));
                 dot.GetComponent<Image>().raycastTarget = false;
-                dailyChallengeLoadingSpinnerDots[index] = dot;
+                dots[index] = dot;
             }
         }
 
         private void ResetDailyChallengeLoadingSpinner()
         {
-            if (dailyChallengeLoadingSpinnerRoot != null)
-            {
-                dailyChallengeLoadingSpinnerRoot.localRotation = Quaternion.identity;
-            }
-
-            UpdateDailyChallengeLoadingSpinnerDots(0f);
+            ResetLoadingSpinner(dailyChallengeLoadingSpinnerRoot, dailyChallengeLoadingSpinnerDots);
         }
 
         private void UpdateDailyChallengeLoadingSpinner()
@@ -838,20 +916,42 @@ namespace BusPuzzle
                 dailyChallengeLoadingSpinnerRoot.localRotation = Quaternion.Euler(0f, 0f, -time * 240f);
             }
 
-            UpdateDailyChallengeLoadingSpinnerDots(time);
+            UpdateLoadingSpinnerDots(dailyChallengeLoadingSpinnerDots, time);
         }
 
-        private void UpdateDailyChallengeLoadingSpinnerDots(float time)
+        private void UpdateClearNextPreparingSpinner()
         {
-            for (var index = 0; index < dailyChallengeLoadingSpinnerDots.Length; index++)
+            if (clearNextPreparingSpinnerRoot == null || !clearNextPreparingSpinnerRoot.gameObject.activeSelf)
             {
-                var dot = dailyChallengeLoadingSpinnerDots[index];
+                return;
+            }
+
+            var time = Time.unscaledTime;
+            clearNextPreparingSpinnerRoot.localRotation = Quaternion.Euler(0f, 0f, -time * 260f);
+            UpdateLoadingSpinnerDots(clearNextPreparingSpinnerDots, time);
+        }
+
+        private void ResetLoadingSpinner(RectTransform spinnerRoot, RectTransform[] dots)
+        {
+            if (spinnerRoot != null)
+            {
+                spinnerRoot.localRotation = Quaternion.identity;
+            }
+
+            UpdateLoadingSpinnerDots(dots, 0f);
+        }
+
+        private void UpdateLoadingSpinnerDots(RectTransform[] dots, float time)
+        {
+            for (var index = 0; index < dots.Length; index++)
+            {
+                var dot = dots[index];
                 if (dot == null)
                 {
                     continue;
                 }
 
-                var phase = Mathf.Repeat(index / (float)dailyChallengeLoadingSpinnerDots.Length + time * 1.4f, 1f);
+                var phase = Mathf.Repeat(index / (float)dots.Length + time * 1.4f, 1f);
                 var strength = Mathf.Lerp(0.28f, 1f, phase);
                 dot.localScale = Vector3.one * Mathf.Lerp(0.70f, 1.08f, phase);
                 var image = dot.GetComponent<Image>();

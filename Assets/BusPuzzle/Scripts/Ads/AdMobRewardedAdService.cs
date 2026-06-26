@@ -190,8 +190,7 @@ namespace BusPuzzle
             showingAd = adToShow;
             AvailabilityChanged?.Invoke();
 
-            var attemptId = ++showAttemptId;
-            WatchShowTimeout(attemptId, placement);
+            showAttemptId++;
             try
             {
                 adToShow.Show(_ => rewardEarned = true);
@@ -206,9 +205,27 @@ namespace BusPuzzle
             return true;
         }
 
-        private async void WatchShowTimeout(int attemptId, RewardedAdPlacement placement)
+        private void RegisterCallbacks(RewardedAd ad)
         {
-            await Task.Delay(TimeSpan.FromSeconds(15));
+            ad.OnAdFullScreenContentClosed += () =>
+            {
+                var attemptId = showAttemptId;
+                CompleteAfterRewardCallbackGrace(attemptId);
+            };
+
+            ad.OnAdFullScreenContentFailed += error =>
+            {
+                MobileAdsEventExecutor.ExecuteInUpdate(() =>
+                {
+                    Debug.LogWarning($"Rewarded ad failed during fullscreen content: {error}");
+                    CompletePendingReward(RewardedAdResult.Failed);
+                });
+            };
+        }
+
+        private async void CompleteAfterRewardCallbackGrace(int attemptId)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
 
             MobileAdsEventExecutor.ExecuteInUpdate(() =>
             {
@@ -220,27 +237,8 @@ namespace BusPuzzle
                     return;
                 }
 
-                Debug.LogWarning($"Rewarded ad show timed out for {placement}.");
-                CompletePendingReward(RewardedAdResult.Failed);
+                CompletePendingReward(rewardEarned ? RewardedAdResult.RewardEarned : RewardedAdResult.ClosedWithoutReward);
             });
-        }
-
-        private void RegisterCallbacks(RewardedAd ad)
-        {
-            ad.OnAdFullScreenContentClosed += () =>
-            {
-                MobileAdsEventExecutor.ExecuteInUpdate(() =>
-                    CompletePendingReward(rewardEarned ? RewardedAdResult.RewardEarned : RewardedAdResult.ClosedWithoutReward));
-            };
-
-            ad.OnAdFullScreenContentFailed += error =>
-            {
-                MobileAdsEventExecutor.ExecuteInUpdate(() =>
-                {
-                    Debug.LogWarning($"Rewarded ad failed during fullscreen content: {error}");
-                    CompletePendingReward(RewardedAdResult.Failed);
-                });
-            };
         }
 
         private void CompletePendingReward(RewardedAdResult result)

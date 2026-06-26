@@ -74,6 +74,8 @@ namespace BusPuzzle
         private Button departButton;
         private Button nextButton;
         private Text nextButtonText;
+        private RectTransform clearNextPreparingSpinnerRoot;
+        private readonly RectTransform[] clearNextPreparingSpinnerDots = new RectTransform[DailyChallengeLoadingSpinnerDotCount];
         private RectTransform settingsPanel;
         private Text settingsTitleText;
         private Text effectSoundLabelText;
@@ -263,6 +265,7 @@ namespace BusPuzzle
             UpdateDailyRewardButtonPulse();
             UpdateDailyChallengeButtonPulse();
             UpdateDailyChallengeLoadingOverlay();
+            UpdateClearNextPreparingSpinner();
             TryShowInitialNicknamePrompt();
         }
 

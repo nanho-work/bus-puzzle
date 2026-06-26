@@ -3,7 +3,10 @@ namespace BusPuzzle
     public static class StageCandidateBuilder
     {
         private const int MinimumRuntimeCandidateAttempts = 8;
+        private const int MinimumRuntimeFallbackVehicleCount = 24;
+        private const int EmergencyVehicleCount = 4;
         private const int RuntimeSolutionNodeVisitLimit = 2048;
+        private static readonly float[] RelaxedRuntimeVehicleScales = { 0.90f, 0.78f, 0.66f };
 
         public static bool TryBuildVerifiedStageCandidate(
             StageGenerationConfig config,
@@ -137,9 +140,29 @@ namespace BusPuzzle
                 return bestLevel;
             }
 
+            if (TryBuildVerifiedStageCandidate(config, request, out var verifiedLevel, out _, out _))
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"Runtime stage {request.StageNumber:000} required full verification fallback.");
+                return verifiedLevel;
+            }
+
+            var relaxedLevel = BuildRelaxedRuntimeStageCandidate(config, request);
+            if (relaxedLevel != null)
+            {
+                return relaxedLevel;
+            }
+
             UnityEngine.Debug.LogWarning(
                 $"Failed to build a fast verified runtime candidate for stage {request.StageNumber}. Using emergency solvable stage.");
             return CreateEmergencySolvableStage(request);
+        }
+
+        public static bool ShouldCacheRuntimeStage(StageGenerationRequest request, LevelData level)
+        {
+            return level != null &&
+                level.AllVehicles != null &&
+                level.AllVehicles.Count > EmergencyVehicleCount;
         }
 
         public static LevelData BuildBestStageCandidate(StageGenerationConfig config, StageGenerationRequest request)
@@ -184,6 +207,97 @@ namespace BusPuzzle
 
             score = ScoreRuntimeCandidate(request, level);
             return true;
+        }
+
+        private static LevelData BuildRelaxedRuntimeStageCandidate(StageGenerationConfig config, StageGenerationRequest request)
+        {
+            var sourceProfile = request.Profile ?? LevelDifficultyProfile.DefaultFor(request.Difficulty);
+            for (var pass = 0; pass < RelaxedRuntimeVehicleScales.Length; pass++)
+            {
+                var relaxedRequest = CreateRelaxedRuntimeRequest(request, pass);
+                if (!TryBuildVerifiedStageCandidate(config, relaxedRequest, out var level, out _, out _))
+                {
+                    continue;
+                }
+
+                UnityEngine.Debug.LogWarning(
+                    $"Runtime stage {request.StageNumber:000} is using relaxed fallback pass {pass + 1}: " +
+                    $"{level.AllVehicles.Count}/{sourceProfile.TargetVehicleCount} vehicles.");
+                return level;
+            }
+
+            return null;
+        }
+
+        private static StageGenerationRequest CreateRelaxedRuntimeRequest(StageGenerationRequest request, int pass)
+        {
+            var sourceProfile = request.Profile ?? LevelDifficultyProfile.DefaultFor(request.Difficulty);
+            var scaleIndex = UnityEngine.Mathf.Clamp(pass, 0, RelaxedRuntimeVehicleScales.Length - 1);
+            var vehicleScale = RelaxedRuntimeVehicleScales[scaleIndex];
+            var minimumVehicleCount = UnityEngine.Mathf.Min(
+                sourceProfile.TargetVehicleCount,
+                GetMinimumRuntimeFallbackVehicleCount(request.Difficulty));
+            var targetVehicleCount = UnityEngine.Mathf.Clamp(
+                UnityEngine.Mathf.RoundToInt(sourceProfile.TargetVehicleCount * vehicleScale),
+                minimumVehicleCount,
+                sourceProfile.TargetVehicleCount);
+            var targetColorCount = UnityEngine.Mathf.Clamp(
+                sourceProfile.TargetColorCount - pass - 1,
+                4,
+                sourceProfile.TargetColorCount);
+            var relaxation = (pass + 1f) / RelaxedRuntimeVehicleScales.Length;
+            var parkingTension = UnityEngine.Mathf.Lerp(
+                sourceProfile.ParkingTension,
+                UnityEngine.Mathf.Min(sourceProfile.ParkingTension, 0.46f),
+                relaxation);
+            var stationPressure = UnityEngine.Mathf.Lerp(
+                sourceProfile.StationPressure,
+                UnityEngine.Mathf.Min(sourceProfile.StationPressure, 0.46f),
+                relaxation);
+            var relaxedProfile = LevelDifficultyProfile.CreateCustom(
+                sourceProfile.Difficulty,
+                sourceProfile.PassengerFlowRule,
+                targetVehicleCount,
+                targetColorCount,
+                parkingTension,
+                stationPressure,
+                sourceProfile.RequireSolutionRoute);
+            var layoutPoolSize = UnityEngine.Mathf.Max(1, request.VehicleLayoutVariantPoolSize);
+            var layoutVariantIndex = UnityEngine.Mathf.Abs(
+                request.VehicleLayoutVariantIndex + (pass + 1) * 31) % layoutPoolSize;
+            var maxSolutionCount = UnityEngine.Mathf.Max(request.MaxSolutionCount, targetVehicleCount * 4);
+
+            return new StageGenerationRequest(
+                request.StageNumber,
+                request.Seed + (pass + 1) * 104729,
+                request.Difficulty,
+                StageModifierFlags.None,
+                relaxedProfile,
+                request.Progress,
+                request.Post50Pressure,
+                RotaryRoadPresetId.LargeCircleTest,
+                layoutVariantIndex,
+                layoutPoolSize,
+                0,
+                1,
+                1,
+                request.RotaryCapacity,
+                MysteryVehicleGenerationProfile.Disabled,
+                1,
+                maxSolutionCount);
+        }
+
+        private static int GetMinimumRuntimeFallbackVehicleCount(LevelDifficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case LevelDifficulty.SuperHard:
+                    return 32;
+                case LevelDifficulty.Hard:
+                    return 28;
+                default:
+                    return MinimumRuntimeFallbackVehicleCount;
+            }
         }
 
         private static int ScoreRuntimeCandidate(StageGenerationRequest request, LevelData level)

@@ -47,7 +47,7 @@ namespace BusPuzzle
             RequireContains(settings, $"companyName: {CompanyName}", "Player Settings companyName must be Koofy Lab.");
             RequireContains(settings, $"Android: {BundleIdentifier}", "Android bundle identifier must be com.koofylab.buspop.");
             RequireContains(settings, $"iPhone: {BundleIdentifier}", "iOS bundle identifier must be com.koofylab.buspop.");
-            RequireContains(settings, "bundleVersion: 1.0.1", "Release version should be 1.0.1 for this update.");
+            RequireContains(settings, "bundleVersion: 1.0.2", "Release version should be 1.0.2 for this update.");
             RequireContains(settings, AppIconGuid, "App icon is not assigned in Player Settings.");
             RequireContains(settings, "defaultScreenOrientation: 5", "Default orientation must be Auto Rotation so Android can preserve the current portrait direction at launch.");
             RequireContains(settings, "allowedAutorotateToPortrait: 1", "Portrait orientation must be allowed.");

@@ -35,6 +35,7 @@
 .idea/
 .vscode/
 .DS_Store
+__pycache__/
 
 # Android build outputs
 *.apk
@@ -51,6 +52,10 @@
 *.app
 *.dSYM
 *.dSYM/
+
+# Blender live working outputs
+/Tools/Blender/exports/
+/Tools/Blender/ShopVehicles/previews/
 
 # Firebase / External Dependency Manager generated or desktop-only payloads
 /Assets/GeneratedLocalRepo/

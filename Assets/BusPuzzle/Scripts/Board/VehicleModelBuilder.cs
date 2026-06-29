@@ -92,7 +92,7 @@ namespace BusPuzzle
             var instance = Object.Instantiate(prefab, root.transform, false);
             instance.name = $"{prefab.name} Instance";
             instance.transform.localPosition = Vector3.zero;
-            instance.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            instance.transform.localRotation = GetAssetVehiclePrefabRotation(prefab);
 
             ApplyPrefabMaterials(instance, new VehicleMaterials(color));
             RemovePrefabColliders(instance);
@@ -123,7 +123,7 @@ namespace BusPuzzle
             var instance = Object.Instantiate(prefab, root.transform, false);
             instance.name = $"{prefab.name} Mystery Instance";
             instance.transform.localPosition = Vector3.zero;
-            instance.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            instance.transform.localRotation = GetAssetVehiclePrefabRotation(prefab);
 
             ApplyPrefabMysteryMaterials(instance, new SilhouetteMaterials());
             RemovePrefabColliders(instance);
@@ -159,6 +159,13 @@ namespace BusPuzzle
             }
         }
 
+        private static Quaternion GetAssetVehiclePrefabRotation(GameObject prefab)
+        {
+            return prefab != null && prefab.name == "shop_large_bus_yellow"
+                ? Quaternion.identity
+                : Quaternion.Euler(0f, -90f, 0f);
+        }
+
         private static Material GetPrefabMaterial(Material sourceMaterial, VehicleMaterials materials)
         {
             if (sourceMaterial == null)
@@ -167,7 +174,14 @@ namespace BusPuzzle
             }
 
             var materialName = sourceMaterial.name;
-            if (ContainsMaterialName(materialName, "Rubber"))
+            if (ContainsMaterialName(materialName, "Tail"))
+            {
+                return materials.TailLight;
+            }
+
+            if (ContainsMaterialName(materialName, "Rubber") ||
+                ContainsMaterialName(materialName, "Wheel") ||
+                ContainsMaterialName(materialName, "Tire"))
             {
                 return materials.Wheel;
             }
@@ -182,7 +196,24 @@ namespace BusPuzzle
                 return materials.HeadLight;
             }
 
-            if (IsVehiclePaintMaterial(sourceMaterial))
+            if (ContainsMaterialName(materialName, "Metal") || ContainsMaterialName(materialName, "Hub"))
+            {
+                return materials.WheelHub;
+            }
+
+            if (ContainsMaterialName(materialName, "Dark"))
+            {
+                return materials.Outline;
+            }
+
+            if (ContainsMaterialName(materialName, "Body Soft") ||
+                ContainsMaterialName(materialName, "Accent") ||
+                ContainsMaterialName(materialName, "Secondary"))
+            {
+                return materials.Body;
+            }
+
+            if (IsVehiclePaintMaterial(sourceMaterial) || ContainsMaterialName(materialName, "Body"))
             {
                 return materials.Body;
             }
@@ -307,11 +338,24 @@ namespace BusPuzzle
             var widthScale = targetWidth / Mathf.Max(0.001f, bounds.size.x);
             var heightScale = targetHeight / Mathf.Max(0.001f, bounds.size.y);
             var lengthScale = targetLength / Mathf.Max(0.001f, bounds.size.z);
-            // Vehicle prefabs are rotated -90 degrees on import, so local X affects visual length and local Z affects visual width.
+            if (UsesNativePrefabAxes(instance))
+            {
+                instance.localScale = new Vector3(
+                    instance.localScale.x * widthScale,
+                    instance.localScale.y * heightScale,
+                    instance.localScale.z * lengthScale);
+                return;
+            }
+
             instance.localScale = new Vector3(
                 instance.localScale.x * lengthScale,
                 instance.localScale.y * heightScale,
                 instance.localScale.z * widthScale);
+        }
+
+        private static bool UsesNativePrefabAxes(Transform instance)
+        {
+            return instance != null && instance.name.StartsWith("shop_large_bus_yellow", System.StringComparison.Ordinal);
         }
 
         private static float GetPrefabVisualLengthFactor(BusSize size)

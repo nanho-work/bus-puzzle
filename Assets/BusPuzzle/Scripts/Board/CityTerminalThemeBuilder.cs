@@ -15,12 +15,12 @@ namespace BusPuzzle
 
             CreateBusYardEdgeSkin(CreateSection(root, "1 Bus Yard Edge Skin"), materials);
             CreateStationSkin(CreateSection(root, "2 Station Skin"), style);
-            CreateQueueFloorSkin(CreateSection(root, "3 Queue Floor Skin"), layout, settings, materials);
-            CreateQueueOuterLineSkin(CreateSection(root, "4 Queue Outer Line Skin"), layout, settings, materials);
-            CreateRotaryCenterSkin(CreateSection(root, "5 Rotary Center Skin"), settings, materials, theme, style);
-            CreateQueueSurroundings(CreateSection(root, "6 Queue Surroundings"), settings, materials);
-            CreateRotarySideMargins(CreateSection(root, "7 Rotary Side Margins"), settings, materials, theme, style);
-            CreateThemeProps(CreateSection(root, $"8 {style.Name} Props"), materials, theme, style);
+            CreateStationApproachLane(CreateSection(root, "3 Station Approach Lane"), settings, materials, style);
+            CreateQueueFloorSkin(CreateSection(root, "4 Queue Floor Skin"), layout, settings, materials);
+            CreateQueueOuterLineSkin(CreateSection(root, "5 Queue Outer Line Skin"), layout, settings, materials);
+            CreateRotaryCenterSkin(CreateSection(root, "6 Rotary Center Skin"), settings, materials, theme, style);
+            CreateQueueSurroundings(CreateSection(root, "7 Queue Surroundings"), settings, materials);
+            CreateRotarySideMargins(CreateSection(root, "8 Rotary Side Margins"), settings, materials, theme, style);
         }
 
         private static ThemeMaterials CreateMaterials(BoardThemeStyle style)
@@ -68,6 +68,72 @@ namespace BusPuzzle
         {
             root.gameObject.SetActive(true);
             CreateTerminalStationSkin(root, style);
+        }
+
+        private static void CreateStationApproachLane(
+            Transform root,
+            RotaryRoadBuildSettings settings,
+            ThemeMaterials materials,
+            BoardThemeStyle style)
+        {
+            var laneDepth = GetStationApproachLaneDepth();
+            var laneCenterZ = GetStationApproachLaneCenterZ(settings);
+            var laneWidth = BoardLayoutConfig.GridWorldWidth + BoardLayoutConfig.CellSize * 0.10f;
+            var roadMaterial = PuzzlePalette.CreateTransparentMaterial(
+                $"{style.Name} Station Approach Lane",
+                BoardThemePalette.WithAlpha(style.StationBayRoad, 0.46f));
+            var roadEdgeMaterial = PuzzlePalette.CreateTransparentMaterial(
+                $"{style.Name} Station Approach Lane Edge",
+                BoardThemePalette.WithAlpha(style.Rail, 0.42f));
+            var roadGuideMaterial = PuzzlePalette.CreateTransparentMaterial(
+                $"{style.Name} Station Approach Lane Guide",
+                BoardThemePalette.WithAlpha(style.Rail, 0.30f));
+
+            BoardGeometry.CreateFlatRoundedRect(
+                "Station Approach Lane Surface",
+                root,
+                new Vector3(0f, -0.082f, laneCenterZ),
+                new Vector2(laneWidth, laneDepth),
+                0.075f,
+                roadMaterial);
+
+            BoardGeometry.CreateFlatRect(
+                "Station Approach Lane Lower Edge",
+                root,
+                new Vector3(0f, -0.020f, laneCenterZ - laneDepth * 0.5f),
+                new Vector2(laneWidth - BoardLayoutConfig.CellSize * 0.26f, 0.018f),
+                roadEdgeMaterial);
+
+            BoardGeometry.CreateFlatRect(
+                "Station Approach Lane Upper Edge",
+                root,
+                new Vector3(0f, -0.020f, laneCenterZ + laneDepth * 0.5f),
+                new Vector2(laneWidth - BoardLayoutConfig.CellSize * 0.26f, 0.018f),
+                roadEdgeMaterial);
+
+            for (var index = 0; index < 5; index++)
+            {
+                var x = (index - 2) * BoardLayoutConfig.CellSize * 1.48f;
+                BoardGeometry.CreateFlatRect(
+                    $"Station Approach Lane Center Dash {index + 1}",
+                    root,
+                    new Vector3(x, -0.018f, laneCenterZ),
+                    new Vector2(BoardLayoutConfig.CellSize * 0.55f, 0.014f),
+                    roadGuideMaterial);
+            }
+
+            CreateCrosswalk(
+                root,
+                new Vector3(-2.28f, -0.017f, laneCenterZ),
+                BoardLayoutConfig.CellSize * 0.56f,
+                laneDepth * 0.72f,
+                materials.WhiteLine);
+            CreateCrosswalk(
+                root,
+                new Vector3(2.28f, -0.017f, laneCenterZ),
+                BoardLayoutConfig.CellSize * 0.56f,
+                laneDepth * 0.72f,
+                materials.WhiteLine);
         }
 
         private static void CreateTerminalStationSkin(Transform root, BoardThemeStyle style)
@@ -297,6 +363,19 @@ namespace BusPuzzle
             return new Vector3(localX, y, worldZ);
         }
 
+        private static float GetStationApproachLaneDepth()
+        {
+            return Mathf.Max(
+                BoardLayoutConfig.CellSize * 1.24f,
+                BoardLayoutConfig.VehicleVisualWidthCells * BoardLayoutConfig.CellSize * 1.30f);
+        }
+
+        private static float GetStationApproachLaneCenterZ(RotaryRoadBuildSettings settings)
+        {
+            var stationUpperLineZ = settings.StationZ + BoardLayoutConfig.StationSlotDepth * 0.5f;
+            return stationUpperLineZ + GetStationApproachLaneDepth() * 0.5f + BoardLayoutConfig.CellSize * 0.22f;
+        }
+
         private static void CreateYardMarkings(Transform root, Material whiteLine)
         {
             var gridCenter = new Vector3(0f, 0f, BoardLayoutConfig.ParkingYardCenterZ);
@@ -415,18 +494,22 @@ namespace BusPuzzle
             BoardThemeId theme,
             BoardThemeStyle style)
         {
-            var z = settings.RotaryCenterZ + 0.12f;
+            var laneCenterZ = GetStationApproachLaneCenterZ(settings);
+            var propZ = laneCenterZ + GetStationApproachLaneDepth() * 0.5f + BoardLayoutConfig.CellSize * 0.52f;
+            var propX = (BoardLayoutConfig.GridWorldWidth + BoardLayoutConfig.CellSize * 0.10f) * 0.5f + BoardLayoutConfig.CellSize * 0.18f;
+            var leftPropPosition = new Vector3(-propX, 0f, propZ);
+            var rightPropPosition = new Vector3(propX, 0f, propZ);
             BoardGeometry.CreateFlatRect(
                 "Left Rotary Plaza Pavers",
                 root,
-                new Vector3(-2.45f, -0.083f, z),
-                new Vector2(0.38f, 1.55f),
+                new Vector3(leftPropPosition.x, -0.083f, leftPropPosition.z),
+                new Vector2(0.38f, 0.56f),
                 materials.PaverA);
             BoardGeometry.CreateFlatRect(
                 "Right Rotary Plaza Pavers",
                 root,
-                new Vector3(2.45f, -0.083f, z),
-                new Vector2(0.38f, 1.55f),
+                new Vector3(rightPropPosition.x, -0.083f, rightPropPosition.z),
+                new Vector2(0.38f, 0.56f),
                 materials.PaverB);
 
             var shadow = PuzzlePalette.CreateTransparentMaterial($"Side {style.Name} Prop Shadow", style.PropShadow);
@@ -438,23 +521,158 @@ namespace BusPuzzle
             switch (theme)
             {
                 case BoardThemeId.Harbor:
-                    CreateContainerStack(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), accentB, accentA, accentC, shadow, 0.82f);
-                    CreateHarborCrane(root, new Vector3(2.43f, 0f, z + 0.48f), Quaternion.Euler(0f, 28f, 0f), accentC, materials.Pole, materials.Safety, shadow, 0.82f);
+                    CreateContainerStack(root, leftPropPosition, Quaternion.Euler(0f, 90f, 0f), accentB, accentA, accentC, shadow, 1.22f);
+                    CreateHarborCrane(root, rightPropPosition, Quaternion.Euler(0f, 28f, 0f), accentC, materials.Pole, materials.Safety, shadow, 1.18f);
                     break;
                 case BoardThemeId.Future:
+                    CreateCityBlockCluster(root, leftPropPosition, Quaternion.Euler(0f, 90f, 0f), baseMaterial, accentA, accentB, shadow, 1.18f);
+                    CreateEnergyPylon(root, rightPropPosition, Quaternion.Euler(0f, 28f, 0f), baseMaterial, accentA, accentC, shadow, 1.18f);
+                    break;
                 case BoardThemeId.Space:
-                    CreateCityBlockCluster(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), baseMaterial, accentA, accentB, shadow, 0.82f);
-                    CreateEnergyPylon(root, new Vector3(2.43f, 0f, z + 0.48f), Quaternion.Euler(0f, 28f, 0f), baseMaterial, accentA, accentC, shadow, 0.82f);
+                    CreateMoonRadar(root, leftPropPosition, Quaternion.Euler(0f, 78f, 0f), baseMaterial, accentA, accentB, shadow);
+                    CreateEnergyPylon(root, rightPropPosition, Quaternion.Euler(0f, 28f, 0f), baseMaterial, accentA, accentC, shadow, 1.24f);
                     break;
                 case BoardThemeId.Waikiki:
-                    CreatePalmTree(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), baseMaterial, accentA, shadow, 0.82f);
-                    CreateBeachUmbrella(root, new Vector3(2.43f, 0f, z + 0.48f), Quaternion.Euler(0f, 28f, 0f), accentB, accentC, materials.Pole, shadow, 0.82f);
+                    CreatePalmTree(root, leftPropPosition, Quaternion.Euler(0f, 90f, 0f), baseMaterial, accentA, shadow, 1.24f);
+                    CreateBeachUmbrella(root, rightPropPosition, Quaternion.Euler(0f, 28f, 0f), accentB, accentC, materials.Pole, shadow, 1.24f);
+                    break;
+                case BoardThemeId.Ice:
+                    CreateSnowyPine(root, leftPropPosition, Quaternion.Euler(0f, 12f, 0f), baseMaterial, accentA, accentC, shadow);
+                    CreateSnowman(root, rightPropPosition, Quaternion.Euler(0f, -18f, 0f), accentA, accentB, accentC, shadow);
+                    break;
+                case BoardThemeId.Desert:
+                    CreatePyramid(root, leftPropPosition, Quaternion.Euler(0f, 16f, 0f), baseMaterial, accentB, shadow);
+                    CreateDesertStatue(root, rightPropPosition, Quaternion.Euler(0f, -20f, 0f), accentB, accentC, shadow);
                     break;
                 default:
-                    CreateBollardPair(root, new Vector3(-2.43f, 0f, z - 0.48f), Quaternion.Euler(0f, 90f, 0f), materials.Pole, materials.Safety, shadow, 0.82f);
-                    CreateDataNodeCluster(root, new Vector3(2.43f, 0f, z + 0.48f), accentA, shadow, 0.82f);
+                    CreateSoccerGoal(root, leftPropPosition, Quaternion.Euler(0f, 90f, 0f), materials.Pole, materials.WhiteLine, shadow);
+                    CreateTeamBench(root, rightPropPosition, Quaternion.Euler(0f, -18f, 0f), baseMaterial, accentA, materials.Pole, shadow);
                     break;
             }
+        }
+
+        private static void CreateSoccerGoal(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material frameMaterial,
+            Material netMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Field Soccer Goal Shadow", center, new Vector2(0.86f, 0.44f), shadowMaterial, rotation);
+            CreateBox("Field Soccer Goal Back Bar", root, center + rotation * new Vector3(0f, 0.270f, -0.120f), new Vector3(0.680f, 0.035f, 0.040f), frameMaterial, rotation);
+            CreateBox("Field Soccer Goal Left Post", root, center + rotation * new Vector3(-0.340f, 0.150f, -0.120f), new Vector3(0.040f, 0.300f, 0.040f), frameMaterial, rotation);
+            CreateBox("Field Soccer Goal Right Post", root, center + rotation * new Vector3(0.340f, 0.150f, -0.120f), new Vector3(0.040f, 0.300f, 0.040f), frameMaterial, rotation);
+            CreateBox("Field Soccer Goal Net A", root, center + rotation * new Vector3(-0.170f, 0.150f, -0.142f), new Vector3(0.020f, 0.220f, 0.020f), netMaterial, rotation);
+            CreateBox("Field Soccer Goal Net B", root, center + rotation * new Vector3(0.170f, 0.150f, -0.142f), new Vector3(0.020f, 0.220f, 0.020f), netMaterial, rotation);
+            CreateBox("Field Soccer Goal Ground Line", root, center + rotation * new Vector3(0f, 0.030f, 0.110f), new Vector3(0.760f, 0.024f, 0.030f), netMaterial, rotation);
+        }
+
+        private static void CreateTeamBench(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material seatMaterial,
+            Material canopyMaterial,
+            Material legMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Field Team Bench Shadow", center, new Vector2(0.82f, 0.38f), shadowMaterial, rotation);
+            CreateBox("Field Team Bench Seat", root, center + Vector3.up * 0.110f, new Vector3(0.680f, 0.070f, 0.180f), seatMaterial, rotation);
+            CreateBox("Field Team Bench Back", root, center + rotation * new Vector3(0f, 0.225f, 0.095f), new Vector3(0.720f, 0.180f, 0.045f), canopyMaterial, rotation);
+            CreateBox("Field Team Bench Canopy", root, center + rotation * new Vector3(0f, 0.370f, 0.005f), new Vector3(0.820f, 0.050f, 0.300f), canopyMaterial, rotation);
+            CreateBox("Field Team Bench Left Leg", root, center + rotation * new Vector3(-0.260f, 0.055f, -0.040f), new Vector3(0.045f, 0.110f, 0.050f), legMaterial, rotation);
+            CreateBox("Field Team Bench Right Leg", root, center + rotation * new Vector3(0.260f, 0.055f, -0.040f), new Vector3(0.045f, 0.110f, 0.050f), legMaterial, rotation);
+        }
+
+        private static void CreateSnowyPine(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material trunkMaterial,
+            Material pineMaterial,
+            Material snowMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Ice Snow Pine Shadow", center, new Vector2(0.56f, 0.46f), shadowMaterial, rotation);
+            CreateCylinder("Ice Snow Pine Trunk", root, center + Vector3.up * 0.130f, new Vector3(0.065f, 0.260f, 0.065f), trunkMaterial, rotation);
+            CreateCylinder("Ice Snow Pine Lower Branches", root, center + Vector3.up * 0.255f, new Vector3(0.310f, 0.170f, 0.310f), pineMaterial, rotation);
+            CreateCylinder("Ice Snow Pine Upper Branches", root, center + Vector3.up * 0.405f, new Vector3(0.225f, 0.150f, 0.225f), pineMaterial, rotation);
+            CreateSphere("Ice Snow Pine Cap", root, center + Vector3.up * 0.520f, 0.150f, snowMaterial);
+            CreateSphere("Ice Snow Pine Snow Patch", root, center + rotation * new Vector3(-0.110f, 0.345f, 0.040f), 0.092f, snowMaterial);
+        }
+
+        private static void CreateSnowman(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material snowMaterial,
+            Material scarfMaterial,
+            Material accentMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Ice Snowman Shadow", center, new Vector2(0.56f, 0.42f), shadowMaterial, rotation);
+            CreateSphere("Ice Snowman Body", root, center + Vector3.up * 0.145f, 0.230f, snowMaterial);
+            CreateSphere("Ice Snowman Head", root, center + Vector3.up * 0.410f, 0.155f, snowMaterial);
+            CreateBox("Ice Snowman Scarf", root, center + Vector3.up * 0.315f, new Vector3(0.270f, 0.040f, 0.050f), scarfMaterial, rotation);
+            CreateBox("Ice Snowman Nose", root, center + rotation * new Vector3(0f, 0.420f, -0.145f), new Vector3(0.040f, 0.030f, 0.095f), accentMaterial, rotation);
+            CreateSphere("Ice Snowman Button A", root, center + rotation * new Vector3(0f, 0.205f, -0.205f), 0.030f, accentMaterial);
+            CreateSphere("Ice Snowman Button B", root, center + rotation * new Vector3(0f, 0.120f, -0.220f), 0.026f, accentMaterial);
+        }
+
+        private static void CreatePyramid(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material stoneMaterial,
+            Material capMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Desert Pyramid Shadow", center, new Vector2(0.82f, 0.58f), shadowMaterial, rotation);
+            CreateBox("Desert Pyramid Base", root, center + Vector3.up * 0.070f, new Vector3(0.720f, 0.140f, 0.520f), stoneMaterial, rotation);
+            CreateBox("Desert Pyramid Middle", root, center + Vector3.up * 0.195f, new Vector3(0.520f, 0.130f, 0.380f), stoneMaterial, rotation);
+            CreateBox("Desert Pyramid Top", root, center + Vector3.up * 0.305f, new Vector3(0.300f, 0.110f, 0.220f), capMaterial, rotation);
+            CreateBox("Desert Pyramid Cap", root, center + Vector3.up * 0.405f, new Vector3(0.120f, 0.090f, 0.090f), capMaterial, rotation);
+        }
+
+        private static void CreateDesertStatue(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material stoneMaterial,
+            Material accentMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Desert Statue Shadow", center, new Vector2(0.72f, 0.40f), shadowMaterial, rotation);
+            CreateBox("Desert Statue Body", root, center + Vector3.up * 0.140f, new Vector3(0.520f, 0.160f, 0.240f), stoneMaterial, rotation);
+            CreateBox("Desert Statue Chest", root, center + rotation * new Vector3(-0.070f, 0.275f, -0.020f), new Vector3(0.280f, 0.160f, 0.210f), stoneMaterial, rotation);
+            CreateBox("Desert Statue Head", root, center + rotation * new Vector3(-0.230f, 0.365f, -0.020f), new Vector3(0.160f, 0.150f, 0.160f), stoneMaterial, rotation);
+            CreateBox("Desert Statue Face Mark", root, center + rotation * new Vector3(-0.318f, 0.375f, -0.020f), new Vector3(0.018f, 0.070f, 0.110f), accentMaterial, rotation);
+            CreateBox("Desert Statue Front Paw A", root, center + rotation * new Vector3(-0.290f, 0.070f, -0.120f), new Vector3(0.240f, 0.070f, 0.070f), stoneMaterial, rotation);
+            CreateBox("Desert Statue Front Paw B", root, center + rotation * new Vector3(-0.290f, 0.070f, 0.120f), new Vector3(0.240f, 0.070f, 0.070f), stoneMaterial, rotation);
+        }
+
+        private static void CreateMoonRadar(
+            Transform root,
+            Vector3 center,
+            Quaternion rotation,
+            Material baseMaterial,
+            Material dishMaterial,
+            Material glowMaterial,
+            Material shadowMaterial)
+        {
+            CreatePropShadow(root, "Space Radar Shadow", center, new Vector2(0.68f, 0.44f), shadowMaterial, rotation);
+            CreateCylinder("Space Radar Base", root, center + Vector3.up * 0.065f, new Vector3(0.210f, 0.085f, 0.210f), baseMaterial, rotation);
+            CreateBox("Space Radar Mast", root, center + Vector3.up * 0.240f, new Vector3(0.052f, 0.340f, 0.052f), baseMaterial, rotation);
+            BoardGeometry.CreateFlatRoundedRect(
+                "Space Radar Dish",
+                root,
+                center + rotation * new Vector3(0f, 0.445f, -0.040f),
+                new Vector2(0.520f, 0.370f),
+                0.170f,
+                dishMaterial,
+                rotation * Quaternion.Euler(22f, 0f, 0f));
+            CreateSphere("Space Radar Glow", root, center + rotation * new Vector3(0f, 0.460f, -0.090f), 0.095f, glowMaterial);
         }
 
         private static void CreateThemeProps(

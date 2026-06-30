@@ -22,13 +22,14 @@ MonoBehaviour:
       maxGroupUnits: 10
       interferenceRatio: 0.22
       preserveSolutionRoute: 1
-    targetVehicleCount: 28
+    targetVehicleCount: 26
     targetColorCount: 5
-    parkingTension: 0.37714288
-    stationPressure: 0.34
+    parkingTension: 0.34914574
+    stationPressure: 0.30984926
     requireSolutionRoute: 0
   roadPresetId: 2
   roadPresetAsset: {fileID: 0}
+  presentationMode: 0
   rotaryUnitCapacity: 20
   passengerUnits: 
   passengerFlowPlan:
@@ -40,35 +41,35 @@ MonoBehaviour:
     autoFillMissingCapacity: 1
     groups: []
     solutionRoute:
-    - color: 0
-      size: 2
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 10
-    - color: 5
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
     - color: 2
       size: 1
       overrideUnitCount: 0
       preferredGroupUnitCount: 7
-    - color: 2
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 3
-      size: 2
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 10
     - color: 5
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 0
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
+    - color: 0
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 3
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
     - color: 2
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 0
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
-    - color: 2
+    - color: 5
       size: 1
       overrideUnitCount: 0
       preferredGroupUnitCount: 7
@@ -80,7 +81,7 @@ MonoBehaviour:
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
-    - color: 0
+    - color: 1
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
@@ -89,42 +90,6 @@ MonoBehaviour:
       overrideUnitCount: 0
       preferredGroupUnitCount: 7
     - color: 5
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 3
-      size: 1
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 7
-    - color: 3
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 1
-      size: 1
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 7
-    - color: 5
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 3
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 2
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 1
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 3
-      size: 1
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 7
-    - color: 0
       size: 2
       overrideUnitCount: 0
       preferredGroupUnitCount: 10
@@ -133,222 +98,236 @@ MonoBehaviour:
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
     - color: 0
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 1
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 3
+      size: 2
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 10
+    - color: 3
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 5
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 0
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
+    - color: 3
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
+    - color: 3
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 2
+      size: 1
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 7
+    - color: 2
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
     - color: 1
-      size: 0
+      size: 1
       overrideUnitCount: 0
-      preferredGroupUnitCount: 4
+      preferredGroupUnitCount: 7
     - color: 5
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 5
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 0
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
   buses:
   - color: 0
+    size: 1
+    direction: 1
+    angleOffsetDegrees: 0.30689207
+    positionOffsetCells: {x: -0.008226904, y: 0.014555775}
+    gridPosition: {x: 2, y: 2}
+    startsConcealed: 0
+  - color: 5
+    size: 1
+    direction: 1
+    angleOffsetDegrees: 0.068934664
+    positionOffsetCells: {x: -0.015093756, y: 0.015333143}
+    gridPosition: {x: 6, y: 2}
+    startsConcealed: 0
+  - color: 2
+    size: 1
+    direction: 1
+    angleOffsetDegrees: 0.105191894
+    positionOffsetCells: {x: 0.002818596, y: 0.014969195}
+    gridPosition: {x: 10, y: 2}
+    startsConcealed: 0
+  - color: 3
+    size: 1
+    direction: 3
+    angleOffsetDegrees: 0.577564
+    positionOffsetCells: {x: 0.0026037914, y: 0.012332248}
+    gridPosition: {x: 12, y: 4}
+    startsConcealed: 0
+  - color: 1
+    size: 1
+    direction: 3
+    angleOffsetDegrees: 0.003933856
+    positionOffsetCells: {x: 0.0152573045, y: 0.001875938}
+    gridPosition: {x: 8, y: 4}
+    startsConcealed: 0
+  - color: 0
     size: 0
-    direction: 0
-    angleOffsetDegrees: -0.052790817
-    positionOffsetCells: {x: 0.012011692, y: 0.015502971}
+    direction: 3
+    angleOffsetDegrees: 0.41767734
+    positionOffsetCells: {x: -0.0031414158, y: 0.006472722}
+    gridPosition: {x: 4, y: 4}
+    startsConcealed: 0
+  - color: 5
+    size: 1
+    direction: 3
+    angleOffsetDegrees: -0.47608453
+    positionOffsetCells: {x: -0.0031927968, y: 0.004777388}
+    gridPosition: {x: 2, y: 4}
+    startsConcealed: 0
+  - color: 2
+    size: 1
+    direction: 1
+    angleOffsetDegrees: -0.05456561
+    positionOffsetCells: {x: 0.010178331, y: 0.012751396}
+    gridPosition: {x: 2, y: 6}
+    startsConcealed: 0
+  - color: 3
+    size: 2
+    direction: 1
+    angleOffsetDegrees: -0.22648434
+    positionOffsetCells: {x: -0.015243273, y: -0.012024913}
+    gridPosition: {x: 6, y: 6}
+    startsConcealed: 0
+  - color: 1
+    size: 0
+    direction: 1
+    angleOffsetDegrees: 0.28022933
+    positionOffsetCells: {x: -0.009143028, y: -0.0036588225}
+    gridPosition: {x: 10, y: 6}
+    startsConcealed: 0
+  - color: 0
+    size: 0
+    direction: 1
+    angleOffsetDegrees: 0.08841418
+    positionOffsetCells: {x: 0.00086313364, y: -0.0014197169}
+    gridPosition: {x: 12, y: 6}
+    startsConcealed: 0
+  - color: 5
+    size: 0
+    direction: 3
+    angleOffsetDegrees: -0.14138058
+    positionOffsetCells: {x: 0.012495984, y: 0.0132435}
+    gridPosition: {x: 12, y: 8}
+    startsConcealed: 0
+  - color: 2
+    size: 0
+    direction: 3
+    angleOffsetDegrees: -0.3565276
+    positionOffsetCells: {x: -0.008955213, y: -0.004154664}
+    gridPosition: {x: 10, y: 8}
+    startsConcealed: 0
+  - color: 3
+    size: 1
+    direction: 3
+    angleOffsetDegrees: 0.468139
+    positionOffsetCells: {x: -0.010496776, y: -0.00071055663}
+    gridPosition: {x: 8, y: 8}
+    startsConcealed: 0
+  - color: 1
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 0.328299
+    positionOffsetCells: {x: -0.0021334179, y: -0.009462979}
+    gridPosition: {x: 4, y: 8}
+    startsConcealed: 0
+  - color: 0
+    size: 1
+    direction: 3
+    angleOffsetDegrees: -0.2301657
+    positionOffsetCells: {x: 0.010728202, y: 0.011767429}
+    gridPosition: {x: 2, y: 8}
+    startsConcealed: 0
+  - color: 5
+    size: 1
+    direction: 1
+    angleOffsetDegrees: -0.24441563
+    positionOffsetCells: {x: -0.011535346, y: 0.002847104}
+    gridPosition: {x: 2, y: 10}
+    startsConcealed: 0
+  - color: 2
+    size: 1
+    direction: 1
+    angleOffsetDegrees: 0.16620772
+    positionOffsetCells: {x: -0.011449801, y: 0.015218204}
+    gridPosition: {x: 6, y: 10}
+    startsConcealed: 0
+  - color: 3
+    size: 1
+    direction: 1
+    angleOffsetDegrees: 0.57293385
+    positionOffsetCells: {x: -0.007917408, y: 0.011469824}
+    gridPosition: {x: 10, y: 10}
+    startsConcealed: 0
+  - color: 1
+    size: 1
+    direction: 3
+    angleOffsetDegrees: 0.30535564
+    positionOffsetCells: {x: -0.008544002, y: 0.003659173}
+    gridPosition: {x: 12, y: 12}
+    startsConcealed: 0
+  - color: 0
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 0.38685364
+    positionOffsetCells: {x: 0.0044338168, y: 0.01112162}
+    gridPosition: {x: 8, y: 12}
+    startsConcealed: 0
+  - color: 5
+    size: 2
+    direction: 3
+    angleOffsetDegrees: -0.49796718
+    positionOffsetCells: {x: 0.0040052515, y: 0.0021725178}
+    gridPosition: {x: 6, y: 12}
+    startsConcealed: 0
+  - color: 2
+    size: 1
+    direction: 3
+    angleOffsetDegrees: 0.0020966523
+    positionOffsetCells: {x: -0.00783555, y: -0.0030758944}
+    gridPosition: {x: 2, y: 12}
+    startsConcealed: 0
+  - color: 3
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 0.35585904
+    positionOffsetCells: {x: 0.012501259, y: -0.012065823}
+    gridPosition: {x: 9, y: 1}
+    startsConcealed: 0
+  - color: 1
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 0.46880963
+    positionOffsetCells: {x: 0.010786167, y: -0.0018743792}
+    gridPosition: {x: 5, y: 1}
+    startsConcealed: 0
+  - color: 0
+    size: 0
+    direction: 3
+    angleOffsetDegrees: -0.14444225
+    positionOffsetCells: {x: 0.015201453, y: -0.0129647795}
     gridPosition: {x: 1, y: 1}
     startsConcealed: 0
-  - color: 5
-    size: 0
-    direction: 1
-    angleOffsetDegrees: 0.33399314
-    positionOffsetCells: {x: 0.004301988, y: 0.0012838518}
-    gridPosition: {x: 1, y: 3}
-    startsConcealed: 0
-  - color: 2
-    size: 1
-    direction: 1
-    angleOffsetDegrees: 0.4612609
-    positionOffsetCells: {x: -0.015152557, y: 0.008607403}
-    gridPosition: {x: 3, y: 1}
-    startsConcealed: 0
-  - color: 3
-    size: 1
-    direction: 0
-    angleOffsetDegrees: -0.023317434
-    positionOffsetCells: {x: -0.011771486, y: -0.01158766}
-    gridPosition: {x: 1, y: 5}
-    startsConcealed: 0
-  - color: 1
-    size: 0
-    direction: 0
-    angleOffsetDegrees: 0.5960601
-    positionOffsetCells: {x: -0.013726583, y: -0.0062092203}
-    gridPosition: {x: 3, y: 3}
-    startsConcealed: 0
-  - color: 0
-    size: 2
-    direction: 1
-    angleOffsetDegrees: 0.007886511
-    positionOffsetCells: {x: -0.016079968, y: -0.007836249}
-    gridPosition: {x: 3, y: 5}
-    startsConcealed: 0
-  - color: 5
-    size: 0
-    direction: 1
-    angleOffsetDegrees: -0.6366632
-    positionOffsetCells: {x: 0.014013326, y: 0.010670935}
-    gridPosition: {x: 5, y: 3}
-    startsConcealed: 0
-  - color: 2
-    size: 1
-    direction: 1
-    angleOffsetDegrees: 0.68402815
-    positionOffsetCells: {x: 0.014688307, y: -0.004375255}
-    gridPosition: {x: 7, y: 1}
-    startsConcealed: 0
-  - color: 3
-    size: 0
-    direction: 0
-    angleOffsetDegrees: -0.5194326
-    positionOffsetCells: {x: -0.014969119, y: -0.006620741}
-    gridPosition: {x: 1, y: 9}
-    startsConcealed: 0
-  - color: 1
-    size: 0
-    direction: 0
-    angleOffsetDegrees: -0.6144146
-    positionOffsetCells: {x: -0.010092875, y: -0.013179679}
-    gridPosition: {x: 3, y: 7}
-    startsConcealed: 0
-  - color: 0
-    size: 0
-    direction: 0
-    angleOffsetDegrees: -0.36305952
-    positionOffsetCells: {x: 0.01558645, y: -0.012005805}
-    gridPosition: {x: 7, y: 3}
-    startsConcealed: 0
-  - color: 5
-    size: 0
-    direction: 1
-    angleOffsetDegrees: -0.024259983
-    positionOffsetCells: {x: -0.015013384, y: 0.00500357}
-    gridPosition: {x: 1, y: 11}
-    startsConcealed: 0
-  - color: 2
-    size: 0
-    direction: 1
-    angleOffsetDegrees: 0.11586861
-    positionOffsetCells: {x: -0.006460002, y: -0.008613235}
-    gridPosition: {x: 3, y: 9}
-    startsConcealed: 0
-  - color: 3
-    size: 1
-    direction: 1
-    angleOffsetDegrees: -0.36691302
-    positionOffsetCells: {x: -0.0017990128, y: 0.010327195}
-    gridPosition: {x: 5, y: 7}
-    startsConcealed: 0
-  - color: 1
-    size: 0
-    direction: 1
-    angleOffsetDegrees: 0.38897628
-    positionOffsetCells: {x: -0.001492439, y: -0.005062525}
-    gridPosition: {x: 7, y: 5}
-    startsConcealed: 0
-  - color: 0
-    size: 2
-    direction: 1
-    angleOffsetDegrees: -0.10613314
-    positionOffsetCells: {x: 0.008109205, y: 0.015416144}
-    gridPosition: {x: 9, y: 3}
-    startsConcealed: 0
-  - color: 5
-    size: 0
-    direction: 1
-    angleOffsetDegrees: -0.23835555
-    positionOffsetCells: {x: -0.0020304797, y: 0.009475459}
-    gridPosition: {x: 11, y: 1}
-    startsConcealed: 0
-  - color: 2
-    size: 1
-    direction: 0
-    angleOffsetDegrees: -0.08012642
-    positionOffsetCells: {x: 0.0025207421, y: -0.0057648476}
-    gridPosition: {x: 3, y: 11}
-    startsConcealed: 0
-  - color: 3
-    size: 0
-    direction: 0
-    angleOffsetDegrees: -0.18414776
-    positionOffsetCells: {x: 0.00027951068, y: -0.0062354826}
-    gridPosition: {x: 5, y: 9}
-    startsConcealed: 0
-  - color: 1
-    size: 1
-    direction: 0
-    angleOffsetDegrees: 0.42662898
-    positionOffsetCells: {x: -0.007831028, y: -0.014384908}
-    gridPosition: {x: 9, y: 5}
-    startsConcealed: 0
-  - color: 0
-    size: 0
-    direction: 1
-    angleOffsetDegrees: 0.23179634
-    positionOffsetCells: {x: 0.0072123935, y: -0.002312118}
-    gridPosition: {x: 5, y: 11}
-    startsConcealed: 0
-  - color: 5
-    size: 0
-    direction: 1
-    angleOffsetDegrees: -0.6123898
-    positionOffsetCells: {x: 0.011560436, y: -0.00090798526}
-    gridPosition: {x: 7, y: 9}
-    startsConcealed: 0
-  - color: 2
-    size: 0
-    direction: 1
-    angleOffsetDegrees: -0.19104548
-    positionOffsetCells: {x: -0.005520006, y: -0.005934423}
-    gridPosition: {x: 11, y: 5}
-    startsConcealed: 0
-  - color: 3
-    size: 2
-    direction: 0
-    angleOffsetDegrees: -0.3857275
-    positionOffsetCells: {x: 0.0036251596, y: -0.013189755}
-    gridPosition: {x: 7, y: 11}
-    startsConcealed: 0
-  - color: 1
-    size: 0
-    direction: 0
-    angleOffsetDegrees: 0.23232521
-    positionOffsetCells: {x: 0.0048888866, y: -0.016307233}
-    gridPosition: {x: 9, y: 9}
-    startsConcealed: 0
-  - color: 0
-    size: 0
-    direction: 0
-    angleOffsetDegrees: 0.67214364
-    positionOffsetCells: {x: 0.007920994, y: -0.0030771769}
-    gridPosition: {x: 11, y: 7}
-    startsConcealed: 0
-  - color: 5
-    size: 0
-    direction: 1
-    angleOffsetDegrees: 0.050333444
-    positionOffsetCells: {x: 0.010915995, y: 0.011642907}
-    gridPosition: {x: 9, y: 11}
-    startsConcealed: 0
-  - color: 2
-    size: 0
-    direction: 1
-    angleOffsetDegrees: 0.06801984
-    positionOffsetCells: {x: 0.002415557, y: 0.0072208396}
-    gridPosition: {x: 11, y: 9}
-    startsConcealed: 0
   garages: []
-  generationSignature: signature=3;stage=8;seed=18072;difficulty=0;modifiers=0;progress=0.1429;post50=0;road=2;layoutVariant=136;layoutPool=200;garages=0;garageQueueMin=1;garageQueueMax=4;rotary=20;mysteryEnabled=0;mysteryMin=0;mysteryMax=0;mysteryRatio=0;minSolutions=48;maxSolutions=180;vehicles=28;colors=5;parking=0.3771;station=0.34;route=0;flowMin=0.45;flowMax=0.7;groupMin=3;groupMax=10;interference=0.22;preserve=1;garageEnabled=1;garageRuleQueueMin=1;garageRuleQueueMax=4;garageRulePostQueueMin=2;garageRulePostQueueMax=6;stageCount=50;rampStart=11;rampReference=30;rampMax=50;postRampMax=100;baseSeed=10000;releaseVehicleAttempts=8;solutionLimit=256;
+  generationSignature: signature=4;stage=8;seed=18072;difficulty=0;modifiers=0;progress=0.0352;post50=0;road=2;layoutVariant=216;layoutPool=220;garages=0;garageQueueMin=1;garageQueueMax=4;rotary=20;mysteryEnabled=0;mysteryMin=0;mysteryMax=0;mysteryRatio=0;minSolutions=48;maxSolutions=180;vehicles=26;colors=5;parking=0.3491;station=0.3098;route=0;flowMin=0.45;flowMax=0.7;groupMin=3;groupMax=10;interference=0.22;preserve=1;garageEnabled=1;garageRuleQueueMin=1;garageRuleQueueMax=4;garageRulePostQueueMin=2;garageRulePostQueueMax=6;stageCount=200;rampStart=11;rampReference=30;rampMax=50;postRampMax=201;baseSeed=10000;releaseVehicleAttempts=8;solutionLimit=256;
   generationSolutionCount: 181

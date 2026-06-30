@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9061ec0a61c04f65868e40d63e0606ce, type: 3}
   m_Name: StageGenerationConfig
   m_EditorClassIdentifier: 
-  generatedStageCount: 50
+  generatedStageCount: 200
   difficultyRampStartStage: 11
   difficultyRampReferenceStage: 30
   difficultyRampMaxStage: 50
@@ -35,7 +35,7 @@ MonoBehaviour:
   candidateAttemptsPerStage: 36
   releaseVehicleGenerationAttempts: 8
   releaseSolutionNodeVisitLimit: 12000
-  releaseBuildTimeBudgetSeconds: 600
+  releaseBuildTimeBudgetSeconds: 2400
   runtimeCandidateAttemptsPerStage: 8
   runtimeVehicleGenerationAttempts: 8
   solutionCountLimit: 256

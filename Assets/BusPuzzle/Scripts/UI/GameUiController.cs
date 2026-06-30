@@ -27,6 +27,9 @@ namespace BusPuzzle
         private const string LanguageIconResource = "UI/Boosters/Language";
         private const string StartupSplashResource = "UI/Boosters/main";
         private const int DailyChallengeLoadingSpinnerDotCount = 8;
+        private const int ClearCelebrationPieceCount = 54;
+        private const int ClearCelebrationPreviewStartStageNumber = 1;
+        private const float ClearCelebrationDurationSeconds = 1.25f;
         private const float HeaderIconSize = 117f;
         private const int HeaderStageFontSize = 60;
         private const int HeaderGoldFontSize = 34;
@@ -76,6 +79,11 @@ namespace BusPuzzle
         private Text nextButtonText;
         private RectTransform clearNextPreparingSpinnerRoot;
         private readonly RectTransform[] clearNextPreparingSpinnerDots = new RectTransform[DailyChallengeLoadingSpinnerDotCount];
+        private RectTransform clearCelebrationRoot;
+        private CanvasGroup clearCelebrationCanvasGroup;
+        private readonly RectTransform[] clearCelebrationPieces = new RectTransform[ClearCelebrationPieceCount];
+        private float clearCelebrationStartedAt;
+        private bool clearCelebrationActive;
         private RectTransform settingsPanel;
         private Text settingsTitleText;
         private Text effectSoundLabelText;
@@ -266,6 +274,7 @@ namespace BusPuzzle
             UpdateDailyChallengeButtonPulse();
             UpdateDailyChallengeLoadingOverlay();
             UpdateClearNextPreparingSpinner();
+            UpdateClearCelebration();
             TryShowInitialNicknamePrompt();
         }
 

@@ -144,7 +144,7 @@ namespace BusPuzzle
                 var changed = false;
                 for (var materialIndex = 0; materialIndex < sharedMaterials.Length; materialIndex++)
                 {
-                    var replacement = GetPrefabMaterial(sharedMaterials[materialIndex], materials);
+                    var replacement = GetPrefabMaterial(renderer, sharedMaterials[materialIndex], materials);
                     if (replacement != null && replacement != sharedMaterials[materialIndex])
                     {
                         sharedMaterials[materialIndex] = replacement;
@@ -162,12 +162,17 @@ namespace BusPuzzle
         private static Quaternion GetAssetVehiclePrefabRotation(GameObject prefab)
         {
             return prefab != null && prefab.name == "shop_large_bus_yellow"
-                ? Quaternion.identity
+                ? Quaternion.Euler(0f, 180f, 0f)
                 : Quaternion.Euler(0f, -90f, 0f);
         }
 
-        private static Material GetPrefabMaterial(Material sourceMaterial, VehicleMaterials materials)
+        private static Material GetPrefabMaterial(Renderer renderer, Material sourceMaterial, VehicleMaterials materials)
         {
+            if (IsBodyColoredPrefabPart(renderer))
+            {
+                return materials.Body;
+            }
+
             if (sourceMaterial == null)
             {
                 return null;
@@ -219,6 +224,14 @@ namespace BusPuzzle
             }
 
             return sourceMaterial;
+        }
+
+        private static bool IsBodyColoredPrefabPart(Renderer renderer)
+        {
+            var objectName = renderer != null && renderer.gameObject != null ? renderer.gameObject.name : string.Empty;
+            return ContainsMaterialName(objectName, "Flat Roof Highlight") ||
+                ContainsMaterialName(objectName, "Roof AC Long Unit") ||
+                ContainsMaterialName(objectName, "Roof Vent");
         }
 
         private static void ApplyPrefabMysteryMaterials(GameObject instance, SilhouetteMaterials materials)
@@ -1198,7 +1211,7 @@ namespace BusPuzzle
                 var bodyColor = PuzzlePalette.ToColor(color);
                 Body = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body", bodyColor, 0.74f);
                 BodyDark = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Shade", PuzzlePalette.Darken(bodyColor, 0.22f), 0.62f);
-                BodyLight = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Light", Color.Lerp(bodyColor, Color.white, 0.24f), 0.82f);
+                BodyLight = CreateLitMaterial($"{PuzzlePalette.DisplayName(color)} Vehicle Body Light", Color.Lerp(bodyColor, Color.white, 0.10f), 0.76f);
                 Glass = CreateLitMaterial("Vehicle Glass", new Color(0.055f, 0.20f, 0.32f), 0.88f);
                 Outline = CreateLitMaterial("Vehicle Dark Undercarriage", new Color(0.045f, 0.052f, 0.064f), 0.58f);
                 Bumper = CreateLitMaterial("Vehicle Bumper", new Color(0.065f, 0.075f, 0.088f), 0.50f);

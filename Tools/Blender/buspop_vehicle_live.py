@@ -500,9 +500,9 @@ def build_city_bus(collection, materials, scale):
 
     rounded_box(collection, "City Bus Low Long Body", materials["body"], (0, 0, 0.40 * s), (body_width, 3.46 * s, 0.54 * s), 0.025 * s)
     rounded_box(collection, "City Bus Upper Body Cap", materials["body"], (0, -0.03 * s, 0.69 * s), (body_width * 0.96, 3.20 * s, 0.15 * s), 0.035 * s)
-    rounded_box(collection, "City Bus Flat Roof Highlight", materials["body_soft"], (0, -0.05 * s, 0.80 * s), (0.56 * s, 2.82 * s, 0.050 * s), 0.022 * s)
-    rounded_box(collection, "City Bus Roof AC Long Unit", materials["body_soft"], (0, -0.18 * s, 0.875 * s), (0.32 * s, 0.58 * s, 0.070 * s), 0.022 * s)
-    rounded_box(collection, "City Bus Roof Vent", materials["body_soft"], (0, 0.82 * s, 0.865 * s), (0.20 * s, 0.20 * s, 0.052 * s), 0.018 * s)
+    rounded_box(collection, "City Bus Flat Roof Highlight", materials["body"], (0, -0.05 * s, 0.80 * s), (0.56 * s, 2.82 * s, 0.050 * s), 0.022 * s)
+    rounded_box(collection, "City Bus Roof AC Long Unit", materials["body"], (0, -0.18 * s, 0.875 * s), (0.32 * s, 0.58 * s, 0.070 * s), 0.022 * s)
+    rounded_box(collection, "City Bus Roof Vent", materials["body"], (0, 0.82 * s, 0.865 * s), (0.20 * s, 0.20 * s, 0.052 * s), 0.018 * s)
     rounded_box(collection, "City Bus Lower Yellow Skirt", materials["accent"], (0, -0.04 * s, 0.22 * s), (body_width + 0.018 * s, 3.10 * s, 0.070 * s), 0.006 * s)
     rounded_box(collection, "City Bus Thin Body Belt", materials["body_soft"], (0, -0.10 * s, 0.49 * s), (body_width + 0.012 * s, 2.92 * s, 0.020 * s), 0.004 * s)
     rounded_box(collection, "City Bus Front Flat Face", materials["body"], (0, front_y + 0.012 * s, 0.43 * s), (0.60 * s, 0.034 * s, 0.54 * s), 0.016 * s)

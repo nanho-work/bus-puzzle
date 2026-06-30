@@ -47,7 +47,8 @@ namespace BusPuzzle
 
         private const float PassengerFastForwardMultiplier = 3.0f;
         private const float EndgamePassengerSpeedMultiplier = 1.35f;
-        private const float ClearNextStagePreloadSettleSeconds = 0.05f;
+        private const float ClearNextStagePreloadSettleSeconds = 0.55f;
+        private const float ClearNextStageMinimumPreparingSeconds = 1.25f;
         private const float StageTransitionLoadingSettleSeconds = 0.05f;
         private const float DailyChallengeLoadingSettleSeconds = 0.08f;
         private const int EndgameRemainingBusThreshold = 4;
@@ -3065,13 +3066,14 @@ namespace BusPuzzle
         private void ScheduleClearNextStagePreload(int nextLevelIndex)
         {
             StopClearNextStagePreload();
-            if (levelSequence == null ||
+            var hasNextLevel = levelSequence != null &&
+                nextLevelIndex >= 0 &&
+                nextLevelIndex < levelSequence.Count;
+            if (!hasNextLevel ||
                 !levelSequence.UsesRuntimeGeneration ||
-                nextLevelIndex < 0 ||
-                nextLevelIndex >= levelSequence.Count ||
                 levelSequence.IsLevelCached(nextLevelIndex))
             {
-                uiController?.SetClearNextPreparing(false, levelSequence != null && nextLevelIndex >= 0 && nextLevelIndex < levelSequence.Count);
+                uiController?.SetClearNextPreparing(false, hasNextLevel);
                 return;
             }
 
@@ -3131,6 +3133,7 @@ namespace BusPuzzle
 
         private IEnumerator PreloadClearNextStageRoutine(int nextLevelIndex)
         {
+            var startedAt = Time.unscaledTime;
             yield return null;
             yield return new WaitForSecondsRealtime(ClearNextStagePreloadSettleSeconds);
 
@@ -3143,6 +3146,12 @@ namespace BusPuzzle
                 !levelSequence.IsLevelCached(nextLevelIndex))
             {
                 levelSequence.PreloadLevel(nextLevelIndex);
+            }
+
+            var remainingSettleSeconds = ClearNextStageMinimumPreparingSeconds - (Time.unscaledTime - startedAt);
+            if (remainingSettleSeconds > 0f)
+            {
+                yield return new WaitForSecondsRealtime(remainingSettleSeconds);
             }
 
             clearNextStagePreloadRoutine = null;

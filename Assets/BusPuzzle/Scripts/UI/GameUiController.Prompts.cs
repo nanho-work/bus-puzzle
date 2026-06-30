@@ -232,6 +232,7 @@ namespace BusPuzzle
                 NextLevelRequested?.Invoke();
             });
 
+            BuildClearCelebration(clearPrompt);
             HideClearPrompt();
         }
 
@@ -258,6 +259,14 @@ namespace BusPuzzle
             SetClearNextPreparing(false, hasNextLevel);
 
             SetClearRewardDouble(goldReward, false, false, false, false);
+            if (levelNumber >= ClearCelebrationPreviewStartStageNumber)
+            {
+                PlayClearCelebration();
+            }
+            else
+            {
+                StopClearCelebration();
+            }
         }
 
         private void HideClearPrompt()
@@ -270,6 +279,169 @@ namespace BusPuzzle
             if (clearNextPreparingSpinnerRoot != null)
             {
                 clearNextPreparingSpinnerRoot.gameObject.SetActive(false);
+            }
+
+            StopClearCelebration();
+        }
+
+        private void BuildClearCelebration(RectTransform overlay)
+        {
+            clearCelebrationRoot = CreateRectTransform("Clear Celebration Overlay", overlay);
+            SetAnchors(clearCelebrationRoot, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            clearCelebrationRoot.SetAsLastSibling();
+
+            var blocker = clearCelebrationRoot.gameObject.AddComponent<Image>();
+            blocker.color = new Color(1f, 1f, 1f, 0f);
+            blocker.raycastTarget = true;
+
+            clearCelebrationCanvasGroup = clearCelebrationRoot.gameObject.AddComponent<CanvasGroup>();
+            clearCelebrationCanvasGroup.interactable = false;
+            clearCelebrationCanvasGroup.blocksRaycasts = true;
+            clearCelebrationCanvasGroup.alpha = 0f;
+
+            for (var index = 0; index < clearCelebrationPieces.Length; index++)
+            {
+                var piece = CreateRoundedPanel($"Clear Celebration Piece {index + 1:00}", clearCelebrationRoot, GetClearCelebrationColor(index));
+                piece.anchorMin = new Vector2(0.5f, 0.5f);
+                piece.anchorMax = new Vector2(0.5f, 0.5f);
+                piece.pivot = new Vector2(0.5f, 0.5f);
+                piece.sizeDelta = GetClearCelebrationPieceSize(index);
+                clearCelebrationPieces[index] = piece;
+            }
+
+            clearCelebrationRoot.gameObject.SetActive(false);
+        }
+
+        private void PlayClearCelebration()
+        {
+            if (clearCelebrationRoot == null)
+            {
+                return;
+            }
+
+            clearCelebrationRoot.SetAsLastSibling();
+            clearCelebrationRoot.gameObject.SetActive(true);
+            clearCelebrationActive = true;
+            clearCelebrationStartedAt = Time.unscaledTime;
+            if (clearCelebrationCanvasGroup != null)
+            {
+                clearCelebrationCanvasGroup.alpha = 1f;
+                clearCelebrationCanvasGroup.blocksRaycasts = true;
+            }
+
+            UpdateClearCelebrationPieces(0f);
+        }
+
+        private void StopClearCelebration()
+        {
+            clearCelebrationActive = false;
+            if (clearCelebrationCanvasGroup != null)
+            {
+                clearCelebrationCanvasGroup.alpha = 0f;
+                clearCelebrationCanvasGroup.blocksRaycasts = false;
+            }
+
+            if (clearCelebrationRoot != null)
+            {
+                clearCelebrationRoot.gameObject.SetActive(false);
+            }
+        }
+
+        private void UpdateClearCelebration()
+        {
+            if (!clearCelebrationActive || clearCelebrationRoot == null)
+            {
+                return;
+            }
+
+            var progress = Mathf.Clamp01((Time.unscaledTime - clearCelebrationStartedAt) / ClearCelebrationDurationSeconds);
+            UpdateClearCelebrationPieces(progress);
+            if (clearCelebrationCanvasGroup != null)
+            {
+                var fadeProgress = Mathf.Clamp01((progress - 0.72f) / 0.28f);
+                clearCelebrationCanvasGroup.alpha = 1f - fadeProgress;
+                clearCelebrationCanvasGroup.blocksRaycasts = progress < 1f;
+            }
+
+            if (progress >= 1f)
+            {
+                StopClearCelebration();
+            }
+        }
+
+        private void UpdateClearCelebrationPieces(float progress)
+        {
+            var eased = 1f - Mathf.Pow(1f - progress, 3f);
+            var fall = progress * progress * 210f;
+            for (var index = 0; index < clearCelebrationPieces.Length; index++)
+            {
+                var piece = clearCelebrationPieces[index];
+                if (piece == null)
+                {
+                    continue;
+                }
+
+                var burstIndex = index % 3;
+                var burstCenterX = burstIndex == 0 ? -230f : burstIndex == 1 ? 0f : 230f;
+                var burstCenterY = burstIndex == 1 ? 92f : 44f;
+                var localIndex = index / 3;
+                var localCount = Mathf.CeilToInt(clearCelebrationPieces.Length / 3f);
+                var angle = localIndex * Mathf.PI * 2f / localCount + burstIndex * 0.42f + (index % 4) * 0.08f;
+                var lane = index % 5;
+                var startRadius = 34f + lane * 14f;
+                var endRadius = 420f + lane * 68f;
+                var radius = Mathf.Lerp(startRadius, endRadius, eased);
+                var position = new Vector2(
+                    burstCenterX + Mathf.Cos(angle) * radius,
+                    burstCenterY + Mathf.Sin(angle) * radius - fall);
+                piece.anchoredPosition = position;
+                piece.localRotation = Quaternion.Euler(0f, 0f, Mathf.Rad2Deg * angle + progress * (index % 2 == 0 ? 460f : -380f));
+
+                var pulse = Mathf.Sin(progress * Mathf.PI);
+                var scale = Mathf.Lerp(0.72f, 1.46f, pulse);
+                piece.localScale = Vector3.one * Mathf.Max(0.36f, scale);
+
+                var image = piece.GetComponent<Image>();
+                if (image != null)
+                {
+                    var color = GetClearCelebrationColor(index);
+                    color.a *= 1f - Mathf.Clamp01((progress - 0.74f) / 0.26f);
+                    image.color = color;
+                }
+            }
+        }
+
+        private static Vector2 GetClearCelebrationPieceSize(int index)
+        {
+            switch (index % 4)
+            {
+                case 0:
+                    return new Vector2(58f, 58f);
+                case 1:
+                    return new Vector2(34f, 86f);
+                case 2:
+                    return new Vector2(90f, 34f);
+                default:
+                    return new Vector2(46f, 46f);
+            }
+        }
+
+        private static Color GetClearCelebrationColor(int index)
+        {
+            switch (index % 6)
+            {
+                case 0:
+                    return new Color(1.00f, 0.78f, 0.16f, 0.96f);
+                case 1:
+                    return new Color(0.17f, 0.82f, 1.00f, 0.92f);
+                case 2:
+                    return new Color(0.24f, 0.90f, 0.50f, 0.92f);
+                case 3:
+                    return new Color(1.00f, 0.34f, 0.40f, 0.94f);
+                case 4:
+                    return new Color(0.65f, 0.40f, 1.00f, 0.92f);
+                default:
+                    return new Color(1.00f, 0.55f, 0.16f, 0.94f);
             }
         }
 

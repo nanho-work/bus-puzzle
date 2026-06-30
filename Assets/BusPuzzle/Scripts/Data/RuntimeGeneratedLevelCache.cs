@@ -9,7 +9,7 @@ namespace BusPuzzle
 {
     public static class RuntimeGeneratedLevelCache
     {
-        private const int CacheVersion = 17;
+        private const int CacheVersion = 18;
         private const int CacheValidationNodeVisitLimit = 2048;
         private const string CacheDirectoryName = "generated-stage-cache";
 

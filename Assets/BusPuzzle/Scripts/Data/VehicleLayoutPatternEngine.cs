@@ -14,7 +14,8 @@ namespace BusPuzzle
         DenseBlock,
         DiamondCross,
         MazeRows,
-        PackedClusters
+        PackedClusters,
+        DenseJam
     }
 
     internal readonly struct VehicleLayoutSlot
@@ -58,7 +59,8 @@ namespace BusPuzzle
             VehicleLayoutPatternId.DenseBlock,
             VehicleLayoutPatternId.DiamondCross,
             VehicleLayoutPatternId.MazeRows,
-            VehicleLayoutPatternId.PackedClusters
+            VehicleLayoutPatternId.PackedClusters,
+            VehicleLayoutPatternId.DenseJam
         };
 
         private static readonly VehicleLayoutPatternId[] NormalPatterns =
@@ -68,18 +70,28 @@ namespace BusPuzzle
             VehicleLayoutPatternId.Ring
         };
 
+        private static readonly VehicleLayoutPatternId[] NormalPressurePatterns =
+        {
+            VehicleLayoutPatternId.TerminalRows,
+            VehicleLayoutPatternId.DiagonalBands,
+            VehicleLayoutPatternId.Ring,
+            VehicleLayoutPatternId.DenseJam
+        };
+
         private static readonly VehicleLayoutPatternId[] HardPatterns =
         {
             VehicleLayoutPatternId.TerminalRows,
             VehicleLayoutPatternId.DiagonalBands,
-            VehicleLayoutPatternId.Spiral
+            VehicleLayoutPatternId.Spiral,
+            VehicleLayoutPatternId.DenseJam
         };
 
         private static readonly VehicleLayoutPatternId[] SuperHardPatterns =
         {
             VehicleLayoutPatternId.DiagonalBands,
             VehicleLayoutPatternId.Spiral,
-            VehicleLayoutPatternId.TerminalRows
+            VehicleLayoutPatternId.TerminalRows,
+            VehicleLayoutPatternId.DenseJam
         };
 
         private static readonly VehicleLayoutPatternId[] MidPressurePatterns =
@@ -89,7 +101,8 @@ namespace BusPuzzle
             VehicleLayoutPatternId.Spiral,
             VehicleLayoutPatternId.SplitClusters,
             VehicleLayoutPatternId.Chevron,
-            VehicleLayoutPatternId.DenseBlock
+            VehicleLayoutPatternId.DenseBlock,
+            VehicleLayoutPatternId.DenseJam
         };
 
         private static readonly VehicleLayoutPatternId[] LatePressurePatterns =
@@ -101,7 +114,8 @@ namespace BusPuzzle
             VehicleLayoutPatternId.DenseBlock,
             VehicleLayoutPatternId.DiamondCross,
             VehicleLayoutPatternId.MazeRows,
-            VehicleLayoutPatternId.PackedClusters
+            VehicleLayoutPatternId.PackedClusters,
+            VehicleLayoutPatternId.DenseJam
         };
 
         public static int UniqueLayoutVariantCount => StagePatternPool.Length * VariantsPerPattern;
@@ -127,6 +141,11 @@ namespace BusPuzzle
             var slots = new List<VehicleLayoutSlot>(targetVehicleCount * 3);
             var occupiedCells = new HashSet<int>();
             var pattern = PickPattern(profile, random, layoutVariantIndex);
+            if (ShouldForceDenseJam(profile, targetVehicleCount))
+            {
+                pattern = VehicleLayoutPatternId.DenseJam;
+            }
+
             var slotRandom = CreateSlotRandom(profile.Difficulty, random, targetVehicleCount, layoutVariantIndex);
 
             switch (pattern)
@@ -142,6 +161,9 @@ namespace BusPuzzle
                     break;
                 case VehicleLayoutPatternId.PackedClusters:
                     AddPackedClusters(slots, occupiedCells, profile, slotRandom);
+                    break;
+                case VehicleLayoutPatternId.DenseJam:
+                    AddDenseJam(slots, occupiedCells, profile, slotRandom);
                     break;
                 case VehicleLayoutPatternId.TerminalRows:
                     AddTerminalRows(slots, occupiedCells, profile, slotRandom);
@@ -184,7 +206,7 @@ namespace BusPuzzle
         private static VehicleLayoutPatternId[] GetPatternPool(LevelDifficultyProfile profile)
         {
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
-            var pressure = Mathf.Clamp01(profile.ParkingTension * 0.65f + profile.StationPressure * 0.35f);
+            var pressure = GetLayoutPressure(profile);
             if (profile.Difficulty == LevelDifficulty.SuperHard && pressure >= 0.78f)
             {
                 return LatePressurePatterns;
@@ -195,12 +217,39 @@ namespace BusPuzzle
                 return MidPressurePatterns;
             }
 
+            if (profile.Difficulty == LevelDifficulty.Normal && pressure >= 0.52f)
+            {
+                return NormalPressurePatterns;
+            }
+
             if (profile.Difficulty == LevelDifficulty.SuperHard)
             {
                 return SuperHardPatterns;
             }
 
             return profile.Difficulty == LevelDifficulty.Hard ? HardPatterns : NormalPatterns;
+        }
+
+        private static bool ShouldForceDenseJam(LevelDifficultyProfile profile, int targetVehicleCount)
+        {
+            profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            targetVehicleCount = Mathf.Max(1, targetVehicleCount);
+            var pressure = GetLayoutPressure(profile);
+            switch (profile.Difficulty)
+            {
+                case LevelDifficulty.SuperHard:
+                    return targetVehicleCount >= 30;
+                case LevelDifficulty.Hard:
+                    return targetVehicleCount >= 28;
+                default:
+                    return targetVehicleCount >= 36 && pressure >= 0.52f;
+            }
+        }
+
+        private static float GetLayoutPressure(LevelDifficultyProfile profile)
+        {
+            profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            return Mathf.Clamp01(profile.ParkingTension * 0.65f + profile.StationPressure * 0.35f);
         }
 
         private static System.Random CreateSlotRandom(
@@ -598,6 +647,135 @@ namespace BusPuzzle
                             center.y + dy,
                             DirectionFromDelta(dx, dy));
                     }
+                }
+            }
+        }
+
+        private static void AddDenseJam(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random)
+        {
+            var clockwise = random.NextDouble() >= 0.5d;
+            var centerOffsetX = Mathf.Lerp(-0.30f, 0.30f, (float)random.NextDouble());
+            var centerOffsetY = Mathf.Lerp(-0.20f, 0.20f, (float)random.NextDouble());
+            var center = new Vector2(CenterX + centerOffsetX, CenterY + centerOffsetY);
+
+            AddDenseJamRing(slots, occupiedCells, profile, random, center, 5.30f, 4.70f, 36, clockwise);
+            AddDenseJamRing(slots, occupiedCells, profile, random, center, 4.10f, 3.45f, 28, !clockwise);
+            AddDenseJamRing(slots, occupiedCells, profile, random, center, 2.75f, 2.20f, 18, clockwise);
+            AddDenseJamCrossLocks(slots, occupiedCells, profile, random, center, clockwise);
+            AddDenseJamCornerPacks(slots, occupiedCells, profile, random);
+        }
+
+        private static void AddDenseJamRing(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random,
+            Vector2 center,
+            float radiusX,
+            float radiusY,
+            int samples,
+            bool clockwise)
+        {
+            var startAngle = (float)random.NextDouble() * Mathf.PI * 2f;
+            var tangentSign = clockwise ? -1f : 1f;
+            for (var index = 0; index < samples; index++)
+            {
+                var angle = startAngle + index * Mathf.PI * 2f / samples;
+                var x = center.x + Mathf.Cos(angle) * radiusX;
+                var y = center.y + Mathf.Sin(angle) * radiusY;
+                var tangentAngle = angle + tangentSign * Mathf.PI * 0.5f;
+                AddVectorSlot(slots, occupiedCells, profile, random, x, y, tangentAngle, true);
+            }
+        }
+
+        private static void AddDenseJamCrossLocks(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random,
+            Vector2 center,
+            bool clockwise)
+        {
+            var centerCell = new Vector2Int(Mathf.RoundToInt(center.x), Mathf.RoundToInt(center.y));
+            var horizontalY = centerCell.y + (clockwise ? -1 : 1);
+            var verticalX = centerCell.x + (clockwise ? 1 : -1);
+
+            for (var x = MinCell + 1; x <= MaxCellX - 1; x++)
+            {
+                if (Mathf.Abs(x - centerCell.x) <= 1)
+                {
+                    continue;
+                }
+
+                AddCardinalSlot(
+                    slots,
+                    occupiedCells,
+                    profile,
+                    random,
+                    x,
+                    horizontalY,
+                    x < centerCell.x ? GridDirection.Right : GridDirection.Left);
+            }
+
+            for (var y = MinCell + 1; y <= MaxCellY - 1; y++)
+            {
+                if (Mathf.Abs(y - centerCell.y) <= 1)
+                {
+                    continue;
+                }
+
+                AddCardinalSlot(
+                    slots,
+                    occupiedCells,
+                    profile,
+                    random,
+                    verticalX,
+                    y,
+                    y < centerCell.y ? GridDirection.Up : GridDirection.Down);
+            }
+        }
+
+        private static void AddDenseJamCornerPacks(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random)
+        {
+            AddDenseJamCornerPack(slots, occupiedCells, profile, random, 2, 2, 1, 1);
+            AddDenseJamCornerPack(slots, occupiedCells, profile, random, MaxCellX - 1, 2, -1, 1);
+            AddDenseJamCornerPack(slots, occupiedCells, profile, random, 2, MaxCellY - 1, 1, -1);
+            AddDenseJamCornerPack(slots, occupiedCells, profile, random, MaxCellX - 1, MaxCellY - 1, -1, -1);
+        }
+
+        private static void AddDenseJamCornerPack(
+            List<VehicleLayoutSlot> slots,
+            HashSet<int> occupiedCells,
+            LevelDifficultyProfile profile,
+            System.Random random,
+            int anchorX,
+            int anchorY,
+            int stepX,
+            int stepY)
+        {
+            for (var row = 0; row < 3; row++)
+            {
+                for (var column = 0; column < 3; column++)
+                {
+                    if (row == 2 && column == 2)
+                    {
+                        continue;
+                    }
+
+                    var x = anchorX + column * stepX;
+                    var y = anchorY + row * stepY;
+                    var direction = row % 2 == 0
+                        ? (stepX > 0 ? GridDirection.Right : GridDirection.Left)
+                        : (stepY > 0 ? GridDirection.Up : GridDirection.Down);
+                    AddCardinalSlot(slots, occupiedCells, profile, random, x, y, direction);
                 }
             }
         }

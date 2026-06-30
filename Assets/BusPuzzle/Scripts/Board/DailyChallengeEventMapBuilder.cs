@@ -157,8 +157,6 @@ namespace BusPuzzle
             var surface = PuzzlePalette.CreateSolidMaterial($"{style.Name} Daily Vehicle Puzzle Surface", style.YardSurface);
             var panelA = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Daily Vehicle Puzzle Panel A", BoardThemePalette.WithAlpha(style.YardPanelA, 0.34f));
             var panelB = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Daily Vehicle Puzzle Panel B", BoardThemePalette.WithAlpha(style.YardPanelB, 0.24f));
-            var edge = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Daily Vehicle Puzzle Edge", BoardThemePalette.WithAlpha(style.YardLine, 0.52f));
-            var accent = PuzzlePalette.CreateTransparentMaterial($"{style.Name} Daily Vehicle Puzzle Accent", BoardThemePalette.WithAlpha(style.Gate, 0.42f));
             var width = BoardLayoutConfig.GridWorldWidth + 0.36f;
             var depth = BoardLayoutConfig.GridWorldDepth + BoardLayoutConfig.UpperParkingExtensionZ + 0.28f;
             var centerZ = BoardLayoutConfig.ParkingYardCenterZ - 0.03f;
@@ -182,23 +180,6 @@ namespace BusPuzzle
                     0.060f,
                     index % 2 == 0 ? panelA : panelB);
             }
-
-            BoardGeometry.CreateFlatRect(
-                "Daily Challenge Vehicle Puzzle Top Edge",
-                root,
-                new Vector3(0f, DeckY + 0.022f, BoardLayoutConfig.ParkingYardTopZ + 0.04f),
-                new Vector2(width * 0.86f, 0.026f),
-                edge);
-
-            BoardGeometry.CreateFlatRect(
-                "Daily Challenge Vehicle Puzzle Bottom Edge",
-                root,
-                new Vector3(0f, DeckY + 0.022f, BoardLayoutConfig.GridBottomZ - 0.04f),
-                new Vector2(width * 0.82f, 0.026f),
-                edge);
-
-            CreateCornerAccent(root, -width * 0.42f, BoardLayoutConfig.GridBottomZ + 0.34f, accent);
-            CreateCornerAccent(root, width * 0.42f, BoardLayoutConfig.ParkingYardTopZ - 0.34f, accent);
         }
 
         private static Vector3[] CreateQueueGuidePath(float y)

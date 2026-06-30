@@ -674,26 +674,26 @@ namespace BusPuzzle
             switch (difficulty)
             {
                 case LevelDifficulty.SuperHard:
-                    if (roll < 0.36d)
+                    if (roll < 0.22d)
+                    {
+                        return BusSize.Small;
+                    }
+
+                    return roll < 0.66d ? BusSize.Medium : BusSize.Large;
+                case LevelDifficulty.Hard:
+                    if (roll < 0.30d)
                     {
                         return BusSize.Small;
                     }
 
                     return roll < 0.74d ? BusSize.Medium : BusSize.Large;
-                case LevelDifficulty.Hard:
-                    if (roll < 0.45d)
-                    {
-                        return BusSize.Small;
-                    }
-
-                    return roll < 0.80d ? BusSize.Medium : BusSize.Large;
                 default:
-                    if (roll < 0.60d)
+                    if (roll < 0.42d)
                     {
                         return BusSize.Small;
                     }
 
-                    return roll < 0.90d ? BusSize.Medium : BusSize.Large;
+                    return roll < 0.84d ? BusSize.Medium : BusSize.Large;
             }
         }
 

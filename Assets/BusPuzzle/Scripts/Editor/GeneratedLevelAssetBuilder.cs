@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -12,25 +13,78 @@ namespace BusPuzzle.EditorTools
         private const string ActiveLevelSequencePath = LevelDirectory + "/LevelSequence.asset";
         private const string GeneratedLevelSequencePath = GeneratedLevelDirectory + "/GeneratedLevelSequence.asset";
         private const string StageGenerationConfigPath = LevelDirectory + "/StageGenerationConfig.asset";
+        private const int GeneratedStageBatchSize = 25;
+
+        private enum GeneratedStageBuildMode
+        {
+            FullSet,
+            NextBatch
+        }
 
         [MenuItem("Bus Puzzle/Levels/Rebuild Generated Stage Set")]
         public static void RebuildGeneratedStageSet()
         {
+            BuildGeneratedStageSet(GeneratedStageBuildMode.FullSet);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Build Next Generated Stage Batch")]
+        public static void BuildNextGeneratedStageBatch()
+        {
+            BuildGeneratedStageSet(GeneratedStageBuildMode.NextBatch);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Refresh Generated Stage Sequence From Existing Levels")]
+        public static void RefreshGeneratedStageSequenceFromExistingLevels()
+        {
             var config = LoadConfig();
             Directory.CreateDirectory(GeneratedLevelDirectory);
             var savedLevels = new LevelData[config.GeneratedStageCount];
+            var completedStageCount = LoadExistingGeneratedPrefix(config, savedLevels);
+
+            SaveCompletedGeneratedSequence(
+                savedLevels,
+                completedStageCount,
+                $"Refreshed generated stage sequences from {completedStageCount}/{config.GeneratedStageCount} existing levels.",
+                true);
+        }
+
+        private static void BuildGeneratedStageSet(GeneratedStageBuildMode mode)
+        {
+            var config = LoadConfig();
+            Directory.CreateDirectory(GeneratedLevelDirectory);
+            var savedLevels = new LevelData[config.GeneratedStageCount];
+            var completedStageCount = mode == GeneratedStageBuildMode.NextBatch
+                ? LoadExistingGeneratedPrefix(config, savedLevels)
+                : 0;
+            var startStage = mode == GeneratedStageBuildMode.NextBatch
+                ? completedStageCount + 1
+                : 1;
+            var targetStage = mode == GeneratedStageBuildMode.NextBatch
+                ? Mathf.Min(config.GeneratedStageCount, completedStageCount + GeneratedStageBatchSize)
+                : config.GeneratedStageCount;
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             var cancelled = false;
             var timedOut = false;
 
+            if (startStage > config.GeneratedStageCount)
+            {
+                SaveCompletedGeneratedSequence(
+                    savedLevels,
+                    config.GeneratedStageCount,
+                    $"Generated Bus Pop stage set is already complete: {config.GeneratedStageCount}/{config.GeneratedStageCount}.",
+                    true);
+                return;
+            }
+
             try
             {
-                for (var stageNumber = 1; stageNumber <= config.GeneratedStageCount; stageNumber++)
+                for (var stageNumber = startStage; stageNumber <= targetStage; stageNumber++)
                 {
                     var request = StageGenerationPlanner.CreateRequest(config, stageNumber);
                     if (TryReuseExistingLevel(config, request, out var existingLevel))
                     {
                         savedLevels[stageNumber - 1] = existingLevel;
+                        completedStageCount = stageNumber;
                         Debug.Log($"Reused generated stage {stageNumber:000}/{config.GeneratedStageCount}: {request.Difficulty}.");
                         continue;
                     }
@@ -43,10 +97,11 @@ namespace BusPuzzle.EditorTools
                         out var analysis,
                         candidate =>
                         {
-                            var stageProgress = (stageNumber - 1f + candidate / (float)config.CandidateAttemptsPerStage) /
-                                config.GeneratedStageCount;
+                            var runStageCount = Mathf.Max(1, targetStage - startStage + 1);
+                            var stageProgress = (stageNumber - startStage + candidate / (float)config.CandidateAttemptsPerStage) /
+                                runStageCount;
                             cancelled = EditorUtility.DisplayCancelableProgressBar(
-                                "Rebuilding Bus Pop Stage Set",
+                                GetProgressTitle(mode),
                                 $"Stage {stageNumber:000}/{config.GeneratedStageCount} - candidate {candidate + 1}/{config.CandidateAttemptsPerStage}",
                                 Mathf.Clamp01(stageProgress));
                             if (cancelled)
@@ -60,18 +115,33 @@ namespace BusPuzzle.EditorTools
                     {
                         if (cancelled)
                         {
+                            SaveCompletedGeneratedSequence(
+                                savedLevels,
+                                completedStageCount,
+                                $"Saved partial generated stage sequence after cancellation at stage {stageNumber:000}.",
+                                true);
                             Debug.LogWarning($"Generated stage set rebuild cancelled at stage {stageNumber:000}.");
                             return;
                         }
 
                         if (timedOut)
                         {
+                            SaveCompletedGeneratedSequence(
+                                savedLevels,
+                                completedStageCount,
+                                $"Saved partial generated stage sequence after timeout at stage {stageNumber:000}.",
+                                true);
                             Debug.LogError(
                                 $"Generated stage set rebuild timed out at stage {stageNumber:000} after " +
                                 $"{config.ReleaseBuildTimeBudgetSeconds} seconds. Lower generation pressure or try again.");
                             return;
                         }
 
+                        SaveCompletedGeneratedSequence(
+                            savedLevels,
+                            completedStageCount,
+                            $"Saved partial generated stage sequence after generation failed at stage {stageNumber:000}.",
+                            true);
                         Debug.LogError(
                             $"Generated stage set rebuild aborted at stage {stageNumber:000}. " +
                             $"No verified candidate found after {config.CandidateAttemptsPerStage} attempts. " +
@@ -84,8 +154,10 @@ namespace BusPuzzle.EditorTools
                         StageGenerationSignature.Create(config, request),
                         analysis.SolutionCount);
                     savedLevels[stageNumber - 1] = SaveLevel($"Level_{stageNumber:000}", generatedLevel);
+                    completedStageCount = stageNumber;
                     if (stageNumber % 5 == 0)
                     {
+                        SaveCompletedGeneratedSequence(savedLevels, completedStageCount, null, false);
                         AssetDatabase.SaveAssets();
                     }
 
@@ -94,19 +166,23 @@ namespace BusPuzzle.EditorTools
                         $"{request.Difficulty}, solutions {analysis.SolutionCount}, road {request.RoadPresetId}.");
                 }
 
-                EditorUtility.DisplayProgressBar("Rebuilding Bus Pop Stage Set", "Saving generated level sequence...", 1f);
-                SaveVerifiedGeneratedSequence(savedLevels, GeneratedLevelSequencePath);
-                SaveVerifiedGeneratedSequence(savedLevels, ActiveLevelSequencePath);
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-                Debug.Log(
-                    $"Generated Bus Pop stage set rebuilt: {savedLevels.Length} verified levels saved under {GeneratedLevelDirectory}. " +
-                    $"The active sequence now points to the generated set: {ActiveLevelSequencePath}.");
+                EditorUtility.DisplayProgressBar(GetProgressTitle(mode), "Saving generated level sequence...", 1f);
+                var completedMessage = completedStageCount >= config.GeneratedStageCount
+                    ? $"Generated Bus Pop stage set rebuilt: {completedStageCount}/{config.GeneratedStageCount} verified levels saved under {GeneratedLevelDirectory}."
+                    : $"Generated Bus Pop stage batch saved: {completedStageCount}/{config.GeneratedStageCount} verified levels are now available.";
+                SaveCompletedGeneratedSequence(savedLevels, completedStageCount, completedMessage, true);
             }
             finally
             {
                 EditorUtility.ClearProgressBar();
             }
+        }
+
+        private static string GetProgressTitle(GeneratedStageBuildMode mode)
+        {
+            return mode == GeneratedStageBuildMode.NextBatch
+                ? "Building Next Bus Pop Stage Batch"
+                : "Rebuilding Bus Pop Stage Set";
         }
 
         private static LevelData SaveLevel(string assetName, LevelData generatedLevel)
@@ -176,6 +252,87 @@ namespace BusPuzzle.EditorTools
         private static string GetLevelPath(string assetName)
         {
             return $"{GeneratedLevelDirectory}/{assetName}.asset";
+        }
+
+        private static int LoadExistingGeneratedPrefix(StageGenerationConfig config, LevelData[] levels)
+        {
+            for (var stageNumber = 1; stageNumber <= config.GeneratedStageCount; stageNumber++)
+            {
+                var request = StageGenerationPlanner.CreateRequest(config, stageNumber);
+                if (!TryLoadExistingLevelWithMatchingSignature(config, request, out var level))
+                {
+                    return stageNumber - 1;
+                }
+
+                levels[stageNumber - 1] = level;
+            }
+
+            return config.GeneratedStageCount;
+        }
+
+        private static bool TryLoadExistingLevelWithMatchingSignature(
+            StageGenerationConfig config,
+            StageGenerationRequest request,
+            out LevelData level)
+        {
+            level = AssetDatabase.LoadAssetAtPath<LevelData>(GetLevelPath($"Level_{request.StageNumber:000}"));
+            if (level == null)
+            {
+                return false;
+            }
+
+            var expectedSignature = StageGenerationSignature.Create(config, request);
+            if (!level.HasGenerationSignature(expectedSignature))
+            {
+                return false;
+            }
+
+            level.hideFlags = HideFlags.None;
+            return true;
+        }
+
+        private static void SaveCompletedGeneratedSequence(
+            LevelData[] levels,
+            int completedStageCount,
+            string logMessage,
+            bool refresh)
+        {
+            var completedLevels = CollectCompletedLevels(levels, completedStageCount);
+            if (completedLevels.Length == 0)
+            {
+                return;
+            }
+
+            SaveVerifiedGeneratedSequence(completedLevels, GeneratedLevelSequencePath);
+            SaveVerifiedGeneratedSequence(completedLevels, ActiveLevelSequencePath);
+            AssetDatabase.SaveAssets();
+            if (refresh)
+            {
+                AssetDatabase.Refresh();
+            }
+
+            if (!string.IsNullOrEmpty(logMessage))
+            {
+                Debug.Log($"{logMessage} The active sequence now points to {ActiveLevelSequencePath}.");
+            }
+        }
+
+        private static LevelData[] CollectCompletedLevels(LevelData[] levels, int completedStageCount)
+        {
+            var completedLevels = new List<LevelData>();
+            var limit = Mathf.Clamp(completedStageCount, 0, levels != null ? levels.Length : 0);
+            for (var index = 0; index < limit; index++)
+            {
+                var level = levels[index];
+                if (level == null)
+                {
+                    break;
+                }
+
+                completedLevels.Add(level);
+            }
+
+            return completedLevels.ToArray();
         }
 
         private static void SaveVerifiedGeneratedSequence(LevelData[] levels, string path)

@@ -147,7 +147,16 @@ namespace BusPuzzle
             for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
             {
                 var random = new System.Random(seed + attempt * 9973);
-                var vehicles = TryBuildVehicleSet(profile, random, targetVehicleCount, garages, layoutVariantIndex);
+                var effectiveLayoutVariantIndex = VehicleLayoutPatternEngine.GetProbeLayoutVariantIndex(
+                    profile,
+                    layoutVariantIndex,
+                    attempt);
+                var vehicles = TryBuildVehicleSet(
+                    profile,
+                    random,
+                    targetVehicleCount,
+                    garages,
+                    effectiveLayoutVariantIndex);
                 if (HasPlayableExitOrder(vehicles, garages, useSolutionAnalyzer, out var exitOrder))
                 {
                     return vehicles;
@@ -357,10 +366,11 @@ namespace BusPuzzle
             {
                 var slot = slots[slotIndex];
                 var vehicleIndex = vehicles.Count;
-                var preferredSize = PickSize(profile.Difficulty, random);
+                var preferredSize = PickPatternSize(profile, random, slot);
+                var color = PickSlotColor(slot, colors, vehicleIndex);
                 if (TryCreatePatternVehicle(
                     profile,
-                    colors[vehicleIndex % colors.Count],
+                    color,
                     preferredSize,
                     slot,
                     vehicles,
@@ -370,6 +380,39 @@ namespace BusPuzzle
                     vehicles.Add(vehicle);
                 }
             }
+        }
+
+        private static PuzzleColor PickSlotColor(
+            VehicleLayoutSlot slot,
+            IReadOnlyList<PuzzleColor> colors,
+            int vehicleIndex)
+        {
+            if (slot.HasPreferredColor)
+            {
+                return slot.PreferredColor;
+            }
+
+            return colors[vehicleIndex % colors.Count];
+        }
+
+        private static BusSize PickPatternSize(
+            LevelDifficultyProfile profile,
+            System.Random random,
+            VehicleLayoutSlot slot)
+        {
+            if (slot.ShapeKind == VehicleShapeLayoutKind.None)
+            {
+                return PickSize(profile.Difficulty, random);
+            }
+
+            if (slot.ShapeRole != VehicleShapeCellRole.Fill)
+            {
+                return BusSize.Small;
+            }
+
+            return profile.TargetVehicleCount >= 42 && random.NextDouble() < 0.18d
+                ? BusSize.Medium
+                : BusSize.Small;
         }
 
         private static bool TryCreatePatternVehicle(
@@ -392,8 +435,7 @@ namespace BusPuzzle
                 return true;
             }
 
-            if (profile.Difficulty != LevelDifficulty.SuperHard &&
-                preferredSize != BusSize.Small &&
+            if (preferredSize != BusSize.Small &&
                 TryCreatePatternVehicle(color, BusSize.Small, slot, placedVehicles, garages, out vehicle))
             {
                 return true;
@@ -712,19 +754,19 @@ namespace BusPuzzle
 
         private static float PickAngleOffset(LevelDifficultyProfile profile, System.Random random)
         {
-            var maxAngle = Mathf.Lerp(10f, 35f, profile.ParkingTension);
-            var steps = Mathf.FloorToInt(maxAngle / 5f);
+            var maxAngle = Mathf.Lerp(2f, 12f, profile.ParkingTension);
+            var steps = Mathf.FloorToInt(maxAngle / 4f);
             if (steps <= 0)
             {
                 return 0f;
             }
 
-            return random.Next(-steps, steps + 1) * 5f;
+            return random.Next(-steps, steps + 1) * 4f;
         }
 
         private static Vector2 PickPositionOffset(float parkingTension, System.Random random)
         {
-            var maxOffset = Mathf.Lerp(0.04f, 0.20f, parkingTension);
+            var maxOffset = Mathf.Lerp(0.01f, 0.08f, parkingTension);
             return new Vector2(
                 Mathf.Lerp(-maxOffset, maxOffset, (float)random.NextDouble()),
                 Mathf.Lerp(-maxOffset, maxOffset, (float)random.NextDouble()));

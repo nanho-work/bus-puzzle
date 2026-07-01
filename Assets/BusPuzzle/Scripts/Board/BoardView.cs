@@ -115,6 +115,7 @@ namespace BusPuzzle
             CreateTheme();
             CreatePassengerRotary();
             CreateGrid();
+            CreateShapeGuide(levelData);
             CreateStationSlots();
 
             passengers.Clear();
@@ -788,6 +789,11 @@ namespace BusPuzzle
                 BoardLayoutConfig.GridBottomZ,
                 BoardLayoutConfig.UpperParkingExtensionZ,
                 activeTheme);
+        }
+
+        private void CreateShapeGuide(LevelData levelData)
+        {
+            VehicleShapeGuideBuilder.Create(levelData, transform);
         }
 
         private void CreateStationSlots()

@@ -48,6 +48,7 @@ namespace BusPuzzle
         public IReadOnlyList<BusDefinition> AllVehicles => GetAllVehicles();
         public int PassengerUnitCount => PassengerUnits.Count;
         public int PassengerPeopleCount => PassengerUnits.Count * PassengerUnitLayout.PeoplePerUnit;
+        public string GenerationSignature => generationSignature;
         public int GenerationSolutionCount => generationSolutionCount;
 
         private static readonly IReadOnlyList<GarageDefinition> EmptyGarages = Array.Empty<GarageDefinition>();

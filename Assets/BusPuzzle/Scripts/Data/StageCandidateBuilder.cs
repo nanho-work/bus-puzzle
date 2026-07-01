@@ -1,8 +1,12 @@
+using System.Collections.Generic;
+using UnityEngine;
+
 namespace BusPuzzle
 {
     public static class StageCandidateBuilder
     {
         private const int MinimumRuntimeCandidateAttempts = 8;
+        private const int MinimumReleaseCandidateProbeCount = 6;
         private const int MinimumRuntimeFallbackVehicleCount = 24;
         private const int EmergencyVehicleCount = 4;
         private const int RuntimeSolutionNodeVisitLimit = 2048;
@@ -24,6 +28,12 @@ namespace BusPuzzle
             LevelValidationReport fallbackReport = null;
             StageSolutionAnalysis fallbackAnalysis = default;
             var fallbackScore = int.MaxValue;
+            var fallbackSolutionDistance = int.MaxValue;
+            LevelData bestLevel = null;
+            LevelValidationReport bestReport = null;
+            StageSolutionAnalysis bestAnalysis = default;
+            var bestScore = int.MaxValue;
+            var minimumProbeCount = GetMinimumReleaseCandidateProbeCount(config);
 
             for (var candidate = 0; candidate < config.CandidateAttemptsPerStage; candidate++)
             {
@@ -53,12 +63,67 @@ namespace BusPuzzle
                 }
 
                 var solutionDistance = GetSolutionRangeDistance(candidateAnalysis, request);
+                var candidateScore = ScoreReleaseFallbackCandidate(request, candidateLevel, candidateReport, candidateAnalysis, solutionDistance);
+                if (solutionDistance == 0)
+                {
+                    if (candidateScore < bestScore)
+                    {
+                        bestScore = candidateScore;
+                        bestLevel = candidateLevel;
+                        bestReport = candidateReport;
+                        bestAnalysis = candidateAnalysis;
+                    }
+
+                    report = candidateReport;
+                    analysis = candidateAnalysis;
+                    if (candidate + 1 >= minimumProbeCount)
+                    {
+                        level = bestLevel;
+                        report = bestReport;
+                        analysis = bestAnalysis;
+                        return true;
+                    }
+
+                    continue;
+                }
+
                 if (solutionDistance > 0)
                 {
-                    var candidateScore = ScoreReleaseFallbackCandidate(request, candidateLevel, candidateReport, candidateAnalysis, solutionDistance);
+                    var acceptableFallback = IsAcceptableReleaseFallback(solutionDistance);
+                    if (acceptableFallback)
+                    {
+                        if (fallbackLevel == null ||
+                            !IsAcceptableReleaseFallback(fallbackSolutionDistance) ||
+                            candidateScore < fallbackScore)
+                        {
+                            fallbackScore = candidateScore;
+                            fallbackSolutionDistance = solutionDistance;
+                            fallbackLevel = candidateLevel;
+                            fallbackReport = candidateReport;
+                            fallbackAnalysis = candidateAnalysis;
+                        }
+
+                        report = candidateReport;
+                        analysis = candidateAnalysis;
+                        if (candidate + 1 >= minimumProbeCount)
+                        {
+                            UnityEngine.Debug.LogWarning(
+                                $"Stage {request.StageNumber:000} is using a near-range verified candidate with " +
+                                $"{fallbackAnalysis.SolutionCount} solutions; preferred range is " +
+                                $"{request.MinSolutionCount}-{request.MaxSolutionCount}.");
+                            level = fallbackLevel;
+                            report = fallbackReport;
+                            analysis = fallbackAnalysis;
+                            return true;
+                        }
+
+                        continue;
+                    }
+
                     if (candidateScore < fallbackScore)
                     {
                         fallbackScore = candidateScore;
+                        fallbackSolutionDistance = solutionDistance;
                         fallbackLevel = candidateLevel;
                         fallbackReport = candidateReport;
                         fallbackAnalysis = candidateAnalysis;
@@ -66,22 +131,15 @@ namespace BusPuzzle
 
                     report = candidateReport;
                     analysis = candidateAnalysis;
-                    if (IsAcceptableReleaseFallback(solutionDistance))
-                    {
-                        UnityEngine.Debug.LogWarning(
-                            $"Stage {request.StageNumber:000} is using a near-range verified candidate with " +
-                            $"{candidateAnalysis.SolutionCount} solutions; preferred range is " +
-                            $"{request.MinSolutionCount}-{request.MaxSolutionCount}.");
-                        level = candidateLevel;
-                        return true;
-                    }
-
                     continue;
                 }
+            }
 
-                level = candidateLevel;
-                report = candidateReport;
-                analysis = candidateAnalysis;
+            if (bestLevel != null)
+            {
+                level = bestLevel;
+                report = bestReport;
+                analysis = bestAnalysis;
                 return true;
             }
 
@@ -320,7 +378,214 @@ namespace BusPuzzle
 
             score += UnityEngine.Mathf.Abs(level.AllVehicles.Count - request.Profile.TargetVehicleCount) * 100;
             score += UnityEngine.Mathf.Abs(CountUniqueVehicleColors(level.AllVehicles) - request.Profile.TargetColorCount) * 25;
+            score += ScoreLayoutAesthetics(request, level);
             return score;
+        }
+
+        private static int ScoreLayoutAesthetics(StageGenerationRequest request, LevelData level)
+        {
+            var vehicles = CollectVisibleLayoutVehicles(level);
+            if (vehicles.Count == 0)
+            {
+                return 5000;
+            }
+
+            var boardCenterX = (BoardLayoutConfig.GridColumns - 1) * 0.5f;
+            var boardCenterY = (BoardLayoutConfig.GridRows - 1) * 0.5f;
+            var rowCounts = new int[BoardLayoutConfig.GridRows];
+            var columnCounts = new int[BoardLayoutConfig.GridColumns];
+            var directionCounts = new int[4];
+            var positions = new Vector2[vehicles.Count];
+            var minX = float.MaxValue;
+            var maxX = float.MinValue;
+            var minY = float.MaxValue;
+            var maxY = float.MinValue;
+            var sumX = 0f;
+            var sumY = 0f;
+            var score = 0;
+
+            for (var index = 0; index < vehicles.Count; index++)
+            {
+                var vehicle = vehicles[index];
+                var position = new Vector2(
+                    vehicle.GridPosition.x + vehicle.PositionOffsetCells.x,
+                    vehicle.GridPosition.y + vehicle.PositionOffsetCells.y);
+                positions[index] = position;
+                minX = Mathf.Min(minX, position.x);
+                maxX = Mathf.Max(maxX, position.x);
+                minY = Mathf.Min(minY, position.y);
+                maxY = Mathf.Max(maxY, position.y);
+                sumX += position.x;
+                sumY += position.y;
+
+                if (vehicle.GridPosition.x >= 0 && vehicle.GridPosition.x < columnCounts.Length)
+                {
+                    columnCounts[vehicle.GridPosition.x]++;
+                }
+
+                if (vehicle.GridPosition.y >= 0 && vehicle.GridPosition.y < rowCounts.Length)
+                {
+                    rowCounts[vehicle.GridPosition.y]++;
+                }
+
+                var directionIndex = Mathf.Clamp((int)vehicle.Direction, 0, directionCounts.Length - 1);
+                directionCounts[directionIndex]++;
+
+                var angle = Mathf.Abs(Mathf.DeltaAngle(0f, vehicle.AngleOffsetDegrees));
+                score += Mathf.RoundToInt(Mathf.Min(angle, 18f) * 2.5f);
+                var offsetOverage = Mathf.Max(0f, vehicle.PositionOffsetCells.magnitude - 0.08f);
+                score += Mathf.RoundToInt(offsetOverage * 180f);
+            }
+
+            var count = Mathf.Max(1, vehicles.Count);
+            var centerX = sumX / count;
+            var centerY = sumY / count;
+            score += Mathf.RoundToInt((Mathf.Abs(centerX - boardCenterX) + Mathf.Abs(centerY - boardCenterY)) * 55f);
+
+            var width = Mathf.Max(1f, maxX - minX + 1f);
+            var height = Mathf.Max(1f, maxY - minY + 1f);
+            var density = count / Mathf.Max(1f, width * height);
+            var profile = request.Profile ?? LevelDifficultyProfile.DefaultFor(request.Difficulty);
+            var targetDensity = Mathf.Lerp(0.22f, 0.46f, profile.ParkingTension);
+            score += Mathf.RoundToInt(Mathf.Abs(density - targetDensity) * 260f);
+            var regularTargetVehicleCount = Mathf.Max(1, profile.TargetVehicleCount - CountGarageVehicles(level.Garages));
+            score += VehicleLayoutPatternEngine.ScoreShapeFidelity(
+                profile,
+                regularTargetVehicleCount,
+                request.VehicleLayoutVariantIndex,
+                level.Buses);
+
+            if (width < 6f || height < 6f)
+            {
+                score += 120;
+            }
+
+            if (profile.ParkingTension >= 0.62f)
+            {
+                score += Mathf.RoundToInt((Mathf.Max(0f, 10f - width) + Mathf.Max(0f, 10f - height)) * 24f);
+            }
+
+            score += CountSparseLanePenalty(rowCounts, 12);
+            score += CountSparseLanePenalty(columnCounts, 10);
+            score += Mathf.Max(0, 5 - CountStrongLanes(rowCounts, 3) - CountStrongLanes(columnCounts, 3)) * 30;
+            score += CountIsolationPenalty(positions);
+            score += CountDirectionDominancePenalty(directionCounts, count);
+            return score;
+        }
+
+        private static List<BusDefinition> CollectVisibleLayoutVehicles(LevelData level)
+        {
+            var vehicles = new List<BusDefinition>();
+            if (level == null)
+            {
+                return vehicles;
+            }
+
+            if (level.Buses != null)
+            {
+                for (var index = 0; index < level.Buses.Count; index++)
+                {
+                    vehicles.Add(level.Buses[index]);
+                }
+            }
+
+            var garages = level.Garages;
+            if (garages != null)
+            {
+                for (var index = 0; index < garages.Count; index++)
+                {
+                    vehicles.Add(garages[index].FrontVehicle);
+                }
+            }
+
+            return vehicles;
+        }
+
+        private static int CountGarageVehicles(IReadOnlyList<GarageDefinition> garages)
+        {
+            if (garages == null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var index = 0; index < garages.Count; index++)
+            {
+                count += garages[index].TotalVehicleCount;
+            }
+
+            return count;
+        }
+
+        private static int CountSparseLanePenalty(IReadOnlyList<int> laneCounts, int penalty)
+        {
+            var score = 0;
+            for (var index = 0; index < laneCounts.Count; index++)
+            {
+                if (laneCounts[index] == 1)
+                {
+                    score += penalty;
+                }
+            }
+
+            return score;
+        }
+
+        private static int CountStrongLanes(IReadOnlyList<int> laneCounts, int threshold)
+        {
+            var count = 0;
+            for (var index = 0; index < laneCounts.Count; index++)
+            {
+                if (laneCounts[index] >= threshold)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountIsolationPenalty(IReadOnlyList<Vector2> positions)
+        {
+            var score = 0;
+            for (var index = 0; index < positions.Count; index++)
+            {
+                var nearestDistanceSquared = float.MaxValue;
+                for (var otherIndex = 0; otherIndex < positions.Count; otherIndex++)
+                {
+                    if (index == otherIndex)
+                    {
+                        continue;
+                    }
+
+                    nearestDistanceSquared = Mathf.Min(
+                        nearestDistanceSquared,
+                        (positions[index] - positions[otherIndex]).sqrMagnitude);
+                }
+
+                if (nearestDistanceSquared > 7.0f)
+                {
+                    score += 80;
+                }
+                else if (nearestDistanceSquared > 4.2f)
+                {
+                    score += 28;
+                }
+            }
+
+            return score;
+        }
+
+        private static int CountDirectionDominancePenalty(IReadOnlyList<int> directionCounts, int vehicleCount)
+        {
+            var maxDirectionCount = 0;
+            for (var index = 0; index < directionCounts.Count; index++)
+            {
+                maxDirectionCount = Mathf.Max(maxDirectionCount, directionCounts[index]);
+            }
+
+            var dominanceLimit = Mathf.CeilToInt(vehicleCount * 0.62f);
+            return maxDirectionCount <= dominanceLimit ? 0 : (maxDirectionCount - dominanceLimit) * 18;
         }
 
         private static int ScoreReleaseFallbackCandidate(
@@ -335,6 +600,14 @@ namespace BusPuzzle
             score += CountWarnings(report) * 250;
             score += ScoreRuntimeCandidate(request, level);
             return score;
+        }
+
+        private static int GetMinimumReleaseCandidateProbeCount(StageGenerationConfig config)
+        {
+            var attempts = config != null ? config.CandidateAttemptsPerStage : MinimumReleaseCandidateProbeCount;
+            var lower = Mathf.Min(4, attempts);
+            var upper = Mathf.Min(MinimumReleaseCandidateProbeCount, attempts);
+            return Mathf.Clamp(Mathf.CeilToInt(attempts * 0.16f), lower, upper);
         }
 
         private static int GetSolutionRangeDistance(StageSolutionAnalysis analysis, StageGenerationRequest request)

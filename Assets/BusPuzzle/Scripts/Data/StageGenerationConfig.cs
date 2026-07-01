@@ -248,7 +248,7 @@ namespace BusPuzzle
         [SerializeField, Range(1, 300)] private int candidateAttemptsPerStage = 36;
         [SerializeField, Range(1, 80)] private int releaseVehicleGenerationAttempts = 8;
         [SerializeField, Range(512, 50000)] private int releaseSolutionNodeVisitLimit = 12000;
-        [SerializeField, Range(10, 600)] private int releaseBuildTimeBudgetSeconds = 600;
+        [SerializeField, Range(10, 7200)] private int releaseBuildTimeBudgetSeconds = 600;
         [SerializeField, Range(1, 20)] private int runtimeCandidateAttemptsPerStage = 8;
         [SerializeField, Range(1, 80)] private int runtimeVehicleGenerationAttempts = 8;
         [SerializeField, Range(1, 512)] private int solutionCountLimit = 256;
@@ -285,7 +285,7 @@ namespace BusPuzzle
         public int CandidateAttemptsPerStage => Mathf.Max(1, candidateAttemptsPerStage);
         public int ReleaseVehicleGenerationAttempts => Mathf.Clamp(releaseVehicleGenerationAttempts, 1, 80);
         public int ReleaseSolutionNodeVisitLimit => Mathf.Clamp(releaseSolutionNodeVisitLimit, 512, 50000);
-        public int ReleaseBuildTimeBudgetSeconds => Mathf.Clamp(releaseBuildTimeBudgetSeconds, 10, 600);
+        public int ReleaseBuildTimeBudgetSeconds => Mathf.Clamp(releaseBuildTimeBudgetSeconds, 10, 7200);
         public int RuntimeCandidateAttemptsPerStage => Mathf.Clamp(runtimeCandidateAttemptsPerStage, 1, 20);
         public int RuntimeVehicleGenerationAttempts => Mathf.Clamp(runtimeVehicleGenerationAttempts, 1, 80);
         public int SolutionCountLimit => Mathf.Max(1, solutionCountLimit);

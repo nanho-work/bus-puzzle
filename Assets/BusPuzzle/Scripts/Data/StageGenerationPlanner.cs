@@ -63,6 +63,9 @@ namespace BusPuzzle
 
     public static class StageGenerationPlanner
     {
+        private const int ShapeLibraryPreviewLineVehicleCount = 30;
+        private const int ShapeLibraryPreviewFilledVehicleCount = 38;
+
         // Keep the pattern length stable while avoiding experimental shapes whose road offsets can overlap.
         // Snake/Clover/Cloud/Loop/Arrow/Ribbon presets remain available for validation passes before rotation.
         private static readonly RotaryRoadPresetId[] RoadPresetPattern =
@@ -135,6 +138,80 @@ namespace BusPuzzle
                 mysteryVehicleProfile,
                 minSolutionCount,
                 maxSolutionCount);
+        }
+
+        public static StageGenerationRequest CreateShapeLibraryPreviewRequest(StageGenerationConfig config, int stageNumber)
+        {
+            var request = CreateRequest(config, stageNumber);
+            var libraryIndex = stageNumber - 2;
+            if (libraryIndex < 0 || libraryIndex >= VehicleLayoutPatternEngine.ShapeLibraryVariantCount)
+            {
+                return request;
+            }
+
+            var previewProfile = CreateShapeLibraryPreviewProfile(request.Profile, libraryIndex);
+            return new StageGenerationRequest(
+                request.StageNumber,
+                request.Seed,
+                request.Difficulty,
+                request.Modifiers,
+                previewProfile,
+                request.Progress,
+                request.Post50Pressure,
+                request.RoadPresetId,
+                VehicleLayoutPatternEngine.GetShapeLibraryVariantIndex(libraryIndex),
+                VehicleLayoutPatternEngine.ShapeLibraryVariantCount,
+                0,
+                1,
+                1,
+                request.RotaryCapacity,
+                MysteryVehicleGenerationProfile.Disabled,
+                request.MinSolutionCount,
+                request.MaxSolutionCount);
+        }
+
+        private static LevelDifficultyProfile CreateShapeLibraryPreviewProfile(
+            LevelDifficultyProfile profile,
+            int libraryIndex)
+        {
+            profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            var targetVehicleCount = Mathf.Max(
+                profile.TargetVehicleCount,
+                GetShapeLibraryPreviewVehicleCount(libraryIndex));
+            if (targetVehicleCount == profile.TargetVehicleCount)
+            {
+                return profile;
+            }
+
+            return LevelDifficultyProfile.CreateCustom(
+                profile.Difficulty,
+                profile.PassengerFlowRule,
+                targetVehicleCount,
+                profile.TargetColorCount,
+                Mathf.Max(profile.ParkingTension, 0.54f),
+                Mathf.Max(profile.StationPressure, 0.48f),
+                profile.RequireSolutionRoute);
+        }
+
+        private static int GetShapeLibraryPreviewVehicleCount(int libraryIndex)
+        {
+            var libraryId = (VehicleShapeLibraryId)Mathf.Clamp(
+                libraryIndex,
+                0,
+                VehicleShapeLayoutEngine.ShapeLibraryCount - 1);
+            switch (libraryId)
+            {
+                case VehicleShapeLibraryId.Spiral:
+                case VehicleShapeLibraryId.Lightning:
+                case VehicleShapeLibraryId.S:
+                case VehicleShapeLibraryId.Wave:
+                case VehicleShapeLibraryId.Stairs:
+                case VehicleShapeLibraryId.Arrow:
+                case VehicleShapeLibraryId.DoubleArrow:
+                    return ShapeLibraryPreviewLineVehicleCount;
+                default:
+                    return ShapeLibraryPreviewFilledVehicleCount;
+            }
         }
 
         private static RotaryRoadPresetId PickRoadPreset(int stageNumber, int baseSeed)

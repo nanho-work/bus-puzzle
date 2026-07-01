@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Text;
 
@@ -5,7 +6,7 @@ namespace BusPuzzle
 {
     public static class StageGenerationSignature
     {
-        private const int SignatureVersion = 4;
+        private const int SignatureVersion = 11;
 
         public static string Create(StageGenerationConfig config, StageGenerationRequest request)
         {
@@ -64,6 +65,35 @@ namespace BusPuzzle
             }
 
             return builder.ToString();
+        }
+
+        public static bool TryGetInt(string signature, string key, out int value)
+        {
+            value = 0;
+            if (string.IsNullOrEmpty(signature) || string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            var token = $"{key}=";
+            var start = signature.IndexOf(token, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                return false;
+            }
+
+            start += token.Length;
+            var end = signature.IndexOf(';', start);
+            if (end < 0)
+            {
+                end = signature.Length;
+            }
+
+            return int.TryParse(
+                signature.Substring(start, end - start),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out value);
         }
 
         private static void Append(StringBuilder builder, string key, int value)

@@ -225,6 +225,11 @@ namespace BusPuzzle
 
             var fillInterior = ShouldFillLibraryInterior(libraryId, profile, targetVehicleCount, variant);
             var scale = Mathf.Lerp(0.92f, 1.03f, (variant % 5) / 4f);
+            if (libraryId == VehicleShapeLibraryId.Heart || libraryId == VehicleShapeLibraryId.HeartArrow)
+            {
+                scale = Mathf.Min(scale, 0.93f);
+            }
+
             definition = new VehicleShapeLayoutDefinition(
                 ToShapeKind(libraryId),
                 libraryId,

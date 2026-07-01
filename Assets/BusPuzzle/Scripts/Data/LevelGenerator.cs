@@ -366,7 +366,7 @@ namespace BusPuzzle
             {
                 var slot = slots[slotIndex];
                 var vehicleIndex = vehicles.Count;
-                var preferredSize = PickPatternSize(profile, random, slot);
+                var preferredSize = PickPatternSize(profile, random, slot, layoutVariantIndex);
                 var color = PickSlotColor(slot, colors, vehicleIndex);
                 if (TryCreatePatternVehicle(
                     profile,
@@ -398,8 +398,14 @@ namespace BusPuzzle
         private static BusSize PickPatternSize(
             LevelDifficultyProfile profile,
             System.Random random,
-            VehicleLayoutSlot slot)
+            VehicleLayoutSlot slot,
+            int layoutVariantIndex)
         {
+            if (VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _))
+            {
+                return BusSize.Small;
+            }
+
             if (slot.ShapeKind == VehicleShapeLayoutKind.None)
             {
                 return PickSize(profile.Difficulty, random);

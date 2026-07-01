@@ -287,7 +287,6 @@ namespace BusPuzzle
             {
                 var librarySlotRandom = CreateSlotRandom(profile.Difficulty, random, targetVehicleCount, layoutVariantIndex);
                 AddShapeLibraryLayout(slots, occupiedCells, profile, librarySlotRandom, libraryIndex, targetVehicleCount, layoutVariantIndex);
-                AddFillerSlots(slots, occupiedCells, profile, librarySlotRandom);
                 return slots;
             }
 

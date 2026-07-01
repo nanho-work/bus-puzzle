@@ -161,7 +161,7 @@ namespace BusPuzzle
 
         private static Quaternion GetAssetVehiclePrefabRotation(GameObject prefab)
         {
-            return prefab != null && prefab.name == "shop_large_bus_yellow"
+            return IsLargeBlenderVehiclePrefab(prefab != null ? prefab.name : string.Empty)
                 ? Quaternion.Euler(0f, 180f, 0f)
                 : Quaternion.Euler(0f, -90f, 0f);
         }
@@ -179,9 +179,11 @@ namespace BusPuzzle
             }
 
             var materialName = sourceMaterial.name;
-            if (ContainsMaterialName(materialName, "Tail"))
+            if (ContainsMaterialName(materialName, "Body Soft") ||
+                ContainsMaterialName(materialName, "Accent") ||
+                ContainsMaterialName(materialName, "Secondary"))
             {
-                return materials.TailLight;
+                return materials.Body;
             }
 
             if (ContainsMaterialName(materialName, "Rubber") ||
@@ -196,9 +198,9 @@ namespace BusPuzzle
                 return materials.Glass;
             }
 
-            if (ContainsMaterialName(materialName, "Lamp") || ContainsMaterialName(materialName, "Light"))
+            if (ContainsMaterialName(materialName, "Dark"))
             {
-                return materials.HeadLight;
+                return materials.Outline;
             }
 
             if (ContainsMaterialName(materialName, "Metal") || ContainsMaterialName(materialName, "Hub"))
@@ -206,16 +208,14 @@ namespace BusPuzzle
                 return materials.WheelHub;
             }
 
-            if (ContainsMaterialName(materialName, "Dark"))
+            if (ContainsMaterialName(materialName, "Tail"))
             {
-                return materials.Outline;
+                return materials.TailLight;
             }
 
-            if (ContainsMaterialName(materialName, "Body Soft") ||
-                ContainsMaterialName(materialName, "Accent") ||
-                ContainsMaterialName(materialName, "Secondary"))
+            if (ContainsMaterialName(materialName, "Lamp") || ContainsMaterialName(materialName, "Light"))
             {
-                return materials.Body;
+                return materials.HeadLight;
             }
 
             if (IsVehiclePaintMaterial(sourceMaterial) || ContainsMaterialName(materialName, "Body"))
@@ -368,7 +368,13 @@ namespace BusPuzzle
 
         private static bool UsesNativePrefabAxes(Transform instance)
         {
-            return instance != null && instance.name.StartsWith("shop_large_bus_yellow", System.StringComparison.Ordinal);
+            return IsLargeBlenderVehiclePrefab(instance != null ? instance.name : string.Empty);
+        }
+
+        private static bool IsLargeBlenderVehiclePrefab(string objectName)
+        {
+            return objectName.StartsWith("shop_large_bus_yellow", System.StringComparison.Ordinal) ||
+                objectName.StartsWith("shop_large_korean_bus_yellow", System.StringComparison.Ordinal);
         }
 
         private static float GetPrefabVisualLengthFactor(BusSize size)

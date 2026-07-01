@@ -5,7 +5,7 @@ namespace BusPuzzle
     public sealed class VehiclePrefabLibrary : ScriptableObject
     {
         public const string ResourcePath = "Vehicles/VehiclePrefabLibrary";
-        private const string LargeBusResourcePath = "ShopVehicles/Models/shop_large_bus_yellow";
+        private const string LargeBusResourcePath = "ShopVehicles/Models/shop_large_korean_bus_yellow";
 
         private static VehiclePrefabLibrary cached;
         private static GameObject cachedLargeBusPrefab;

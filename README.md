@@ -57,11 +57,11 @@ ProjectSettings/
 
 The first playable loop is implemented in `GameManager`: tap buses to dispatch them along their arrows, manage the station slots, and let matching passenger units board automatically when they walk past the rotary gate. Use Restart/Next from the on-screen UI.
 
-Level assets can be checked in the editor with `Bus Puzzle/Levels/Validate Level Assets`. Generated stages can be rebuilt with `Bus Puzzle/Levels/Rebuild Generated Stage Set`; that command writes only verified, fully solvable stages to `Assets/BusPuzzle/Resources/Levels/Generated/`, keeps the hand-tuned `Level01`-`Level03` assets untouched, and updates `LevelSequence.asset` for asset-based builds. If any stage cannot find a verified candidate in the configured attempt budget, the rebuild aborts without overwriting the existing generated set.
+Release level assets can be checked in the editor with `Bus Puzzle/Levels/Validate Level Assets`. Generated stages can be rebuilt with `Bus Puzzle/Levels/Rebuild Generated Stage Set`; that command writes verified, fully solvable stages to `Assets/BusPuzzle/Resources/Levels/Generated/`, keeps the hand-tuned `Level01`-`Level03` development assets untouched, and updates `LevelSequence.asset` for asset-based builds. The current release pack ships 200 prebuilt generated stages.
 
-Play mode loads `Assets/BusPuzzle/Resources/Levels/Generated/GeneratedLevelSequence.asset` first. `StageGenerationConfig.asset` is a build-time generation config, not the primary runtime level source. The default difficulty pattern is three Normal stages, one Hard stage, then one SuperHard stage. Vehicle counts scale from 25 toward 50 over the generated set, and SuperHard stages can include one to five seed-driven garage obstacles with hidden queued vehicles.
+Play mode loads `Assets/BusPuzzle/Resources/Levels/Generated/GeneratedLevelSequence.asset` first. `StageGenerationConfig.asset` remains available for runtime generation after the shipped generated pack, so stages 1-200 are asset-backed and stage 201+ can be generated on demand. The default difficulty pattern is three Normal stages, one Hard stage, then one SuperHard stage. Vehicle counts scale from 25 toward 50 over the generated set, and SuperHard stages can include one to five seed-driven garage obstacles with hidden queued vehicles.
 
-Runtime generation is retained only as a development fallback. Release builds should ship with the verified generated level pack and load levels from assets, not from on-device generation or best-effort cache candidates.
+Runtime generation is expected only after the shipped generated pack is exhausted. Release builds should keep the verified generated level pack in sync with `StageGenerationConfig.asset` and keep the clear-screen/preload transition active so the first generated stage after the pack does not cause a visible stall.
 
 ## AdMob Setup
 
@@ -76,6 +76,7 @@ Rewarded ads are configured through `Assets/BusPuzzle/Resources/Ads/AdMobSetting
 - Editor and development builds use Google's rewarded test ad unit IDs.
 - Release Android/iOS builds use the production IDs in `AdMobSettings.asset`.
 - Release builds fail before build if any mobile production ID is missing, still points at Google's test publisher, or the `BUS_PUZZLE_ADMOB` scripting define is not enabled.
+- For global AdMob releases, add the Google UMP consent flow before initializing Mobile Ads and expose the required privacy options entry point for EEA/UK/CH users.
 
 Production AdMob IDs are intentionally not documented in this README. Keep them in the Unity
 settings asset used by release builds, and avoid copying real IDs into public-facing docs,

@@ -552,6 +552,58 @@ def build_city_bus(collection, materials, scale):
     wheel(collection, "City Bus Rear Right", materials, (0.375 * s, -0.96 * s, 0.16 * s), 0.155 * s, 0.044 * s, 0.72)
 
 
+def build_korean_bus(collection, materials, scale):
+    s = scale
+    width = 0.74 * s
+    length = 3.28 * s
+    height = 0.72 * s
+    front_y = length * 0.5
+    rear_y = -length * 0.5
+    side_x = width * 0.5
+
+    # One readable box body first, then flat surface details for mobile clarity.
+    rounded_box(collection, "Korean Bus Single Box Body", materials["body"], (0, 0, 0.40 * s), (width, length, height), 0.070 * s)
+    rounded_box(collection, "Korean Bus Roof Soft Highlight", materials["body_soft"], (0, -0.08 * s, 0.79 * s), (width * 0.78, length * 0.78, 0.045 * s), 0.040 * s)
+    rounded_box(collection, "Korean Bus Lower Color Belt", materials["accent"], (0, -0.02 * s, 0.18 * s), (width + 0.018 * s, length * 0.90, 0.080 * s), 0.018 * s)
+
+    # Front face: windshield, route sign, lamps.
+    rounded_box(collection, "Korean Bus Front Windshield", materials["glass"], (0, front_y + 0.022 * s, 0.58 * s), (width * 0.66, 0.020 * s, 0.27 * s), 0.014 * s)
+    rounded_box(collection, "Korean Bus Front Route Sign", materials["dark"], (0, front_y + 0.024 * s, 0.77 * s), (width * 0.46, 0.018 * s, 0.060 * s), 0.006 * s)
+    rounded_box(collection, "Korean Bus Front Grille", materials["dark"], (0, front_y + 0.026 * s, 0.30 * s), (width * 0.38, 0.016 * s, 0.050 * s), 0.004 * s)
+    rounded_box(collection, "Korean Bus Front Left Headlight", materials["light"], (-width * 0.32, front_y + 0.028 * s, 0.35 * s), (0.075 * s, 0.014 * s, 0.045 * s), 0.006 * s)
+    rounded_box(collection, "Korean Bus Front Right Headlight", materials["light"], (width * 0.32, front_y + 0.028 * s, 0.35 * s), (0.075 * s, 0.014 * s, 0.045 * s), 0.006 * s)
+    rounded_box(collection, "Korean Bus Front Plate", materials["metal"], (0, front_y + 0.029 * s, 0.18 * s), (0.18 * s, 0.012 * s, 0.035 * s), 0.004 * s)
+
+    # Boarding side: windows plus a clear front door.
+    boarding_x = side_x + 0.020 * s
+    rounded_box(collection, "Korean Bus Boarding Side Window Band", materials["body"], (boarding_x, -0.32 * s, 0.61 * s), (0.020 * s, 2.24 * s, 0.25 * s), 0.006 * s)
+    for index, y in enumerate([-1.08, -0.70, -0.32, 0.06, 0.44]):
+        rounded_box(collection, "Korean Bus Boarding Side Window %d" % (index + 1), materials["glass"], (boarding_x + 0.006 * s, y * s, 0.62 * s), (0.020 * s, 0.29 * s, 0.17 * s), 0.004 * s)
+    rounded_box(collection, "Korean Bus Boarding Door Frame", materials["body"], (boarding_x + 0.004 * s, 1.02 * s, 0.48 * s), (0.024 * s, 0.38 * s, 0.48 * s), 0.006 * s)
+    rounded_box(collection, "Korean Bus Boarding Door Glass Upper", materials["glass"], (boarding_x + 0.009 * s, 1.03 * s, 0.61 * s), (0.024 * s, 0.25 * s, 0.18 * s), 0.004 * s)
+    rounded_box(collection, "Korean Bus Boarding Door Lower Panel", materials["body_soft"], (boarding_x + 0.010 * s, 1.03 * s, 0.35 * s), (0.020 * s, 0.25 * s, 0.15 * s), 0.004 * s)
+    rounded_box(collection, "Korean Bus Boarding Door Split", materials["accent"], (boarding_x + 0.014 * s, 1.03 * s, 0.49 * s), (0.010 * s, 0.016 * s, 0.42 * s), 0.001 * s)
+
+    # Opposite side: only windows, no boarding door.
+    opposite_x = -side_x - 0.020 * s
+    rounded_box(collection, "Korean Bus Opposite Side Window Band", materials["body"], (opposite_x, -0.16 * s, 0.61 * s), (0.020 * s, 2.62 * s, 0.25 * s), 0.006 * s)
+    for index, y in enumerate([-1.18, -0.80, -0.42, -0.04, 0.34, 0.72]):
+        rounded_box(collection, "Korean Bus Opposite Side Window %d" % (index + 1), materials["glass"], (opposite_x - 0.006 * s, y * s, 0.62 * s), (0.020 * s, 0.29 * s, 0.17 * s), 0.004 * s)
+
+    # Rear face: rear glass and vertical tail lamps.
+    rounded_box(collection, "Korean Bus Rear Window", materials["glass"], (0, rear_y - 0.022 * s, 0.60 * s), (width * 0.58, 0.020 * s, 0.22 * s), 0.012 * s)
+    rounded_box(collection, "Korean Bus Rear Hatch", materials["body_soft"], (0, rear_y - 0.024 * s, 0.33 * s), (width * 0.46, 0.016 * s, 0.13 * s), 0.006 * s)
+    rounded_box(collection, "Korean Bus Rear Left Tail Light", materials["tail"], (-width * 0.39, rear_y - 0.026 * s, 0.40 * s), (0.050 * s, 0.014 * s, 0.15 * s), 0.005 * s)
+    rounded_box(collection, "Korean Bus Rear Right Tail Light", materials["tail"], (width * 0.39, rear_y - 0.026 * s, 0.40 * s), (0.050 * s, 0.014 * s, 0.15 * s), 0.005 * s)
+    rounded_box(collection, "Korean Bus Rear Plate", materials["metal"], (0, rear_y - 0.028 * s, 0.17 * s), (0.18 * s, 0.012 * s, 0.035 * s), 0.004 * s)
+
+    # Four low wheels visible from the game camera.
+    wheel(collection, "Korean Bus Front Left", materials, (-0.43 * s, 0.90 * s, 0.15 * s), 0.150 * s, 0.042 * s, 0.70)
+    wheel(collection, "Korean Bus Front Right", materials, (0.43 * s, 0.90 * s, 0.15 * s), 0.150 * s, 0.042 * s, 0.70)
+    wheel(collection, "Korean Bus Rear Left", materials, (-0.43 * s, -0.98 * s, 0.15 * s), 0.150 * s, 0.042 * s, 0.70)
+    wheel(collection, "Korean Bus Rear Right", materials, (0.43 * s, -0.98 * s, 0.15 * s), 0.150 * s, 0.042 * s, 0.70)
+
+
 def build_ground(collection, materials):
     mark_helper(rounded_box(collection, "Display Base", materials["shadow"], (0, 0, -0.04), (3.2, 3.2, 0.04), 0.18))
 
@@ -627,6 +679,8 @@ def build_vehicle(config):
         build_bicycle(collection, materials, scale)
     elif vehicle in ("motorcycle", "motorbike"):
         build_motorcycle(collection, materials, scale)
+    elif vehicle in ("korean_bus", "simple_bus", "box_bus"):
+        build_korean_bus(collection, materials, scale)
     elif vehicle in ("bus", "toy_bus", "city_bus", "large_bus"):
         build_city_bus(collection, materials, scale)
     else:

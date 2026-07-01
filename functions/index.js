@@ -14,6 +14,7 @@ const callableOptions = {
 };
 const maxAcceptedStage = 10000;
 const maxStageJump = 5;
+const maxInitialStage = 5;
 const minNicknameDisplayWidth = 6;
 const maxNicknameDisplayWidth = 16;
 
@@ -40,7 +41,10 @@ exports.submitStageClear = onCall(callableOptions, async (request) => {
       ? Math.max(0, readInteger(snapshot.get("maxClearedStage")) || 0)
       : 0;
 
-    if (previousStage > 0 && submittedStage > previousStage + maxStageJump) {
+    const maxAllowedStage = previousStage > 0
+      ? previousStage + maxStageJump
+      : maxInitialStage;
+    if (submittedStage > maxAllowedStage) {
       throw new HttpsError("failed-precondition", "Cleared stage jump is too large.");
     }
 

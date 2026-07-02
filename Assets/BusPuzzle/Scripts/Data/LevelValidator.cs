@@ -94,6 +94,7 @@ namespace BusPuzzle
             ValidateCapacityMatch(report, levelData);
             var usesShapeLibraryLayout = UsesShapeLibraryLayout(levelData);
             ValidateDifficultyProfile(report, profile, levelData.PassengerFlowPlan, passengers, allVehicles, usesShapeLibraryLayout);
+            ValidateShapeLibraryCoverage(report, profile, levelData, allVehicles, usesShapeLibraryLayout);
             ValidateSolutionRoute(report, levelData.PassengerFlowPlan, allVehicles);
             ValidatePassengerRuns(report, profile, passengers, usesShapeLibraryLayout);
             ValidateVehiclePlacement(report, buses, usesShapeLibraryLayout);
@@ -317,6 +318,31 @@ namespace BusPuzzle
                             $"Vehicle #{firstIndex + 1} {DescribeVehicle(buses[firstIndex])} is very close to vehicle #{secondIndex + 1} {DescribeVehicle(buses[secondIndex])}; movement may feel visually blocked.");
                     }
                 }
+            }
+        }
+
+        private static void ValidateShapeLibraryCoverage(
+            LevelValidationReport report,
+            LevelDifficultyProfile profile,
+            LevelData levelData,
+            IReadOnlyList<BusDefinition> allVehicles,
+            bool usesShapeLibraryLayout)
+        {
+            if (!usesShapeLibraryLayout ||
+                profile == null ||
+                levelData == null ||
+                !StageGenerationSignature.TryGetInt(levelData.GenerationSignature, "layoutVariant", out var layoutVariantIndex))
+            {
+                return;
+            }
+
+            var vehicleCount = allVehicles?.Count ?? 0;
+            var minimumVehicleCount = ShapeLibraryVehicleCoverage.GetMinimumVehicleCount(profile, layoutVariantIndex);
+            if (vehicleCount < minimumVehicleCount)
+            {
+                report.Add(
+                    LevelValidationSeverity.Error,
+                    $"Shape library vehicle coverage {vehicleCount}/{profile.TargetVehicleCount} is below required minimum {minimumVehicleCount}.");
             }
         }
 

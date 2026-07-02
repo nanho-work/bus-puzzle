@@ -63,8 +63,12 @@ namespace BusPuzzle
 
     public static class StageGenerationPlanner
     {
-        private const int ShapeLibraryPreviewLineVehicleCount = 30;
-        private const int ShapeLibraryPreviewFilledVehicleCount = 38;
+        private const int ShapeLibraryPreviewLineVehicleCount = 38;
+        private const int ShapeLibraryPreviewHardLineVehicleCount = 42;
+        private const int ShapeLibraryPreviewSuperHardLineVehicleCount = 46;
+        private const int ShapeLibraryPreviewFilledVehicleCount = 46;
+        private const int ShapeLibraryPreviewHardFilledVehicleCount = 52;
+        private const int ShapeLibraryPreviewSuperHardFilledVehicleCount = 56;
 
         // Keep the pattern length stable while avoiding experimental shapes whose road offsets can overlap.
         // Snake/Clover/Cloud/Loop/Arrow/Ribbon presets remain available for validation passes before rotation.
@@ -177,7 +181,7 @@ namespace BusPuzzle
             profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             var targetVehicleCount = Mathf.Max(
                 profile.TargetVehicleCount,
-                GetShapeLibraryPreviewVehicleCount(libraryIndex));
+                GetShapeLibraryPreviewVehicleCount(libraryIndex, profile.Difficulty));
             if (targetVehicleCount == profile.TargetVehicleCount)
             {
                 return profile;
@@ -193,7 +197,7 @@ namespace BusPuzzle
                 profile.RequireSolutionRoute);
         }
 
-        private static int GetShapeLibraryPreviewVehicleCount(int libraryIndex)
+        private static int GetShapeLibraryPreviewVehicleCount(int libraryIndex, LevelDifficulty difficulty)
         {
             var libraryId = (VehicleShapeLibraryId)Mathf.Clamp(
                 libraryIndex,
@@ -208,9 +212,17 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.Stairs:
                 case VehicleShapeLibraryId.Arrow:
                 case VehicleShapeLibraryId.DoubleArrow:
-                    return ShapeLibraryPreviewLineVehicleCount;
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardLineVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardLineVehicleCount
+                            : ShapeLibraryPreviewLineVehicleCount;
                 default:
-                    return ShapeLibraryPreviewFilledVehicleCount;
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardFilledVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardFilledVehicleCount
+                            : ShapeLibraryPreviewFilledVehicleCount;
             }
         }
 

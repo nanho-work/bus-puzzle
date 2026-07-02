@@ -143,6 +143,7 @@ namespace BusPuzzle
             maxGenerationAttempts = Mathf.Clamp(maxGenerationAttempts, 1, DefaultMaxGenerationAttempts);
             var bestVehicles = new List<BusDefinition>();
             var bestExitCount = -1;
+            var bestVehicleCount = -1;
 
             for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
             {
@@ -157,14 +158,34 @@ namespace BusPuzzle
                     targetVehicleCount,
                     garages,
                     effectiveLayoutVariantIndex);
-                if (HasPlayableExitOrder(vehicles, garages, useSolutionAnalyzer, out var exitOrder))
+                if (HasPlayableExitOrder(
+                    vehicles,
+                    garages,
+                    profile,
+                    effectiveLayoutVariantIndex,
+                    useSolutionAnalyzer,
+                    out var exitOrder))
                 {
-                    return vehicles;
+                    if (ShapeLibraryVehicleCoverage.IsSatisfied(profile, effectiveLayoutVariantIndex, vehicles.Count))
+                    {
+                        return vehicles;
+                    }
+
+                    if (vehicles.Count > bestVehicleCount)
+                    {
+                        bestVehicleCount = vehicles.Count;
+                        bestExitCount = exitOrder.Count;
+                        bestVehicles = vehicles;
+                    }
+
+                    continue;
                 }
 
-                if (exitOrder.Count > bestExitCount)
+                if (exitOrder.Count > bestExitCount ||
+                    (exitOrder.Count == bestExitCount && vehicles.Count > bestVehicleCount))
                 {
                     bestExitCount = exitOrder.Count;
+                    bestVehicleCount = vehicles.Count;
                     bestVehicles = vehicles;
                 }
             }
@@ -175,13 +196,26 @@ namespace BusPuzzle
         private static bool HasPlayableExitOrder(
             IReadOnlyList<BusDefinition> vehicles,
             IReadOnlyList<GarageDefinition> garages,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex,
             bool useSolutionAnalyzer,
             out List<int> exitOrder)
         {
             LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out exitOrder, out _);
             if (!useSolutionAnalyzer)
             {
-                return vehicles != null && vehicles.Count > 0 && exitOrder.Count == vehicles.Count;
+                if (vehicles == null || vehicles.Count == 0)
+                {
+                    return false;
+                }
+
+                if (ShapeLibraryVehicleCoverage.RequiresCoverage(layoutVariantIndex))
+                {
+                    return ShapeLibraryVehicleCoverage.IsSatisfied(profile, layoutVariantIndex, vehicles.Count) &&
+                        exitOrder.Count == vehicles.Count;
+                }
+
+                return exitOrder.Count == vehicles.Count;
             }
 
             return StageSolutionAnalyzer.Analyze(vehicles, garages, 2, VehicleBuildSolutionNodeVisitLimit).IsSolvable;
@@ -489,12 +523,28 @@ namespace BusPuzzle
             {
                 if (slot.ShapeRole != VehicleShapeCellRole.Fill)
                 {
-                    return BusSize.Small;
+                    if (profile.Difficulty == LevelDifficulty.SuperHard &&
+                        profile.TargetVehicleCount >= 46 &&
+                        random.NextDouble() < 0.10d)
+                    {
+                        return BusSize.Large;
+                    }
+
+                    var mediumChance = profile.Difficulty == LevelDifficulty.Normal ? 0.22d : 0.34d;
+                    return profile.TargetVehicleCount >= 34 && random.NextDouble() < mediumChance
+                        ? BusSize.Medium
+                        : BusSize.Small;
                 }
 
-                return profile.TargetVehicleCount >= 38 && random.NextDouble() < 0.12d
+                var largeChance = profile.Difficulty == LevelDifficulty.SuperHard
+                    ? 0.20d
+                    : profile.Difficulty == LevelDifficulty.Hard
+                        ? 0.15d
+                        : 0.12d;
+                var fillMediumChance = profile.Difficulty == LevelDifficulty.Normal ? 0.34d : 0.46d;
+                return profile.TargetVehicleCount >= 42 && random.NextDouble() < largeChance
                     ? BusSize.Large
-                    : profile.TargetVehicleCount >= 30 && random.NextDouble() < 0.34d
+                    : profile.TargetVehicleCount >= 34 && random.NextDouble() < fillMediumChance
                         ? BusSize.Medium
                         : BusSize.Small;
             }

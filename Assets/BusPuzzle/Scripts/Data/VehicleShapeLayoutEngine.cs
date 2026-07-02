@@ -148,6 +148,7 @@ namespace BusPuzzle
         private const float CenterX = (BoardLayoutConfig.GridColumns - 1) * 0.5f;
         private const float CenterY = (BoardLayoutConfig.GridRows - 1) * 0.5f;
         private const float MaxShapeAngleOffsetDegrees = 24f;
+        private const float MaxLibraryShapeAngleOffsetDegrees = 45f;
 
         public static bool TryCreateDefinition(
             VehicleLayoutPatternId pattern,
@@ -406,6 +407,7 @@ namespace BusPuzzle
                     }
 
                     score += Mathf.RoundToInt(distanceCells * 9f);
+                    score += ScoreShapeDirectionMismatch(definition, nearestCell, vehicle);
                     continue;
                 }
 
@@ -444,6 +446,30 @@ namespace BusPuzzle
             }
 
             return score;
+        }
+
+        private static int ScoreShapeDirectionMismatch(
+            VehicleShapeLayoutDefinition definition,
+            VehicleShapeCell cell,
+            BusDefinition vehicle)
+        {
+            if (definition.LibraryId == VehicleShapeLibraryId.None ||
+                cell.Role == VehicleShapeCellRole.Fill)
+            {
+                return 0;
+            }
+
+            GetShapeDirection(definition, cell, out var expectedDirection, out var expectedAngleOffset);
+            var expectedYaw = GridDirectionUtility.ToYawDegrees(expectedDirection) + expectedAngleOffset;
+            var delta = Mathf.Abs(Mathf.DeltaAngle(expectedYaw, vehicle.YawDegrees));
+            var axisDelta = Mathf.Min(delta, Mathf.Abs(180f - delta));
+            if (axisDelta <= 10f)
+            {
+                return 0;
+            }
+
+            var weight = IsFeatureCell(definition, cell) ? 0.65f : 0.45f;
+            return Mathf.RoundToInt(Mathf.Min(42f, axisDelta - 10f) * weight);
         }
 
         public static List<VehicleShapeCell> CreateGuideCells(VehicleShapeLayoutDefinition definition)
@@ -560,7 +586,15 @@ namespace BusPuzzle
             var selectedFill = TakeFirst(fill, fillQuota);
             var selectedFeature = TakeFirst(feature, featureQuota);
             var ordered = new List<VehicleShapeCell>(cells.Count);
-            AppendMixedCells(ordered, selectedFeature, selectedOutline, selectedAccent, selectedFill);
+            if (ShouldPrioritizeSilhouetteOutline(definition.LibraryId))
+            {
+                AppendSilhouetteFirstCells(ordered, selectedFeature, selectedOutline, selectedAccent, selectedFill);
+            }
+            else
+            {
+                AppendMixedCells(ordered, selectedFeature, selectedOutline, selectedAccent, selectedFill);
+            }
+
             AppendRemainingCells(ordered, cells);
             return ordered;
         }
@@ -603,17 +637,18 @@ namespace BusPuzzle
             {
                 case VehicleShapeLibraryId.Heart:
                 case VehicleShapeLibraryId.HeartArrow:
+                    return 0.78f;
                 case VehicleShapeLibraryId.Shield:
                 case VehicleShapeLibraryId.Clover:
                 case VehicleShapeLibraryId.Eight:
-                    return 0.60f;
+                    return 0.70f;
                 case VehicleShapeLibraryId.Square:
                 case VehicleShapeLibraryId.HollowSquare:
                 case VehicleShapeLibraryId.Diamond:
                 case VehicleShapeLibraryId.Triangle:
-                    return 0.54f;
+                    return 0.64f;
                 default:
-                    return 0.46f;
+                    return 0.56f;
             }
         }
 
@@ -623,13 +658,15 @@ namespace BusPuzzle
             {
                 case VehicleShapeLibraryId.Heart:
                 case VehicleShapeLibraryId.HeartArrow:
+                    return 0.14f;
                 case VehicleShapeLibraryId.Star:
                 case VehicleShapeLibraryId.Flower:
                 case VehicleShapeLibraryId.Sunburst:
+                    return 0.18f;
                 case VehicleShapeLibraryId.Crown:
                 case VehicleShapeLibraryId.Shield:
                 case VehicleShapeLibraryId.Clover:
-                    return 0.26f;
+                    return 0.18f;
                 case VehicleShapeLibraryId.Arrow:
                 case VehicleShapeLibraryId.DoubleArrow:
                 case VehicleShapeLibraryId.Lightning:
@@ -639,6 +676,25 @@ namespace BusPuzzle
                     return 0.22f;
                 default:
                     return 0.20f;
+            }
+        }
+
+        private static bool ShouldPrioritizeSilhouetteOutline(VehicleShapeLibraryId libraryId)
+        {
+            switch (libraryId)
+            {
+                case VehicleShapeLibraryId.Heart:
+                case VehicleShapeLibraryId.HeartArrow:
+                case VehicleShapeLibraryId.Star:
+                case VehicleShapeLibraryId.Flower:
+                case VehicleShapeLibraryId.Sunburst:
+                case VehicleShapeLibraryId.Shield:
+                case VehicleShapeLibraryId.Clover:
+                case VehicleShapeLibraryId.Eight:
+                case VehicleShapeLibraryId.Fan:
+                    return true;
+                default:
+                    return false;
             }
         }
 
@@ -766,6 +822,31 @@ namespace BusPuzzle
                 AppendIfAvailable(ordered, outline, ref outlineIndex);
                 AppendIfAvailable(ordered, fill, ref fillIndex);
                 AppendIfAvailable(ordered, outline, ref outlineIndex);
+                AppendIfAvailable(ordered, accent, ref accentIndex);
+                AppendIfAvailable(ordered, fill, ref fillIndex);
+            }
+        }
+
+        private static void AppendSilhouetteFirstCells(
+            List<VehicleShapeCell> ordered,
+            List<VehicleShapeCell> feature,
+            List<VehicleShapeCell> outline,
+            List<VehicleShapeCell> accent,
+            List<VehicleShapeCell> fill)
+        {
+            var outlineIndex = 0;
+            while (outlineIndex < outline.Count)
+            {
+                AppendIfAvailable(ordered, outline, ref outlineIndex);
+            }
+
+            var featureIndex = 0;
+            var accentIndex = 0;
+            var fillIndex = 0;
+            while (featureIndex < feature.Count || accentIndex < accent.Count || fillIndex < fill.Count)
+            {
+                AppendIfAvailable(ordered, feature, ref featureIndex);
+                AppendIfAvailable(ordered, fill, ref fillIndex);
                 AppendIfAvailable(ordered, accent, ref accentIndex);
                 AppendIfAvailable(ordered, fill, ref fillIndex);
             }
@@ -2022,7 +2103,10 @@ namespace BusPuzzle
             var yaw = Mathf.Atan2(vector.x, vector.y) * Mathf.Rad2Deg;
             direction = DirectionFromYaw(yaw);
             var baseYaw = GridDirectionUtility.ToYawDegrees(direction);
-            angleOffset = Mathf.Clamp(Mathf.DeltaAngle(baseYaw, yaw), -MaxShapeAngleOffsetDegrees, MaxShapeAngleOffsetDegrees);
+            var maxAngleOffset = definition.LibraryId != VehicleShapeLibraryId.None
+                ? MaxLibraryShapeAngleOffsetDegrees
+                : MaxShapeAngleOffsetDegrees;
+            angleOffset = Mathf.Clamp(Mathf.DeltaAngle(baseYaw, yaw), -maxAngleOffset, maxAngleOffset);
         }
 
         private static bool TryGetLibraryDirection(

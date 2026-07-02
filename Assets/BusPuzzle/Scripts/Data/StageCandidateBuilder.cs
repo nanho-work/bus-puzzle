@@ -33,7 +33,7 @@ namespace BusPuzzle
             LevelValidationReport bestReport = null;
             StageSolutionAnalysis bestAnalysis = default;
             var bestScore = int.MaxValue;
-            var minimumProbeCount = GetMinimumReleaseCandidateProbeCount(config);
+            var minimumProbeCount = GetMinimumReleaseCandidateProbeCount(config, request);
 
             for (var candidate = 0; candidate < config.CandidateAttemptsPerStage; candidate++)
             {
@@ -48,12 +48,17 @@ namespace BusPuzzle
                     candidate,
                     config.ReleaseVehicleGenerationAttempts,
                     false);
+                if (!HasRequiredShapeLibraryVehicleCoverage(request, candidateLevel))
+                {
+                    continue;
+                }
+
                 var candidateReport = LevelValidator.Validate(candidateLevel, false);
                 var candidateAnalysis = StageSolutionAnalyzer.Analyze(
                     candidateLevel.Buses,
                     candidateLevel.Garages,
                     GetCandidateSolutionCountLimit(config, request),
-                    config.ReleaseSolutionNodeVisitLimit);
+                    GetCandidateSolutionNodeVisitLimit(config, request));
 
                 if (candidateReport.HasErrors || !candidateAnalysis.IsSolvable)
                 {
@@ -176,6 +181,11 @@ namespace BusPuzzle
                     candidate,
                     config.RuntimeVehicleGenerationAttempts,
                     false);
+                if (!HasRequiredShapeLibraryVehicleCoverage(request, level))
+                {
+                    continue;
+                }
+
                 if (!TryScoreRuntimeCandidate(config, request, level, out var score))
                 {
                     continue;
@@ -253,6 +263,11 @@ namespace BusPuzzle
 
             var report = LevelValidator.Validate(level, false);
             if (report.HasErrors)
+            {
+                return false;
+            }
+
+            if (!HasRequiredShapeLibraryVehicleCoverage(request, level))
             {
                 return false;
             }
@@ -481,6 +496,21 @@ namespace BusPuzzle
             return score;
         }
 
+        private static bool HasRequiredShapeLibraryVehicleCoverage(StageGenerationRequest request, LevelData level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+
+            var profile = request.Profile ?? LevelDifficultyProfile.DefaultFor(request.Difficulty);
+            var actualVehicleCount = level.AllVehicles != null ? level.AllVehicles.Count : 0;
+            return ShapeLibraryVehicleCoverage.IsSatisfied(
+                profile,
+                request.VehicleLayoutVariantIndex,
+                actualVehicleCount);
+        }
+
         private static List<BusDefinition> CollectVisibleLayoutVehicles(LevelData level)
         {
             var vehicles = new List<BusDefinition>();
@@ -610,9 +640,14 @@ namespace BusPuzzle
             return score;
         }
 
-        private static int GetMinimumReleaseCandidateProbeCount(StageGenerationConfig config)
+        private static int GetMinimumReleaseCandidateProbeCount(StageGenerationConfig config, StageGenerationRequest request)
         {
             var attempts = config != null ? config.CandidateAttemptsPerStage : MinimumReleaseCandidateProbeCount;
+            if (VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(request.VehicleLayoutVariantIndex, out _))
+            {
+                return 1;
+            }
+
             var lower = Mathf.Min(4, attempts);
             var upper = Mathf.Min(MinimumReleaseCandidateProbeCount, attempts);
             return Mathf.Clamp(Mathf.CeilToInt(attempts * 0.16f), lower, upper);
@@ -620,6 +655,11 @@ namespace BusPuzzle
 
         private static int GetSolutionRangeDistance(StageSolutionAnalysis analysis, StageGenerationRequest request)
         {
+            if (IsShapeLibraryRequest(request))
+            {
+                return analysis.IsSolvable ? 0 : int.MaxValue / 4;
+            }
+
             if (analysis.SolutionCount < request.MinSolutionCount)
             {
                 return request.MinSolutionCount - analysis.SolutionCount;
@@ -635,11 +675,31 @@ namespace BusPuzzle
 
         private static int GetCandidateSolutionCountLimit(StageGenerationConfig config, StageGenerationRequest request)
         {
+            if (IsShapeLibraryRequest(request))
+            {
+                return 1;
+            }
+
             var upperBoundProbe = UnityEngine.Mathf.Max(1, request.MaxSolutionCount + 1);
             return UnityEngine.Mathf.Clamp(
                 UnityEngine.Mathf.Min(config.SolutionCountLimit, upperBoundProbe),
                 1,
                 config.SolutionCountLimit);
+        }
+
+        private static int GetCandidateSolutionNodeVisitLimit(StageGenerationConfig config, StageGenerationRequest request)
+        {
+            if (IsShapeLibraryRequest(request))
+            {
+                return 2048;
+            }
+
+            return config.ReleaseSolutionNodeVisitLimit;
+        }
+
+        private static bool IsShapeLibraryRequest(StageGenerationRequest request)
+        {
+            return VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(request.VehicleLayoutVariantIndex, out _);
         }
 
         private static bool IsAcceptableReleaseFallback(int solutionDistance)

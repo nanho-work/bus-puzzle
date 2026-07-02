@@ -396,6 +396,9 @@ namespace BusPuzzle
             var columnCounts = new int[BoardLayoutConfig.GridColumns];
             var directionCounts = new int[4];
             var positions = new Vector2[vehicles.Count];
+            var usesShapeLibraryLayout = VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(
+                request.VehicleLayoutVariantIndex,
+                out _);
             var minX = float.MaxValue;
             var maxX = float.MinValue;
             var minY = float.MaxValue;
@@ -431,10 +434,13 @@ namespace BusPuzzle
                 var directionIndex = Mathf.Clamp((int)vehicle.Direction, 0, directionCounts.Length - 1);
                 directionCounts[directionIndex]++;
 
-                var angle = Mathf.Abs(Mathf.DeltaAngle(0f, vehicle.AngleOffsetDegrees));
-                score += Mathf.RoundToInt(Mathf.Min(angle, 18f) * 2.5f);
-                var offsetOverage = Mathf.Max(0f, vehicle.PositionOffsetCells.magnitude - 0.08f);
-                score += Mathf.RoundToInt(offsetOverage * 180f);
+                if (!usesShapeLibraryLayout)
+                {
+                    var angle = Mathf.Abs(Mathf.DeltaAngle(0f, vehicle.AngleOffsetDegrees));
+                    score += Mathf.RoundToInt(Mathf.Min(angle, 18f) * 2.5f);
+                    var offsetOverage = Mathf.Max(0f, vehicle.PositionOffsetCells.magnitude - 0.08f);
+                    score += Mathf.RoundToInt(offsetOverage * 180f);
+                }
             }
 
             var count = Mathf.Max(1, vehicles.Count);
@@ -446,7 +452,9 @@ namespace BusPuzzle
             var height = Mathf.Max(1f, maxY - minY + 1f);
             var density = count / Mathf.Max(1f, width * height);
             var profile = request.Profile ?? LevelDifficultyProfile.DefaultFor(request.Difficulty);
-            var targetDensity = Mathf.Lerp(0.22f, 0.46f, profile.ParkingTension);
+            var targetDensity = usesShapeLibraryLayout
+                ? Mathf.Lerp(0.38f, 0.62f, profile.ParkingTension)
+                : Mathf.Lerp(0.22f, 0.46f, profile.ParkingTension);
             score += Mathf.RoundToInt(Mathf.Abs(density - targetDensity) * 260f);
             var regularTargetVehicleCount = Mathf.Max(1, profile.TargetVehicleCount - CountGarageVehicles(level.Garages));
             score += VehicleLayoutPatternEngine.ScoreShapeFidelity(

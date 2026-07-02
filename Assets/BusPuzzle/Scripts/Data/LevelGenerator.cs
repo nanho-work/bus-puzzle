@@ -337,6 +337,22 @@ namespace BusPuzzle
         {
             var vehicles = new List<BusDefinition>();
             var colors = PickColorSet(profile.TargetColorCount);
+            if ((garages == null || garages.Count == 0) &&
+                DenseShowcaseLayoutEngine.TryBuildVehicles(
+                    profile,
+                    random,
+                    targetVehicleCount,
+                    layoutVariantIndex,
+                    colors,
+                    out var denseShowcaseVehicles))
+            {
+                return RecolorShapeLibraryVehiclesForExitOrder(
+                    denseShowcaseVehicles,
+                    profile,
+                    layoutVariantIndex,
+                    colors);
+            }
+
             TryPlacePatternVehicles(profile, random, targetVehicleCount, garages, colors, vehicles, layoutVariantIndex);
 
             for (var vehicleIndex = vehicles.Count; vehicleIndex < targetVehicleCount; vehicleIndex++)
@@ -349,7 +365,7 @@ namespace BusPuzzle
                 vehicles.Add(vehicle);
             }
 
-            return vehicles;
+            return RecolorShapeLibraryVehiclesForExitOrder(vehicles, profile, layoutVariantIndex, colors);
         }
 
         private static void TryPlacePatternVehicles(
@@ -395,6 +411,74 @@ namespace BusPuzzle
             return colors[vehicleIndex % colors.Count];
         }
 
+        private static List<BusDefinition> RecolorShapeLibraryVehiclesForExitOrder(
+            List<BusDefinition> vehicles,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex,
+            IReadOnlyList<PuzzleColor> colors)
+        {
+            if (!VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _) ||
+                vehicles == null ||
+                vehicles.Count == 0)
+            {
+                return vehicles;
+            }
+
+            IReadOnlyList<PuzzleColor> palette = colors != null && colors.Count > 0 ? colors : ColorPool;
+            VehicleLayoutPatternEngine.TryCreateShapeDefinition(
+                profile,
+                vehicles.Count,
+                layoutVariantIndex,
+                out var shapeDefinition);
+            LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out var exitOrder, out _);
+            var orderedIndices = BuildCompleteOrder(vehicles.Count, exitOrder);
+            var recolored = new List<BusDefinition>(vehicles);
+            var paletteIndex = 0;
+            for (var orderIndex = 0; orderIndex < orderedIndices.Count; orderIndex++)
+            {
+                var vehicleIndex = orderedIndices[orderIndex];
+                var bus = recolored[vehicleIndex];
+                if (ShouldPreserveShapeRoleColor(shapeDefinition, bus))
+                {
+                    continue;
+                }
+
+                var color = palette[paletteIndex % palette.Count];
+                paletteIndex++;
+                recolored[vehicleIndex] = new BusDefinition(
+                    color,
+                    bus.Size,
+                    bus.Direction,
+                    bus.GridPosition,
+                    bus.AngleOffsetDegrees,
+                    bus.PositionOffsetCells,
+                    bus.StartsConcealed);
+            }
+
+            return recolored;
+        }
+
+        private static bool ShouldPreserveShapeRoleColor(
+            VehicleShapeLayoutDefinition shapeDefinition,
+            BusDefinition bus)
+        {
+            if (shapeDefinition.Kind == VehicleShapeLayoutKind.None)
+            {
+                return false;
+            }
+
+            var position = new Vector2(
+                bus.GridPosition.x + bus.PositionOffsetCells.x,
+                bus.GridPosition.y + bus.PositionOffsetCells.y);
+            return VehicleShapeLayoutEngine.TryFindNearestShapeCell(
+                    shapeDefinition,
+                    position,
+                    out var nearestCell,
+                    out var distanceCells) &&
+                distanceCells <= 0.72f &&
+                VehicleShapeLayoutEngine.IsFeatureCell(shapeDefinition, nearestCell);
+        }
+
         private static BusSize PickPatternSize(
             LevelDifficultyProfile profile,
             System.Random random,
@@ -403,7 +487,16 @@ namespace BusPuzzle
         {
             if (VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _))
             {
-                return BusSize.Small;
+                if (slot.ShapeRole != VehicleShapeCellRole.Fill)
+                {
+                    return BusSize.Small;
+                }
+
+                return profile.TargetVehicleCount >= 38 && random.NextDouble() < 0.12d
+                    ? BusSize.Large
+                    : profile.TargetVehicleCount >= 30 && random.NextDouble() < 0.34d
+                        ? BusSize.Medium
+                        : BusSize.Small;
             }
 
             if (slot.ShapeKind == VehicleShapeLayoutKind.None)

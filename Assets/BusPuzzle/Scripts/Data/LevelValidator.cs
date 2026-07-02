@@ -92,10 +92,11 @@ namespace BusPuzzle
             ValidateBasicCounts(report, passengers, allVehicles);
             ValidateRotaryOpening(report, levelData, passengers);
             ValidateCapacityMatch(report, levelData);
-            ValidateDifficultyProfile(report, profile, levelData.PassengerFlowPlan, passengers, allVehicles);
+            var usesShapeLibraryLayout = UsesShapeLibraryLayout(levelData);
+            ValidateDifficultyProfile(report, profile, levelData.PassengerFlowPlan, passengers, allVehicles, usesShapeLibraryLayout);
             ValidateSolutionRoute(report, levelData.PassengerFlowPlan, allVehicles);
-            ValidatePassengerRuns(report, profile, passengers);
-            ValidateVehiclePlacement(report, buses);
+            ValidatePassengerRuns(report, profile, passengers, usesShapeLibraryLayout);
+            ValidateVehiclePlacement(report, buses, usesShapeLibraryLayout);
             ValidateGaragePlacement(report, levelData.Garages, buses);
             if (validateVehicleExitSequence)
             {
@@ -153,7 +154,8 @@ namespace BusPuzzle
             LevelDifficultyProfile profile,
             PassengerFlowPlan flowPlan,
             IReadOnlyList<PuzzleColor> passengers,
-            IReadOnlyList<BusDefinition> buses)
+            IReadOnlyList<BusDefinition> buses,
+            bool usesShapeLibraryLayout)
         {
             if (profile == null)
             {
@@ -166,7 +168,7 @@ namespace BusPuzzle
             var vehicleTolerance = GetVehicleCountTolerance(profile.Difficulty);
             var colorTolerance = GetColorCountTolerance(profile.Difficulty);
 
-            if (Mathf.Abs(vehicleCount - profile.TargetVehicleCount) > vehicleTolerance)
+            if (!usesShapeLibraryLayout && Mathf.Abs(vehicleCount - profile.TargetVehicleCount) > vehicleTolerance)
             {
                 report.Add(
                     LevelValidationSeverity.Warning,
@@ -200,9 +202,10 @@ namespace BusPuzzle
         private static void ValidatePassengerRuns(
             LevelValidationReport report,
             LevelDifficultyProfile profile,
-            IReadOnlyList<PuzzleColor> passengers)
+            IReadOnlyList<PuzzleColor> passengers,
+            bool allowsShowcasePassengerRuns)
         {
-            if (profile == null || passengers == null || passengers.Count == 0)
+            if (allowsShowcasePassengerRuns || profile == null || passengers == null || passengers.Count == 0)
             {
                 return;
             }
@@ -267,7 +270,10 @@ namespace BusPuzzle
             }
         }
 
-        private static void ValidateVehiclePlacement(LevelValidationReport report, IReadOnlyList<BusDefinition> buses)
+        private static void ValidateVehiclePlacement(
+            LevelValidationReport report,
+            IReadOnlyList<BusDefinition> buses,
+            bool allowsDenseVehicleSpacing)
         {
             if (buses == null || buses.Count == 0)
             {
@@ -278,7 +284,7 @@ namespace BusPuzzle
             {
                 var bus = buses[index];
                 ValidateVehicleGridCell(report, bus, index);
-                ValidateVehicleFineTuning(report, bus, index);
+                ValidateVehicleFineTuning(report, bus, index, allowsDenseVehicleSpacing);
                 ValidateVehicleFootprintBounds(report, bus, index);
             }
 
@@ -303,7 +309,8 @@ namespace BusPuzzle
                             LevelValidationSeverity.Error,
                             $"Vehicle #{firstIndex + 1} {DescribeVehicle(buses[firstIndex])} visually overlaps vehicle #{secondIndex + 1} {DescribeVehicle(buses[secondIndex])} at start.");
                     }
-                    else if (firstVisualFootprint.IsWithinPadding(secondVisualFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
+                    else if (!allowsDenseVehicleSpacing &&
+                        firstVisualFootprint.IsWithinPadding(secondVisualFootprint, BoardLayoutConfig.VehicleNearPaddingCells))
                     {
                         report.Add(
                             LevelValidationSeverity.Warning,
@@ -311,6 +318,13 @@ namespace BusPuzzle
                     }
                 }
             }
+        }
+
+        private static bool UsesShapeLibraryLayout(LevelData levelData)
+        {
+            return levelData != null &&
+                StageGenerationSignature.TryGetInt(levelData.GenerationSignature, "layoutVariant", out var layoutVariantIndex) &&
+                VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _);
         }
 
         private static void ValidateVehicleExitSequence(
@@ -410,8 +424,17 @@ namespace BusPuzzle
             }
         }
 
-        private static void ValidateVehicleFineTuning(LevelValidationReport report, BusDefinition bus, int index)
+        private static void ValidateVehicleFineTuning(
+            LevelValidationReport report,
+            BusDefinition bus,
+            int index,
+            bool allowsShowcaseFineTuning)
         {
+            if (allowsShowcaseFineTuning)
+            {
+                return;
+            }
+
             if (bus.PositionOffsetCells.magnitude > MaxRecommendedPositionOffsetCells)
             {
                 report.Add(

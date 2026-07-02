@@ -6,7 +6,7 @@ namespace BusPuzzle
 {
     public static class StageGenerationSignature
     {
-        private const int SignatureVersion = 12;
+        private const int SignatureVersion = 18;
 
         public static string Create(StageGenerationConfig config, StageGenerationRequest request)
         {

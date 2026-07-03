@@ -43,6 +43,17 @@ namespace BusPuzzle.EditorTools
             BuildGeneratedStageSet(GeneratedStageBuildMode.ShapeLibraryPreview);
         }
 
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Star")]
+        public static void RebuildShapeLibraryPreviewStage09Star()
+        {
+            RebuildSingleShapeLibraryPreviewStage(9);
+        }
+
+        public static void RebuildShapeLibraryPreviewStageFromCommandLine()
+        {
+            RebuildSingleShapeLibraryPreviewStage(ReadCommandLineStageNumber(9));
+        }
+
         [MenuItem("Bus Puzzle/Levels/Build Next Generated Stage Batch")]
         public static void BuildNextGeneratedStageBatch()
         {
@@ -251,6 +262,130 @@ namespace BusPuzzle.EditorTools
             return mode == GeneratedStageBuildMode.ShapeLibraryPreview
                 ? StageGenerationPlanner.CreateShapeLibraryPreviewRequest(config, stageNumber)
                 : StageGenerationPlanner.CreateRequest(config, stageNumber);
+        }
+
+        private static void RebuildSingleShapeLibraryPreviewStage(int stageNumber)
+        {
+            var maxShapeLibraryStage = ShapeLibraryPreviewStageCount;
+            if (stageNumber < 2 || stageNumber > maxShapeLibraryStage)
+            {
+                var message = $"Shape library preview stage must be between 2 and {maxShapeLibraryStage}; got {stageNumber}.";
+                Debug.LogError(message);
+                if (Application.isBatchMode)
+                {
+                    throw new System.InvalidOperationException(message);
+                }
+
+                return;
+            }
+
+            var config = LoadConfig();
+            Directory.CreateDirectory(GeneratedLevelDirectory);
+            var request = StageGenerationPlanner.CreateShapeLibraryPreviewRequest(config, stageNumber);
+            var minimumVisualPreviewVehicleCount = Mathf.CeilToInt(request.Profile.TargetVehicleCount * 0.92f);
+            const int minimumOpeningMoveCount = 3;
+            var openingMoveCount = 0;
+            var cancelled = false;
+            LevelData generatedLevel = null;
+            LevelValidationReport report = null;
+            try
+            {
+                for (var candidate = 0; candidate < config.CandidateAttemptsPerStage; candidate++)
+                {
+                    cancelled = EditorUtility.DisplayCancelableProgressBar(
+                        "Rebuilding Single Shape Library Preview",
+                        $"Stage {stageNumber:000} visual candidate {candidate + 1}/{config.CandidateAttemptsPerStage}",
+                        Mathf.Clamp01(candidate / (float)Mathf.Max(1, config.CandidateAttemptsPerStage)));
+                    if (cancelled)
+                    {
+                        break;
+                    }
+
+                    var candidateLevel = LevelGenerator.CreateRuntimeStage(
+                        request,
+                        config.SuperHardGarageRule,
+                        candidate,
+                        config.ReleaseVehicleGenerationAttempts,
+                        false,
+                        true);
+                    report = LevelValidator.Validate(candidateLevel, false);
+                    if (candidateLevel.Buses == null ||
+                        candidateLevel.Buses.Count < minimumVisualPreviewVehicleCount)
+                    {
+                        continue;
+                    }
+
+                    openingMoveCount = LevelGenerator.CountOpeningMoves(candidateLevel.Buses);
+                    if (openingMoveCount < minimumOpeningMoveCount)
+                    {
+                        continue;
+                    }
+
+                    generatedLevel = candidateLevel;
+                    break;
+                }
+
+                if (generatedLevel == null)
+                {
+                    var message = cancelled
+                        ? $"Shape library preview stage {stageNumber:000} rebuild cancelled."
+                        : $"Failed to rebuild shape library preview stage {stageNumber:000}. " +
+                        $"{CreateReportMessage(generatedLevel, report)}";
+                    Debug.LogError(message);
+                    if (Application.isBatchMode)
+                    {
+                        throw new System.InvalidOperationException(message);
+                    }
+
+                    return;
+                }
+
+                generatedLevel.SetGenerationMetadata(
+                    StageGenerationSignature.Create(config, request),
+                    0);
+                SaveLevel($"Level_{stageNumber:000}", generatedLevel);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log(
+                    $"Rebuilt visual shape library preview stage {stageNumber:000}: " +
+                    $"{request.Difficulty}, vehicles {generatedLevel.Buses.Count}, " +
+                    $"opening moves {openingMoveCount}, road {request.RoadPresetId}.");
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+        }
+
+        private static int ReadCommandLineStageNumber(int fallbackStageNumber)
+        {
+            var args = System.Environment.GetCommandLineArgs();
+            for (var index = 0; index < args.Length; index++)
+            {
+                var arg = args[index];
+                if ((arg == "-stage" || arg == "--stage") &&
+                    index + 1 < args.Length &&
+                    int.TryParse(args[index + 1], out var value))
+                {
+                    return value;
+                }
+
+                const string stagePrefix = "-stage=";
+                const string longStagePrefix = "--stage=";
+                if (arg.StartsWith(stagePrefix, System.StringComparison.Ordinal) &&
+                    int.TryParse(arg.Substring(stagePrefix.Length), out value))
+                {
+                    return value;
+                }
+
+                if (arg.StartsWith(longStagePrefix, System.StringComparison.Ordinal) &&
+                    int.TryParse(arg.Substring(longStagePrefix.Length), out value))
+                {
+                    return value;
+                }
+            }
+
+            return fallbackStageNumber;
         }
 
         private static LevelData SaveLevel(string assetName, LevelData generatedLevel)

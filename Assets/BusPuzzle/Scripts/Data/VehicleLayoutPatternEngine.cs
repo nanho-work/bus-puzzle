@@ -500,7 +500,7 @@ namespace BusPuzzle
                     layoutVariantIndex,
                     out var definition))
             {
-                VehicleShapeLayoutEngine.AddShapeSlots(slots, occupiedCells, profile, random, definition);
+                VehicleShapeLayoutEngine.AddShapeSlots(slots, occupiedCells, profile, random, definition, targetVehicleCount);
             }
         }
 

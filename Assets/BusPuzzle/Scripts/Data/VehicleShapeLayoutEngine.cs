@@ -228,8 +228,8 @@ namespace BusPuzzle
             var scale = Mathf.Lerp(0.92f, 1.05f, (variant % 5) / 4f);
             if (libraryId == VehicleShapeLibraryId.Heart || libraryId == VehicleShapeLibraryId.HeartArrow)
             {
-                var countScale = Mathf.Lerp(0.96f, 1.04f, Mathf.InverseLerp(30f, 44f, targetVehicleCount));
-                scale = Mathf.Max(scale, countScale);
+                var countScale = Mathf.Lerp(0.88f, 0.96f, Mathf.InverseLerp(30f, 44f, targetVehicleCount));
+                scale = Mathf.Min(scale, countScale);
             }
 
             definition = new VehicleShapeLayoutDefinition(
@@ -535,7 +535,47 @@ namespace BusPuzzle
                 return BuildContinuousBudgetedCells(definition, cells, targetVehicleCount);
             }
 
+            if (definition.LibraryId == VehicleShapeLibraryId.Star)
+            {
+                return BuildStarBudgetedCells(definition, cells, targetVehicleCount);
+            }
+
             return BuildMixedRoleBudgetedCells(definition, cells, targetVehicleCount);
+        }
+
+        private static List<VehicleShapeCell> BuildStarBudgetedCells(
+            VehicleShapeLayoutDefinition definition,
+            List<VehicleShapeCell> cells,
+            int targetVehicleCount)
+        {
+            var feature = CollectFeatureCells(definition, cells);
+            var featureKeys = BuildCellKeySet(feature);
+            var outline = CollectRoleCells(cells, VehicleShapeCellRole.Outline, featureKeys);
+            var accent = CollectRoleCells(cells, VehicleShapeCellRole.Accent, featureKeys);
+            var fill = CollectRoleCells(cells, VehicleShapeCellRole.Fill, featureKeys);
+            SortStarPathCells(definition, outline);
+            SortStarPathCells(definition, accent);
+            SortStarFillCells(fill);
+
+            var selectedFeature = TakeFirst(
+                feature,
+                Mathf.Min(feature.Count, Mathf.Max(10, Mathf.RoundToInt(targetVehicleCount * 0.22f))));
+            var remaining = Mathf.Max(0, targetVehicleCount - selectedFeature.Count);
+            var selectedOutline = outline.Count <= remaining
+                ? TakeFirst(outline, outline.Count)
+                : SelectEvenly(outline, remaining);
+            remaining = Mathf.Max(0, remaining - selectedOutline.Count);
+            var selectedAccent = TakeFirst(accent, Mathf.Min(accent.Count, remaining));
+            remaining = Mathf.Max(0, remaining - selectedAccent.Count);
+            var selectedFill = TakeFirst(fill, remaining);
+
+            var ordered = new List<VehicleShapeCell>(cells.Count);
+            ordered.AddRange(selectedFeature);
+            ordered.AddRange(selectedOutline);
+            ordered.AddRange(selectedAccent);
+            ordered.AddRange(selectedFill);
+            AppendRemainingCells(ordered, cells);
+            return ordered;
         }
 
         private static List<VehicleShapeCell> BuildMixedRoleBudgetedCells(
@@ -625,6 +665,7 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.S:
                 case VehicleShapeLibraryId.Wave:
                 case VehicleShapeLibraryId.Stairs:
+                case VehicleShapeLibraryId.Fan:
                     return true;
                 default:
                     return false;
@@ -638,6 +679,8 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.Heart:
                 case VehicleShapeLibraryId.HeartArrow:
                     return 0.78f;
+                case VehicleShapeLibraryId.Star:
+                    return 0.76f;
                 case VehicleShapeLibraryId.Shield:
                 case VehicleShapeLibraryId.Clover:
                 case VehicleShapeLibraryId.Eight:
@@ -660,6 +703,7 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.HeartArrow:
                     return 0.14f;
                 case VehicleShapeLibraryId.Star:
+                    return 0.24f;
                 case VehicleShapeLibraryId.Flower:
                 case VehicleShapeLibraryId.Sunburst:
                     return 0.18f;
@@ -885,6 +929,29 @@ namespace BusPuzzle
             }
         }
 
+        private static void SortStarPathCells(
+            VehicleShapeLayoutDefinition definition,
+            List<VehicleShapeCell> cells)
+        {
+            cells.Sort((left, right) =>
+            {
+                var progressCompare = GetStarPathProgress(definition, left.Cell)
+                    .CompareTo(GetStarPathProgress(definition, right.Cell));
+                if (progressCompare != 0)
+                {
+                    return progressCompare;
+                }
+
+                return GetCenterDistanceSquared(right.Cell).CompareTo(GetCenterDistanceSquared(left.Cell));
+            });
+        }
+
+        private static void SortStarFillCells(List<VehicleShapeCell> cells)
+        {
+            cells.Sort((left, right) =>
+                GetCenterDistanceSquared(right.Cell).CompareTo(GetCenterDistanceSquared(left.Cell)));
+        }
+
         private static VehicleShapeLayoutKind ToShapeKind(VehicleLayoutPatternId pattern)
         {
             switch (pattern)
@@ -1005,6 +1072,7 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.MazeBox:
                 case VehicleShapeLibraryId.Crown:
                 case VehicleShapeLibraryId.Smile:
+                case VehicleShapeLibraryId.Clover:
                 case VehicleShapeLibraryId.Eight:
                 case VehicleShapeLibraryId.Fan:
                     return false;
@@ -1100,7 +1168,7 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.HeartArrow:
                     return TryClassifyHeartArrow(definition, x, y, out role);
                 case VehicleShapeLibraryId.Star:
-                    return TryClassifyRadialPetal(definition, x, y, 5, 3.55f, 1.45f, out role);
+                    return TryClassifyStar(definition, x, y, out role);
                 case VehicleShapeLibraryId.Flower:
                     return TryClassifyRadialPetal(definition, x, y, 6, 3.30f, 1.15f, out role);
                 case VehicleShapeLibraryId.Sunburst:
@@ -1468,6 +1536,40 @@ namespace BusPuzzle
             return true;
         }
 
+        private static bool TryClassifyStar(
+            VehicleShapeLayoutDefinition definition,
+            int x,
+            int y,
+            out VehicleShapeCellRole role)
+        {
+            var point = new Vector2(x, y);
+            var inside = IsInsideStarPolygon(definition, point);
+            var distanceToEdge = GetNearestStarEdgeDistance(definition, point, out _, out _);
+            var outlineBand = 0.54f + definition.Thickness * 0.16f;
+            role = VehicleShapeCellRole.Fill;
+
+            if (!inside && distanceToEdge > outlineBand)
+            {
+                return false;
+            }
+
+            if (distanceToEdge <= outlineBand)
+            {
+                role = IsNearStarOuterTip(definition, point, 0.92f)
+                    ? VehicleShapeCellRole.Accent
+                    : VehicleShapeCellRole.Outline;
+                return true;
+            }
+
+            if (IsNearStarInnerValley(definition, point, 0.72f))
+            {
+                role = VehicleShapeCellRole.Accent;
+                return true;
+            }
+
+            return definition.FillInterior;
+        }
+
         private static bool TryClassifySunburst(
             VehicleShapeLayoutDefinition definition,
             int x,
@@ -1476,28 +1578,28 @@ namespace BusPuzzle
         {
             var fromCenter = new Vector2(x - CenterX, y - CenterY);
             var radius = fromCenter.magnitude;
-            var ringRadius = 4.65f * definition.Scale;
             role = VehicleShapeCellRole.Fill;
-            if (radius <= 1.15f)
-            {
-                role = VehicleShapeCellRole.Accent;
-                return true;
-            }
-
-            if (Mathf.Abs(radius - ringRadius) <= 0.62f)
-            {
-                role = VehicleShapeCellRole.Outline;
-                return true;
-            }
+            var ringRadius = 4.75f * definition.Scale;
 
             var angle = Mathf.Atan2(fromCenter.y, fromCenter.x) * Mathf.Rad2Deg;
             for (var spoke = 0; spoke < 8; spoke++)
             {
-                if (Mathf.Abs(Mathf.DeltaAngle(angle, spoke * 45f)) <= 7.5f && radius >= 1.6f && radius <= 5.55f)
+                if (Mathf.Abs(Mathf.DeltaAngle(angle, spoke * 45f)) <= 8.5f &&
+                    radius >= 2.45f &&
+                    radius <= 5.55f * definition.Scale)
                 {
-                    role = VehicleShapeCellRole.Accent;
+                    role = radius >= ringRadius - 0.55f
+                        ? VehicleShapeCellRole.Accent
+                        : VehicleShapeCellRole.Outline;
                     return true;
                 }
+            }
+
+            if (Mathf.Abs(radius - ringRadius) <= 0.42f &&
+                (x + y + definition.VariantSeed) % 3 == 0)
+            {
+                role = VehicleShapeCellRole.Outline;
+                return true;
             }
 
             return false;
@@ -1809,14 +1911,19 @@ namespace BusPuzzle
                 return false;
             }
 
-            role = outline || !definition.FillInterior
-                ? VehicleShapeCellRole.Outline
-                : VehicleShapeCellRole.Fill;
             if (Mathf.Abs(x - CenterX) <= 0.6f && Mathf.Abs(y - CenterY) <= 0.6f)
             {
                 role = VehicleShapeCellRole.Accent;
+                return true;
             }
 
+            if (!definition.FillInterior && !outline)
+            {
+                role = VehicleShapeCellRole.Fill;
+                return false;
+            }
+
+            role = outline ? VehicleShapeCellRole.Outline : VehicleShapeCellRole.Fill;
             return true;
         }
 
@@ -1845,51 +1952,203 @@ namespace BusPuzzle
             int y,
             out VehicleShapeCellRole role)
         {
-            var origin = new Vector2(CenterX, 1.6f);
+            var origin = new Vector2(CenterX, 1.8f);
             var point = new Vector2(x, y);
             var delta = point - origin;
             var radius = delta.magnitude;
-            if (radius < 1.1f || radius > 10.0f)
+            if (radius < 2.4f || radius > 8.9f)
             {
                 role = VehicleShapeCellRole.Fill;
                 return false;
             }
 
             var angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
-            if (angle < 25f || angle > 155f)
+            if (angle < 28f || angle > 152f)
             {
                 role = VehicleShapeCellRole.Fill;
                 return false;
             }
 
-            var arc = Mathf.Abs(radius - 8.1f * definition.Scale) <= 0.68f;
+            var outerArc = Mathf.Abs(radius - 7.4f * definition.Scale) <= 0.78f;
+            var innerArc = Mathf.Abs(radius - 4.6f * definition.Scale) <= 0.52f &&
+                angle >= 38f &&
+                angle <= 142f;
             var spoke = false;
-            for (var index = 0; index < 6; index++)
+            for (var index = 0; index < 5; index++)
             {
-                if (Mathf.Abs(Mathf.DeltaAngle(angle, 35f + index * 24f)) <= 5.8f)
+                if (Mathf.Abs(Mathf.DeltaAngle(angle, 40f + index * 25f)) <= 6.8f)
                 {
                     spoke = true;
                     break;
                 }
             }
 
-            if (!arc && !spoke)
+            if (!outerArc && !innerArc && !spoke)
             {
                 role = VehicleShapeCellRole.Fill;
                 return false;
             }
 
-            role = arc ? VehicleShapeCellRole.Outline : VehicleShapeCellRole.Accent;
+            role = outerArc ? VehicleShapeCellRole.Outline : VehicleShapeCellRole.Accent;
             return true;
         }
 
         private static bool IsInsideHeart(VehicleShapeLayoutDefinition definition, int x, int y)
         {
-            var normalizedX = (x - CenterX) / (5.05f * definition.Scale);
-            var normalizedY = (y - 5.15f) / (5.05f * definition.Scale);
-            var value = Mathf.Pow(normalizedX * normalizedX + normalizedY * normalizedY - 1f, 3f) -
-                normalizedX * normalizedX * normalizedY * normalizedY * normalizedY;
-            return value <= 0.055f;
+            var scale = definition.Scale;
+            var point = new Vector2(x, y);
+            var leftLobeCenter = new Vector2(CenterX - 2.30f, 9.40f);
+            var rightLobeCenter = new Vector2(CenterX + 2.30f, 9.40f);
+            var lobeWidth = 2.35f * scale;
+            var lobeHeight = 2.05f * scale;
+            var inLeftLobe = IsInsideEllipse(point, leftLobeCenter, lobeWidth, lobeHeight);
+            var inRightLobe = IsInsideEllipse(point, rightLobeCenter, lobeWidth, lobeHeight);
+            var bodyT = Mathf.Clamp01((y - 0.80f) / 6.20f);
+            var bodyHalfWidth = Mathf.Lerp(0.65f, 5.15f * scale, bodyT);
+            if (y > 7.0f)
+            {
+                bodyHalfWidth = 5.15f * scale;
+            }
+
+            var inBody = y >= 0.80f &&
+                y <= 9.50f &&
+                Mathf.Abs(x - CenterX) <= bodyHalfWidth;
+            var centerNotch = y >= 10.10f && Mathf.Abs(x - CenterX) <= 0.85f;
+            return (inLeftLobe || inRightLobe || inBody) && !centerNotch;
+        }
+
+        private static bool IsInsideEllipse(Vector2 point, Vector2 center, float radiusX, float radiusY)
+        {
+            var normalizedX = (point.x - center.x) / Mathf.Max(0.01f, radiusX);
+            var normalizedY = (point.y - center.y) / Mathf.Max(0.01f, radiusY);
+            return normalizedX * normalizedX + normalizedY * normalizedY <= 1f;
+        }
+
+        private static Vector2 GetStarVertex(VehicleShapeLayoutDefinition definition, int index)
+        {
+            index = Mathf.Abs(index) % 10;
+            var outerRadius = 5.86f * definition.Scale;
+            var innerRadius = 1.92f * definition.Scale;
+            var radius = index % 2 == 0 ? outerRadius : innerRadius;
+            var angle = Mathf.PI * 0.5f + index * Mathf.PI / 5f;
+            return new Vector2(
+                CenterX + Mathf.Cos(angle) * radius,
+                CenterY + Mathf.Sin(angle) * radius);
+        }
+
+        private static bool IsInsideStarPolygon(VehicleShapeLayoutDefinition definition, Vector2 point)
+        {
+            var inside = false;
+            var previous = GetStarVertex(definition, 9);
+            for (var index = 0; index < 10; index++)
+            {
+                var current = GetStarVertex(definition, index);
+                if ((current.y > point.y) != (previous.y > point.y))
+                {
+                    var denominator = previous.y - current.y;
+                    if (Mathf.Abs(denominator) <= 0.0001f)
+                    {
+                        previous = current;
+                        continue;
+                    }
+
+                    var intersectionX = (previous.x - current.x) * (point.y - current.y) /
+                        denominator + current.x;
+                    if (point.x < intersectionX)
+                    {
+                        inside = !inside;
+                    }
+                }
+
+                previous = current;
+            }
+
+            return inside;
+        }
+
+        private static float GetNearestStarEdgeDistance(
+            VehicleShapeLayoutDefinition definition,
+            Vector2 point,
+            out Vector2 start,
+            out Vector2 end)
+        {
+            var bestDistance = float.MaxValue;
+            start = GetStarVertex(definition, 0);
+            end = GetStarVertex(definition, 1);
+            for (var index = 0; index < 10; index++)
+            {
+                var segmentStart = GetStarVertex(definition, index);
+                var segmentEnd = GetStarVertex(definition, index + 1);
+                var distance = DistanceToSegment(point, segmentStart, segmentEnd);
+                if (distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                start = segmentStart;
+                end = segmentEnd;
+            }
+
+            return bestDistance;
+        }
+
+        private static float GetStarPathProgress(VehicleShapeLayoutDefinition definition, Vector2Int cell)
+        {
+            var point = new Vector2(cell.x, cell.y);
+            var bestDistanceSquared = float.MaxValue;
+            var bestProgress = 0f;
+            for (var index = 0; index < 10; index++)
+            {
+                var start = GetStarVertex(definition, index);
+                var end = GetStarVertex(definition, index + 1);
+                var segment = end - start;
+                var lengthSquared = Mathf.Max(0.0001f, segment.sqrMagnitude);
+                var t = Mathf.Clamp01(Vector2.Dot(point - start, segment) / lengthSquared);
+                var closest = start + segment * t;
+                var distanceSquared = (point - closest).sqrMagnitude;
+                if (distanceSquared >= bestDistanceSquared)
+                {
+                    continue;
+                }
+
+                bestDistanceSquared = distanceSquared;
+                bestProgress = index + t;
+            }
+
+            return bestProgress;
+        }
+
+        private static bool IsNearStarOuterTip(
+            VehicleShapeLayoutDefinition definition,
+            Vector2 point,
+            float threshold)
+        {
+            for (var index = 0; index < 10; index += 2)
+            {
+                if (Vector2.Distance(point, GetStarVertex(definition, index)) <= threshold)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsNearStarInnerValley(
+            VehicleShapeLayoutDefinition definition,
+            Vector2 point,
+            float threshold)
+        {
+            for (var index = 1; index < 10; index += 2)
+            {
+                if (Vector2.Distance(point, GetStarVertex(definition, index)) <= threshold)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private delegate bool ShapeInsidePredicate(VehicleShapeLayoutDefinition definition, int x, int y);
@@ -2122,15 +2381,19 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.DoubleRing:
                 case VehicleShapeLibraryId.SemiCircle:
                 case VehicleShapeLibraryId.Spiral:
-                case VehicleShapeLibraryId.Star:
-                case VehicleShapeLibraryId.Flower:
-                case VehicleShapeLibraryId.Sunburst:
                 case VehicleShapeLibraryId.Smile:
                 case VehicleShapeLibraryId.Clover:
                 case VehicleShapeLibraryId.Eight:
                     vector = cell.Role == VehicleShapeCellRole.Accent
                         ? fromCenter
                         : GetTangentialVector(fromCenter, definition.Clockwise);
+                    return true;
+                case VehicleShapeLibraryId.Flower:
+                case VehicleShapeLibraryId.Sunburst:
+                    vector = GetRadialPetalDirection(definition.LibraryId, cell, fromCenter, definition.Clockwise);
+                    return true;
+                case VehicleShapeLibraryId.Star:
+                    vector = GetStarEdgeDirection(definition, cell);
                     return true;
                 case VehicleShapeLibraryId.Heart:
                     vector = cell.Role == VehicleShapeCellRole.Accent
@@ -2143,8 +2406,10 @@ namespace BusPuzzle
                         : GetTangentialVector(new Vector2(fromCenter.x, fromCenter.y * 0.82f), definition.Clockwise);
                     return true;
                 case VehicleShapeLibraryId.Square:
-                case VehicleShapeLibraryId.HollowSquare:
                     vector = GetSquareTangent(fromCenter, definition.Clockwise);
+                    return true;
+                case VehicleShapeLibraryId.HollowSquare:
+                    vector = GetHollowSquareDirection(cell.Cell, fromCenter, definition.Clockwise);
                     return true;
                 case VehicleShapeLibraryId.Diamond:
                     vector = GetTangentialVector(fromCenter, definition.Clockwise);
@@ -2182,7 +2447,7 @@ namespace BusPuzzle
                     vector = GetWaveTangent(cell.Cell);
                     return true;
                 case VehicleShapeLibraryId.Stairs:
-                    vector = (cell.Cell.x + cell.Cell.y) % 2 == 0 ? Vector2.right : Vector2.up;
+                    vector = GetStairsTangent(cell.Cell);
                     return true;
                 case VehicleShapeLibraryId.Grid:
                     vector = Mathf.Abs(cell.Cell.x - CenterX) > Mathf.Abs(cell.Cell.y - CenterY)
@@ -2218,6 +2483,48 @@ namespace BusPuzzle
                 : new Vector2(-fromCenter.y, fromCenter.x);
         }
 
+        private static Vector2 GetRadialPetalDirection(
+            VehicleShapeLibraryId libraryId,
+            VehicleShapeCell cell,
+            Vector2 fromCenter,
+            bool clockwise)
+        {
+            if (cell.Role == VehicleShapeCellRole.Accent)
+            {
+                return fromCenter;
+            }
+
+            if (libraryId == VehicleShapeLibraryId.Sunburst)
+            {
+                return fromCenter;
+            }
+
+            var tipRadius = libraryId == VehicleShapeLibraryId.Flower
+                ? 3.75f
+                : libraryId == VehicleShapeLibraryId.Sunburst
+                    ? 3.60f
+                    : 4.10f;
+            return fromCenter.magnitude >= tipRadius
+                ? fromCenter
+                : GetTangentialVector(fromCenter, clockwise);
+        }
+
+        private static Vector2 GetStarEdgeDirection(
+            VehicleShapeLayoutDefinition definition,
+            VehicleShapeCell cell)
+        {
+            var point = new Vector2(cell.Cell.x, cell.Cell.y);
+            GetNearestStarEdgeDistance(definition, point, out var start, out var end);
+            var tangent = end - start;
+            if (tangent.sqrMagnitude < 0.001f)
+            {
+                return point - new Vector2(CenterX, CenterY);
+            }
+
+            tangent.Normalize();
+            return definition.Clockwise ? -tangent : tangent;
+        }
+
         private static Vector2 GetSquareTangent(Vector2 fromCenter, bool clockwise)
         {
             var horizontalEdge = Mathf.Abs(fromCenter.y) >= Mathf.Abs(fromCenter.x);
@@ -2245,6 +2552,27 @@ namespace BusPuzzle
             return new Vector2(1f, slope);
         }
 
+        private static Vector2 GetStairsTangent(Vector2Int cell)
+        {
+            var step = Mathf.Clamp((cell.x - 1) / 2, 0, 5);
+            var baseY = 2 + step * 2;
+            var horizontal = cell.y == baseY;
+            var vertical = cell.x == 3 + step * 2;
+            var hash = Mathf.Abs(cell.x * 37 + cell.y * 19);
+
+            if (horizontal)
+            {
+                return hash % 4 == 0 ? Vector2.left : Vector2.right;
+            }
+
+            if (vertical)
+            {
+                return hash % 4 == 0 ? Vector2.down : Vector2.up;
+            }
+
+            return cell.x < CenterX ? Vector2.right : Vector2.up;
+        }
+
         private static Vector2 GetMazeDirection(Vector2Int cell)
         {
             if (cell.y == 4 || cell.y == 6 || cell.y == 9)
@@ -2269,6 +2597,31 @@ namespace BusPuzzle
             }
 
             return new Vector2(Mathf.Sign(fromCenter.x), 0f);
+        }
+
+        private static Vector2 GetHollowSquareDirection(Vector2Int cell, Vector2 fromCenter, bool clockwise)
+        {
+            var outward = GetSquareOutward(fromCenter);
+            var absX = Mathf.Abs(fromCenter.x);
+            var absY = Mathf.Abs(fromCenter.y);
+            var isCorner = absX >= 4.2f && absY >= 4.2f;
+            if (isCorner)
+            {
+                return outward;
+            }
+
+            var hash = Mathf.Abs(cell.x * 31 + cell.y * 17);
+            if (hash % 4 == 0)
+            {
+                return outward;
+            }
+
+            if (hash % 7 == 0)
+            {
+                return -outward;
+            }
+
+            return GetSquareTangent(fromCenter, clockwise);
         }
 
         private static Vector2 GetShapeOffset(VehicleShapeLayoutDefinition definition, VehicleShapeCell cell)
@@ -2316,6 +2669,8 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.Eight:
                     return absX <= 0.7f || absY <= 0.7f || Mathf.Abs(absX - absY) <= 0.35f;
                 case VehicleShapeLibraryId.Star:
+                    return IsNearStarOuterTip(definition, new Vector2(x, y), 1.30f) ||
+                        IsNearStarInnerValley(definition, new Vector2(x, y), 0.95f);
                 case VehicleShapeLibraryId.Flower:
                 case VehicleShapeLibraryId.Sunburst:
                 case VehicleShapeLibraryId.Fan:
@@ -2384,11 +2739,17 @@ namespace BusPuzzle
                     }
 
                     return 3;
-                case VehicleShapeLibraryId.Star:
                 case VehicleShapeLibraryId.Flower:
                 case VehicleShapeLibraryId.Sunburst:
                 case VehicleShapeLibraryId.Crown:
                     return -Mathf.RoundToInt(GetCenterDistanceSquared(cell.Cell) * 10f);
+                case VehicleShapeLibraryId.Star:
+                    if (IsNearStarOuterTip(definition, new Vector2(x, y), 1.30f))
+                    {
+                        return 0;
+                    }
+
+                    return IsNearStarInnerValley(definition, new Vector2(x, y), 0.95f) ? 1 : 2;
                 case VehicleShapeLibraryId.Arrow:
                 case VehicleShapeLibraryId.DoubleArrow:
                     return cell.Role == VehicleShapeCellRole.Accent ? 0 : 1;
@@ -2508,6 +2869,7 @@ namespace BusPuzzle
             switch (libraryId)
             {
                 case VehicleShapeLibraryId.Spiral:
+                {
                     var angle = Mathf.Atan2(y, x);
                     if (angle < 0f)
                     {
@@ -2516,6 +2878,7 @@ namespace BusPuzzle
 
                     var radius = Mathf.Sqrt(x * x + y * y);
                     return angle + radius * 0.34f;
+                }
                 case VehicleShapeLibraryId.Lightning:
                     return -cell.y * 10f + cell.x;
                 case VehicleShapeLibraryId.S:
@@ -2523,6 +2886,13 @@ namespace BusPuzzle
                     return cell.y * 10f + cell.x;
                 case VehicleShapeLibraryId.Wave:
                     return cell.x * 10f + cell.y;
+                case VehicleShapeLibraryId.Fan:
+                {
+                    var origin = new Vector2(CenterX, 1.8f);
+                    var delta = new Vector2(cell.x, cell.y) - origin;
+                    var angle = Mathf.Atan2(delta.y, delta.x);
+                    return angle * 10f + delta.magnitude * 0.12f;
+                }
                 default:
                     return GetCellAngle(cell);
             }

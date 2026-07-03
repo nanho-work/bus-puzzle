@@ -66,6 +66,45 @@ namespace BusPuzzle
         private const int ShapeLibraryPreviewLineVehicleCount = 38;
         private const int ShapeLibraryPreviewHardLineVehicleCount = 42;
         private const int ShapeLibraryPreviewSuperHardLineVehicleCount = 46;
+        private const int ShapeLibraryPreviewPathVehicleCount = 10;
+        private const int ShapeLibraryPreviewHardPathVehicleCount = 12;
+        private const int ShapeLibraryPreviewSuperHardPathVehicleCount = 14;
+        private const int ShapeLibraryPreviewLongPathVehicleCount = 10;
+        private const int ShapeLibraryPreviewHardLongPathVehicleCount = 12;
+        private const int ShapeLibraryPreviewSuperHardLongPathVehicleCount = 14;
+        private const int ShapeLibraryPreviewRadialVehicleCount = 30;
+        private const int ShapeLibraryPreviewHardRadialVehicleCount = 34;
+        private const int ShapeLibraryPreviewSuperHardRadialVehicleCount = 38;
+        private const int ShapeLibraryPreviewStarVehicleCount = 42;
+        private const int ShapeLibraryPreviewHardStarVehicleCount = 48;
+        private const int ShapeLibraryPreviewSuperHardStarVehicleCount = 54;
+        private const int ShapeLibraryPreviewHollowVehicleCount = 28;
+        private const int ShapeLibraryPreviewHardHollowVehicleCount = 32;
+        private const int ShapeLibraryPreviewSuperHardHollowVehicleCount = 36;
+        private const int ShapeLibraryPreviewGeometryVehicleCount = 34;
+        private const int ShapeLibraryPreviewHardGeometryVehicleCount = 38;
+        private const int ShapeLibraryPreviewSuperHardGeometryVehicleCount = 42;
+        private const int ShapeLibraryPreviewMazeVehicleCount = 18;
+        private const int ShapeLibraryPreviewHardMazeVehicleCount = 20;
+        private const int ShapeLibraryPreviewSuperHardMazeVehicleCount = 22;
+        private const int ShapeLibraryPreviewCrownVehicleCount = 24;
+        private const int ShapeLibraryPreviewHardCrownVehicleCount = 28;
+        private const int ShapeLibraryPreviewSuperHardCrownVehicleCount = 32;
+        private const int ShapeLibraryPreviewEightVehicleCount = 24;
+        private const int ShapeLibraryPreviewHardEightVehicleCount = 28;
+        private const int ShapeLibraryPreviewSuperHardEightVehicleCount = 32;
+        private const int ShapeLibraryPreviewFanVehicleCount = 12;
+        private const int ShapeLibraryPreviewHardFanVehicleCount = 16;
+        private const int ShapeLibraryPreviewSuperHardFanVehicleCount = 20;
+        private const int ShapeLibraryPreviewIconVehicleCount = 30;
+        private const int ShapeLibraryPreviewHardIconVehicleCount = 34;
+        private const int ShapeLibraryPreviewSuperHardIconVehicleCount = 38;
+        private const int ShapeLibraryPreviewNarrowVehicleCount = 18;
+        private const int ShapeLibraryPreviewHardNarrowVehicleCount = 22;
+        private const int ShapeLibraryPreviewSuperHardNarrowVehicleCount = 26;
+        private const int ShapeLibraryPreviewSunburstVehicleCount = 16;
+        private const int ShapeLibraryPreviewHardSunburstVehicleCount = 18;
+        private const int ShapeLibraryPreviewSuperHardSunburstVehicleCount = 20;
         private const int ShapeLibraryPreviewFilledVehicleCount = 46;
         private const int ShapeLibraryPreviewHardFilledVehicleCount = 52;
         private const int ShapeLibraryPreviewSuperHardFilledVehicleCount = 56;
@@ -170,8 +209,8 @@ namespace BusPuzzle
                 1,
                 request.RotaryCapacity,
                 MysteryVehicleGenerationProfile.Disabled,
-                request.MinSolutionCount,
-                request.MaxSolutionCount);
+                1,
+                1);
         }
 
         private static LevelDifficultyProfile CreateShapeLibraryPreviewProfile(
@@ -179,10 +218,20 @@ namespace BusPuzzle
             int libraryIndex)
         {
             profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
-            var targetVehicleCount = Mathf.Max(
-                profile.TargetVehicleCount,
-                GetShapeLibraryPreviewVehicleCount(libraryIndex, profile.Difficulty));
-            if (targetVehicleCount == profile.TargetVehicleCount)
+            var previewVehicleCount = GetShapeLibraryPreviewVehicleCount(libraryIndex, profile.Difficulty);
+            var libraryId = (VehicleShapeLibraryId)Mathf.Clamp(
+                libraryIndex,
+                0,
+                VehicleShapeLayoutEngine.ShapeLibraryCount - 1);
+            var targetVehicleCount = UsesExactShapeLibraryPreviewCount(libraryId)
+                ? previewVehicleCount
+                : Mathf.Max(profile.TargetVehicleCount, previewVehicleCount);
+            var targetColorCount = GetShapeLibraryPreviewColorCount(
+                libraryId,
+                previewVehicleCount,
+                profile.TargetColorCount);
+            if (targetVehicleCount == profile.TargetVehicleCount &&
+                targetColorCount == profile.TargetColorCount)
             {
                 return profile;
             }
@@ -191,10 +240,64 @@ namespace BusPuzzle
                 profile.Difficulty,
                 profile.PassengerFlowRule,
                 targetVehicleCount,
-                profile.TargetColorCount,
+                targetColorCount,
                 Mathf.Max(profile.ParkingTension, 0.54f),
                 Mathf.Max(profile.StationPressure, 0.48f),
                 profile.RequireSolutionRoute);
+        }
+
+        private static int GetShapeLibraryPreviewColorCount(
+            VehicleShapeLibraryId libraryId,
+            int previewVehicleCount,
+            int defaultColorCount)
+        {
+            var targetColorCount = previewVehicleCount <= 14
+                ? 5
+                : previewVehicleCount <= 22
+                    ? 6
+                    : previewVehicleCount <= 32
+                        ? 7
+                        : defaultColorCount;
+            switch (libraryId)
+            {
+                case VehicleShapeLibraryId.Arrow:
+                case VehicleShapeLibraryId.DoubleArrow:
+                case VehicleShapeLibraryId.Lightning:
+                case VehicleShapeLibraryId.S:
+                case VehicleShapeLibraryId.Wave:
+                case VehicleShapeLibraryId.Stairs:
+                case VehicleShapeLibraryId.Sunburst:
+                case VehicleShapeLibraryId.Fan:
+                    targetColorCount = Mathf.Min(targetColorCount, 5);
+                    break;
+            }
+
+            return Mathf.Clamp(targetColorCount, 2, defaultColorCount);
+        }
+
+        private static bool UsesExactShapeLibraryPreviewCount(VehicleShapeLibraryId libraryId)
+        {
+            switch (libraryId)
+            {
+                case VehicleShapeLibraryId.HollowSquare:
+                case VehicleShapeLibraryId.Cross:
+                case VehicleShapeLibraryId.X:
+                case VehicleShapeLibraryId.Sunburst:
+                case VehicleShapeLibraryId.Lightning:
+                case VehicleShapeLibraryId.S:
+                case VehicleShapeLibraryId.Wave:
+                case VehicleShapeLibraryId.Stairs:
+                case VehicleShapeLibraryId.Arrow:
+                case VehicleShapeLibraryId.DoubleArrow:
+                case VehicleShapeLibraryId.MazeBox:
+                case VehicleShapeLibraryId.Crown:
+                case VehicleShapeLibraryId.Clover:
+                case VehicleShapeLibraryId.Eight:
+                case VehicleShapeLibraryId.Fan:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static int GetShapeLibraryPreviewVehicleCount(int libraryIndex, LevelDifficulty difficulty)
@@ -205,18 +308,118 @@ namespace BusPuzzle
                 VehicleShapeLayoutEngine.ShapeLibraryCount - 1);
             switch (libraryId)
             {
-                case VehicleShapeLibraryId.Spiral:
                 case VehicleShapeLibraryId.Lightning:
                 case VehicleShapeLibraryId.S:
                 case VehicleShapeLibraryId.Wave:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardPathVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardPathVehicleCount
+                            : ShapeLibraryPreviewPathVehicleCount;
                 case VehicleShapeLibraryId.Stairs:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardLongPathVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardLongPathVehicleCount
+                            : ShapeLibraryPreviewLongPathVehicleCount;
                 case VehicleShapeLibraryId.Arrow:
                 case VehicleShapeLibraryId.DoubleArrow:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardPathVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardPathVehicleCount
+                            : ShapeLibraryPreviewPathVehicleCount;
+                case VehicleShapeLibraryId.DoubleRing:
+                case VehicleShapeLibraryId.Spiral:
                     return difficulty == LevelDifficulty.SuperHard
                         ? ShapeLibraryPreviewSuperHardLineVehicleCount
                         : difficulty == LevelDifficulty.Hard
                             ? ShapeLibraryPreviewHardLineVehicleCount
                             : ShapeLibraryPreviewLineVehicleCount;
+                case VehicleShapeLibraryId.HollowSquare:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardHollowVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardHollowVehicleCount
+                            : ShapeLibraryPreviewHollowVehicleCount;
+                case VehicleShapeLibraryId.Sunburst:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardSunburstVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardSunburstVehicleCount
+                            : ShapeLibraryPreviewSunburstVehicleCount;
+                case VehicleShapeLibraryId.Square:
+                case VehicleShapeLibraryId.Diamond:
+                case VehicleShapeLibraryId.Grid:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardGeometryVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardGeometryVehicleCount
+                            : ShapeLibraryPreviewGeometryVehicleCount;
+                case VehicleShapeLibraryId.Triangle:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardCrownVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardCrownVehicleCount
+                            : ShapeLibraryPreviewCrownVehicleCount;
+                case VehicleShapeLibraryId.Crown:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardCrownVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardCrownVehicleCount
+                            : ShapeLibraryPreviewCrownVehicleCount;
+                case VehicleShapeLibraryId.MazeBox:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardMazeVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardMazeVehicleCount
+                            : ShapeLibraryPreviewMazeVehicleCount;
+                case VehicleShapeLibraryId.Heart:
+                case VehicleShapeLibraryId.HeartArrow:
+                case VehicleShapeLibraryId.Shield:
+                case VehicleShapeLibraryId.Smile:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardIconVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardIconVehicleCount
+                            : ShapeLibraryPreviewIconVehicleCount;
+                case VehicleShapeLibraryId.Clover:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardFanVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardFanVehicleCount
+                            : ShapeLibraryPreviewFanVehicleCount;
+                case VehicleShapeLibraryId.Eight:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardEightVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardEightVehicleCount
+                            : ShapeLibraryPreviewEightVehicleCount;
+                case VehicleShapeLibraryId.Cross:
+                case VehicleShapeLibraryId.X:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardNarrowVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardNarrowVehicleCount
+                            : ShapeLibraryPreviewNarrowVehicleCount;
+                case VehicleShapeLibraryId.Flower:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardRadialVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardRadialVehicleCount
+                            : ShapeLibraryPreviewRadialVehicleCount;
+                case VehicleShapeLibraryId.Star:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardStarVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardStarVehicleCount
+                            : ShapeLibraryPreviewStarVehicleCount;
+                case VehicleShapeLibraryId.Fan:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardFanVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardFanVehicleCount
+                            : ShapeLibraryPreviewFanVehicleCount;
                 default:
                     return difficulty == LevelDifficulty.SuperHard
                         ? ShapeLibraryPreviewSuperHardFilledVehicleCount

@@ -68,7 +68,8 @@ namespace BusPuzzle
             GarageGenerationRule garageRule,
             int candidateOffset = 0,
             int vehicleGenerationAttempts = DefaultMaxGenerationAttempts,
-            bool useSolutionAnalyzer = true)
+            bool useSolutionAnalyzer = true,
+            bool useVisualPreviewFlow = false)
         {
             var level = ScriptableObject.CreateInstance<LevelData>();
             level.hideFlags = HideFlags.DontSave;
@@ -86,9 +87,21 @@ namespace BusPuzzle
                 garages,
                 vehicleGenerationAttempts,
                 useSolutionAnalyzer,
-                request.VehicleLayoutVariantIndex);
+                request.VehicleLayoutVariantIndex,
+                useVisualPreviewFlow);
             buses = ApplyMysteryVehicleModifiers(buses, request.MysteryVehicleProfile, seed + 1699);
-            var flowPlan = BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
+            if (useVisualPreviewFlow &&
+                ShapeLibraryVehicleCoverage.RequiresCoverage(request.VehicleLayoutVariantIndex) &&
+                (garages == null || garages.Count == 0))
+            {
+                buses = PrepareVisualPreviewOpeningVehicles(buses);
+            }
+
+            var flowPlan = useVisualPreviewFlow &&
+                ShapeLibraryVehicleCoverage.RequiresCoverage(request.VehicleLayoutVariantIndex) &&
+                (garages == null || garages.Count == 0)
+                ? BuildPassengerFlowPlanFromVehicleOrder(request.Profile, buses, seed)
+                : BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
 
             level.ConfigureWithPassengerFlowPlan(
                 $"Stage {request.StageNumber:000} {request.Difficulty}",
@@ -135,7 +148,8 @@ namespace BusPuzzle
             IReadOnlyList<GarageDefinition> garages,
             int maxGenerationAttempts,
             bool useSolutionAnalyzer,
-            int layoutVariantIndex = -1)
+            int layoutVariantIndex = -1,
+            bool useVisualPreviewQuality = false)
         {
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
 
@@ -157,7 +171,18 @@ namespace BusPuzzle
                     random,
                     targetVehicleCount,
                     garages,
-                    effectiveLayoutVariantIndex);
+                    effectiveLayoutVariantIndex,
+                    useVisualPreviewQuality);
+                if (CanAcceptShapeLibraryVisualProbe(
+                        vehicles,
+                        profile,
+                        effectiveLayoutVariantIndex,
+                        useSolutionAnalyzer,
+                        useVisualPreviewQuality))
+                {
+                    return vehicles;
+                }
+
                 if (HasPlayableExitOrder(
                     vehicles,
                     garages,
@@ -193,6 +218,25 @@ namespace BusPuzzle
             return bestVehicles;
         }
 
+        private static bool CanAcceptShapeLibraryVisualProbe(
+            IReadOnlyList<BusDefinition> vehicles,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex,
+            bool useSolutionAnalyzer,
+            bool useVisualPreviewQuality)
+        {
+            if (useSolutionAnalyzer ||
+                vehicles == null ||
+                !ShapeLibraryVehicleCoverage.RequiresCoverage(layoutVariantIndex) ||
+                !ShapeLibraryVehicleCoverage.IsSatisfied(profile, layoutVariantIndex, vehicles.Count))
+            {
+                return false;
+            }
+
+            return useVisualPreviewQuality ||
+                ShapeLibraryLayoutQuality.IsSatisfied(profile, layoutVariantIndex, vehicles);
+        }
+
         private static bool HasPlayableExitOrder(
             IReadOnlyList<BusDefinition> vehicles,
             IReadOnlyList<GarageDefinition> garages,
@@ -201,7 +245,7 @@ namespace BusPuzzle
             bool useSolutionAnalyzer,
             out List<int> exitOrder)
         {
-            LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out exitOrder, out _);
+            exitOrder = new List<int>();
             if (!useSolutionAnalyzer)
             {
                 if (vehicles == null || vehicles.Count == 0)
@@ -211,10 +255,17 @@ namespace BusPuzzle
 
                 if (ShapeLibraryVehicleCoverage.RequiresCoverage(layoutVariantIndex))
                 {
-                    return ShapeLibraryVehicleCoverage.IsSatisfied(profile, layoutVariantIndex, vehicles.Count) &&
+                    if (!ShapeLibraryVehicleCoverage.IsSatisfied(profile, layoutVariantIndex, vehicles.Count) ||
+                        !ShapeLibraryLayoutQuality.IsSatisfied(profile, layoutVariantIndex, vehicles))
+                    {
+                        return false;
+                    }
+
+                    return LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out exitOrder, out _) &&
                         exitOrder.Count == vehicles.Count;
                 }
 
+                LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out exitOrder, out _);
                 return exitOrder.Count == vehicles.Count;
             }
 
@@ -323,6 +374,18 @@ namespace BusPuzzle
             return flowPlan;
         }
 
+        public static PassengerFlowPlan BuildPassengerFlowPlanFromVehicleOrder(
+            LevelDifficultyProfile profile,
+            IReadOnlyList<BusDefinition> buses,
+            int seed)
+        {
+            var flowPlan = new PassengerFlowPlan();
+            var solutionRoute = BuildVehicleOrderRoute(profile, buses);
+            var rule = GetPassengerFlowRule(profile);
+            flowPlan.ConfigureSolutionRoute(solutionRoute, rule.MinGroupUnits, rule.MaxGroupUnits, true, seed);
+            return flowPlan;
+        }
+
         public static PassengerFlowPlan BuildPassengerFlowPlan(
             LevelDifficultyProfile profile,
             IReadOnlyList<BusDefinition> buses,
@@ -367,7 +430,8 @@ namespace BusPuzzle
             System.Random random,
             int targetVehicleCount,
             IReadOnlyList<GarageDefinition> garages,
-            int layoutVariantIndex)
+            int layoutVariantIndex,
+            bool useVisualPreviewQuality = false)
         {
             var vehicles = new List<BusDefinition>();
             var colors = PickColorSet(profile.TargetColorCount);
@@ -378,7 +442,8 @@ namespace BusPuzzle
                     targetVehicleCount,
                     layoutVariantIndex,
                     colors,
-                    out var denseShowcaseVehicles))
+                    out var denseShowcaseVehicles,
+                    useVisualPreviewQuality))
             {
                 return RecolorShapeLibraryVehiclesForExitOrder(
                     denseShowcaseVehicles,
@@ -451,7 +516,7 @@ namespace BusPuzzle
             int layoutVariantIndex,
             IReadOnlyList<PuzzleColor> colors)
         {
-            if (!VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _) ||
+            if (!VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex) ||
                 vehicles == null ||
                 vehicles.Count == 0)
             {
@@ -464,8 +529,14 @@ namespace BusPuzzle
                 vehicles.Count,
                 layoutVariantIndex,
                 out var shapeDefinition);
-            LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out var exitOrder, out _);
-            var orderedIndices = BuildCompleteOrder(vehicles.Count, exitOrder);
+            var libraryId = (VehicleShapeLibraryId)libraryIndex;
+            var orderedIndices = ShouldRecolorByVisualShapeOrder(libraryId)
+                ? BuildCompleteOrder(vehicles.Count, null)
+                : BuildCompleteOrder(
+                    vehicles.Count,
+                    LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out var exitOrder, out _)
+                        ? exitOrder
+                        : null);
             var recolored = new List<BusDefinition>(vehicles);
             var paletteIndex = 0;
             for (var orderIndex = 0; orderIndex < orderedIndices.Count; orderIndex++)
@@ -492,6 +563,11 @@ namespace BusPuzzle
             return recolored;
         }
 
+        private static bool ShouldRecolorByVisualShapeOrder(VehicleShapeLibraryId libraryId)
+        {
+            return libraryId == VehicleShapeLibraryId.Star;
+        }
+
         private static bool ShouldPreserveShapeRoleColor(
             VehicleShapeLayoutDefinition shapeDefinition,
             BusDefinition bus)
@@ -511,6 +587,202 @@ namespace BusPuzzle
                     out var distanceCells) &&
                 distanceCells <= 0.72f &&
                 VehicleShapeLayoutEngine.IsFeatureCell(shapeDefinition, nearestCell);
+        }
+
+        private static List<BusDefinition> PrepareVisualPreviewOpeningVehicles(List<BusDefinition> buses)
+        {
+            if (buses == null || buses.Count == 0)
+            {
+                return buses;
+            }
+
+            var candidates = BuildVisualPreviewOpeningCandidates(buses);
+            var selectedIndices = new List<int>();
+            var selected = new HashSet<int>();
+            for (var candidateIndex = 0; candidateIndex < candidates.Count && selectedIndices.Count < 6; candidateIndex++)
+            {
+                var candidate = candidates[candidateIndex];
+                if (selected.Contains(candidate.VehicleIndex))
+                {
+                    continue;
+                }
+
+                var adjusted = new List<BusDefinition>(buses);
+                adjusted[candidate.VehicleIndex] = candidate.Bus;
+                if (!HasOpeningMove(adjusted, candidate.VehicleIndex))
+                {
+                    continue;
+                }
+
+                buses[candidate.VehicleIndex] = candidate.Bus;
+                selected.Add(candidate.VehicleIndex);
+                selectedIndices.Add(candidate.VehicleIndex);
+            }
+
+            if (selectedIndices.Count == 0)
+            {
+                return buses;
+            }
+
+            var ordered = new List<BusDefinition>(buses.Count);
+            for (var index = 0; index < selectedIndices.Count; index++)
+            {
+                ordered.Add(buses[selectedIndices[index]]);
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (!selected.Contains(index))
+                {
+                    ordered.Add(buses[index]);
+                }
+            }
+
+            return ordered;
+        }
+
+        private static List<VisualPreviewOpeningCandidate> BuildVisualPreviewOpeningCandidates(IReadOnlyList<BusDefinition> buses)
+        {
+            var candidates = new List<VisualPreviewOpeningCandidate>();
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                var directions = GetVisualPreviewOpeningDirections(bus);
+                for (var directionIndex = 0; directionIndex < directions.Count; directionIndex++)
+                {
+                    var direction = directions[directionIndex];
+                    var adjusted = new BusDefinition(
+                        bus.Color,
+                        bus.Size,
+                        direction,
+                        bus.GridPosition,
+                        0f,
+                        GetVisualPreviewOpeningOffset(direction),
+                        bus.StartsConcealed);
+                    var edgeScore = GetVisualPreviewEdgeScore(bus.GridPosition, direction);
+                    candidates.Add(new VisualPreviewOpeningCandidate(index, adjusted, edgeScore + directionIndex * 0.05f));
+                }
+            }
+
+            candidates.Sort((left, right) => left.Score.CompareTo(right.Score));
+            return candidates;
+        }
+
+        private static List<GridDirection> GetVisualPreviewOpeningDirections(BusDefinition bus)
+        {
+            var distances = new List<VisualPreviewDirectionDistance>
+            {
+                new VisualPreviewDirectionDistance(GridDirection.Left, bus.GridPosition.x),
+                new VisualPreviewDirectionDistance(GridDirection.Right, BoardLayoutConfig.GridColumns - 1 - bus.GridPosition.x),
+                new VisualPreviewDirectionDistance(GridDirection.Down, bus.GridPosition.y),
+                new VisualPreviewDirectionDistance(GridDirection.Up, BoardLayoutConfig.GridRows - 1 - bus.GridPosition.y)
+            };
+
+            distances.Sort((left, right) => left.Distance.CompareTo(right.Distance));
+            var directions = new List<GridDirection>(4);
+            for (var index = 0; index < distances.Count; index++)
+            {
+                directions.Add(distances[index].Direction);
+            }
+
+            return directions;
+        }
+
+        private static float GetVisualPreviewEdgeScore(Vector2Int gridPosition, GridDirection direction)
+        {
+            switch (direction)
+            {
+                case GridDirection.Left:
+                    return gridPosition.x;
+                case GridDirection.Right:
+                    return BoardLayoutConfig.GridColumns - 1 - gridPosition.x;
+                case GridDirection.Down:
+                    return gridPosition.y;
+                case GridDirection.Up:
+                    return BoardLayoutConfig.GridRows - 1 - gridPosition.y;
+                default:
+                    return 99f;
+            }
+        }
+
+        private static Vector2 GetVisualPreviewOpeningOffset(GridDirection direction)
+        {
+            const float offsetCells = 0.34f;
+            switch (direction)
+            {
+                case GridDirection.Left:
+                    return new Vector2(-offsetCells, 0f);
+                case GridDirection.Right:
+                    return new Vector2(offsetCells, 0f);
+                case GridDirection.Down:
+                    return new Vector2(0f, -offsetCells);
+                case GridDirection.Up:
+                    return new Vector2(0f, offsetCells);
+                default:
+                    return Vector2.zero;
+            }
+        }
+
+        public static int CountOpeningMoves(IReadOnlyList<BusDefinition> buses)
+        {
+            if (buses == null || buses.Count == 0)
+            {
+                return 0;
+            }
+
+            var active = new bool[buses.Count];
+            for (var index = 0; index < active.Length; index++)
+            {
+                active[index] = true;
+            }
+
+            var openingMoves = 0;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (LevelVehicleExitPlanner.IsPathClear(index, buses, active, out _))
+                {
+                    openingMoves++;
+                }
+            }
+
+            return openingMoves;
+        }
+
+        private static bool HasOpeningMove(IReadOnlyList<BusDefinition> buses, int vehicleIndex)
+        {
+            var active = new bool[buses.Count];
+            for (var index = 0; index < active.Length; index++)
+            {
+                active[index] = true;
+            }
+
+            return LevelVehicleExitPlanner.IsPathClear(vehicleIndex, buses, active, out _);
+        }
+
+        private readonly struct VisualPreviewOpeningCandidate
+        {
+            public VisualPreviewOpeningCandidate(int vehicleIndex, BusDefinition bus, float score)
+            {
+                VehicleIndex = vehicleIndex;
+                Bus = bus;
+                Score = score;
+            }
+
+            public int VehicleIndex { get; }
+            public BusDefinition Bus { get; }
+            public float Score { get; }
+        }
+
+        private readonly struct VisualPreviewDirectionDistance
+        {
+            public VisualPreviewDirectionDistance(GridDirection direction, float distance)
+            {
+                Direction = direction;
+                Distance = distance;
+            }
+
+            public GridDirection Direction { get; }
+            public float Distance { get; }
         }
 
         private static BusSize PickPatternSize(
@@ -741,6 +1013,25 @@ namespace BusPuzzle
             for (var index = 0; index < orderedIndices.Count; index++)
             {
                 var bus = buses[orderedIndices[index]];
+                route.Add(new SolutionBusStepDefinition(bus.Color, bus.Size, GetPreferredGroupUnits(profile, bus)));
+            }
+
+            return route;
+        }
+
+        private static List<SolutionBusStepDefinition> BuildVehicleOrderRoute(
+            LevelDifficultyProfile profile,
+            IReadOnlyList<BusDefinition> buses)
+        {
+            var route = new List<SolutionBusStepDefinition>();
+            if (buses == null)
+            {
+                return route;
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
                 route.Add(new SolutionBusStepDefinition(bus.Color, bus.Size, GetPreferredGroupUnits(profile, bus)));
             }
 

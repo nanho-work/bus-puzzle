@@ -94,14 +94,20 @@ namespace BusPuzzle
             ValidateCapacityMatch(report, levelData);
             var usesShapeLibraryLayout = UsesShapeLibraryLayout(levelData);
             ValidateDifficultyProfile(report, profile, levelData.PassengerFlowPlan, passengers, allVehicles, usesShapeLibraryLayout);
-            ValidateShapeLibraryCoverage(report, profile, levelData, allVehicles, usesShapeLibraryLayout);
+            ValidateShapeLibraryCoverage(report, profile, levelData, buses, usesShapeLibraryLayout);
             ValidateSolutionRoute(report, levelData.PassengerFlowPlan, allVehicles);
-            ValidatePassengerRuns(report, profile, passengers, usesShapeLibraryLayout);
+            ValidatePassengerRuns(report, profile, passengers, usesShapeLibraryLayout || AllowsTutorialPassengerRuns(levelData));
             ValidateVehiclePlacement(report, buses, usesShapeLibraryLayout);
             ValidateGaragePlacement(report, levelData.Garages, buses);
             if (validateVehicleExitSequence)
             {
-                ValidateVehicleExitSequence(report, profile, buses, levelData.Garages, vehicleExitSolutionLimit);
+                ValidateVehicleExitSequence(
+                    report,
+                    profile,
+                    buses,
+                    levelData.Garages,
+                    vehicleExitSolutionLimit,
+                    usesShapeLibraryLayout);
             }
 
             return report;
@@ -325,7 +331,7 @@ namespace BusPuzzle
             LevelValidationReport report,
             LevelDifficultyProfile profile,
             LevelData levelData,
-            IReadOnlyList<BusDefinition> allVehicles,
+            IReadOnlyList<BusDefinition> buses,
             bool usesShapeLibraryLayout)
         {
             if (!usesShapeLibraryLayout ||
@@ -336,13 +342,22 @@ namespace BusPuzzle
                 return;
             }
 
-            var vehicleCount = allVehicles?.Count ?? 0;
+            var vehicleCount = buses?.Count ?? 0;
             var minimumVehicleCount = ShapeLibraryVehicleCoverage.GetMinimumVehicleCount(profile, layoutVariantIndex);
             if (vehicleCount < minimumVehicleCount)
             {
                 report.Add(
                     LevelValidationSeverity.Error,
                     $"Shape library vehicle coverage {vehicleCount}/{profile.TargetVehicleCount} is below required minimum {minimumVehicleCount}.");
+            }
+
+            if (ShapeLibraryLayoutQuality.TryGetFailureMessage(
+                profile,
+                layoutVariantIndex,
+                buses,
+                out var qualityFailureMessage))
+            {
+                report.Add(LevelValidationSeverity.Error, qualityFailureMessage);
             }
         }
 
@@ -353,14 +368,31 @@ namespace BusPuzzle
                 VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _);
         }
 
+        private static bool AllowsTutorialPassengerRuns(LevelData levelData)
+        {
+            return levelData != null &&
+                StageGenerationSignature.TryGetInt(levelData.GenerationSignature, "stage", out var stageNumber) &&
+                stageNumber == 1;
+        }
+
         private static void ValidateVehicleExitSequence(
             LevelValidationReport report,
             LevelDifficultyProfile profile,
             IReadOnlyList<BusDefinition> buses,
             IReadOnlyList<GarageDefinition> garages,
-            int solutionCountLimit)
+            int solutionCountLimit,
+            bool usesShapeLibraryLayout)
         {
             if ((buses == null || buses.Count == 0) && (garages == null || garages.Count == 0))
+            {
+                return;
+            }
+
+            if (usesShapeLibraryLayout &&
+                buses != null &&
+                (garages == null || garages.Count == 0) &&
+                LevelVehicleExitPlanner.TryFindExitOrder(buses, out var exitOrder, out _) &&
+                exitOrder.Count == buses.Count)
             {
                 return;
             }

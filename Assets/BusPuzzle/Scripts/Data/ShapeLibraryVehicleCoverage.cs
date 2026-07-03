@@ -78,14 +78,15 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.Shield:
                 case VehicleShapeLibraryId.Clover:
                 case VehicleShapeLibraryId.Eight:
-                    return 0.64f;
+                    return 0.78f;
                 case VehicleShapeLibraryId.Star:
+                    return 0.92f;
                 case VehicleShapeLibraryId.Flower:
                 case VehicleShapeLibraryId.Sunburst:
                 case VehicleShapeLibraryId.Fan:
-                    return 0.56f;
+                    return 0.76f;
                 default:
-                    return 0.62f;
+                    return 0.74f;
             }
         }
 
@@ -101,7 +102,7 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.Clover:
                 case VehicleShapeLibraryId.Eight:
                 case VehicleShapeLibraryId.Fan:
-                    return 0.40f;
+                    return 0.22f;
                 case VehicleShapeLibraryId.Circle:
                 case VehicleShapeLibraryId.Ring:
                 case VehicleShapeLibraryId.SemiCircle:
@@ -117,9 +118,9 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.Crown:
                 case VehicleShapeLibraryId.Shield:
                 case VehicleShapeLibraryId.Smile:
-                    return 0.36f;
+                    return 0.20f;
                 default:
-                    return 0.30f;
+                    return 0.18f;
             }
         }
     }

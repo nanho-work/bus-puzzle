@@ -217,19 +217,23 @@ namespace BusPuzzle
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             var libraryId = (VehicleShapeLibraryId)libraryIndex;
             var variant = Mathf.Abs(layoutVariantIndex) % 1000;
+            var shapeVariant = libraryId == VehicleShapeLibraryId.Star &&
+                variant == StageGenerationPlanner.StarSizeMixVariantSeed
+                ? 0
+                : variant;
             var pressure = Mathf.Clamp01(profile.ParkingTension * 0.65f + profile.StationPressure * 0.35f);
-            var thickness = 1 + ((variant / 4) % 3);
+            var thickness = 1 + ((shapeVariant / 4) % 3);
             if (pressure >= 0.60f || targetVehicleCount >= 36)
             {
                 thickness = Mathf.Max(thickness, 2);
             }
 
-            var fillInterior = ShouldFillLibraryInterior(libraryId, profile, targetVehicleCount, variant);
-            var scale = Mathf.Lerp(0.92f, 1.05f, (variant % 5) / 4f);
+            var fillInterior = ShouldFillLibraryInterior(libraryId, profile, targetVehicleCount, shapeVariant);
+            var scale = Mathf.Lerp(0.92f, 1.05f, (shapeVariant % 5) / 4f);
             if (libraryId == VehicleShapeLibraryId.Heart || libraryId == VehicleShapeLibraryId.HeartArrow)
             {
-                var countScale = Mathf.Lerp(0.88f, 0.96f, Mathf.InverseLerp(30f, 44f, targetVehicleCount));
-                scale = Mathf.Min(scale, countScale);
+                var countScale = Mathf.Lerp(0.94f, 1.00f, Mathf.InverseLerp(34f, 44f, targetVehicleCount));
+                scale = Mathf.Clamp(Mathf.Max(scale, countScale), 0.94f, 1.00f);
             }
 
             definition = new VehicleShapeLayoutDefinition(
@@ -238,7 +242,7 @@ namespace BusPuzzle
                 thickness,
                 fillInterior,
                 scale,
-                variant % 2 == 0,
+                shapeVariant % 2 == 0,
                 variant);
             return true;
         }
@@ -540,7 +544,55 @@ namespace BusPuzzle
                 return BuildStarBudgetedCells(definition, cells, targetVehicleCount);
             }
 
+            if (definition.LibraryId == VehicleShapeLibraryId.Heart ||
+                definition.LibraryId == VehicleShapeLibraryId.HeartArrow)
+            {
+                return BuildHeartBudgetedCells(definition, cells, targetVehicleCount);
+            }
+
             return BuildMixedRoleBudgetedCells(definition, cells, targetVehicleCount);
+        }
+
+        private static List<VehicleShapeCell> BuildHeartBudgetedCells(
+            VehicleShapeLayoutDefinition definition,
+            List<VehicleShapeCell> cells,
+            int targetVehicleCount)
+        {
+            var feature = CollectFeatureCells(definition, cells);
+            var featureKeys = BuildCellKeySet(feature);
+            var outline = CollectRoleCells(cells, VehicleShapeCellRole.Outline, featureKeys);
+            var accent = CollectRoleCells(cells, VehicleShapeCellRole.Accent, featureKeys);
+            var fill = CollectRoleCells(cells, VehicleShapeCellRole.Fill, featureKeys);
+            SortHeartPathCells(outline);
+            SortHeartPathCells(accent);
+            SortHeartFillCells(fill);
+
+            var selectedFeature = TakeFirst(
+                feature,
+                Mathf.Min(feature.Count, Mathf.Max(9, Mathf.RoundToInt(targetVehicleCount * 0.22f))));
+            var remaining = Mathf.Max(0, targetVehicleCount - selectedFeature.Count);
+            var fillTarget = targetVehicleCount >= 38
+                ? Mathf.Max(8, Mathf.RoundToInt(targetVehicleCount * 0.24f))
+                : Mathf.Max(4, Mathf.RoundToInt(targetVehicleCount * 0.16f));
+            var reservedFillCount = Mathf.Min(fill.Count, Mathf.Min(remaining, fillTarget));
+            var outlineTarget = Mathf.Max(0, remaining - reservedFillCount);
+            var selectedOutline = outline.Count <= outlineTarget
+                ? TakeFirst(outline, outline.Count)
+                : SelectEvenly(outline, outlineTarget);
+            remaining = Mathf.Max(0, remaining - selectedOutline.Count);
+            var selectedAccent = TakeFirst(accent, Mathf.Min(accent.Count, Mathf.Max(0, remaining - reservedFillCount)));
+            remaining = Mathf.Max(0, remaining - selectedAccent.Count);
+            var selectedFill = fill.Count <= remaining
+                ? TakeFirst(fill, fill.Count)
+                : SelectEvenly(fill, remaining);
+
+            var ordered = new List<VehicleShapeCell>(cells.Count);
+            ordered.AddRange(selectedFeature);
+            ordered.AddRange(selectedOutline);
+            ordered.AddRange(selectedAccent);
+            ordered.AddRange(selectedFill);
+            AppendRemainingCells(ordered, cells);
+            return ordered;
         }
 
         private static List<VehicleShapeCell> BuildStarBudgetedCells(
@@ -559,15 +611,23 @@ namespace BusPuzzle
 
             var selectedFeature = TakeFirst(
                 feature,
-                Mathf.Min(feature.Count, Mathf.Max(10, Mathf.RoundToInt(targetVehicleCount * 0.22f))));
+                Mathf.Min(feature.Count, Mathf.Max(8, Mathf.RoundToInt(targetVehicleCount * 0.18f))));
             var remaining = Mathf.Max(0, targetVehicleCount - selectedFeature.Count);
-            var selectedOutline = outline.Count <= remaining
+            var usesSizeMixVariant = definition.VariantSeed == StageGenerationPlanner.StarSizeMixVariantSeed;
+            var fillTargetRatio = usesSizeMixVariant ? 0.22f : 0.12f;
+            var fillTargetMinimum = usesSizeMixVariant ? 7 : 3;
+            var fillTarget = Mathf.Max(fillTargetMinimum, Mathf.RoundToInt(targetVehicleCount * fillTargetRatio));
+            var reservedFillCount = targetVehicleCount >= 30
+                ? Mathf.Min(fill.Count, Mathf.Min(remaining, fillTarget))
+                : 0;
+            var outlineTarget = Mathf.Max(0, remaining - reservedFillCount);
+            var selectedOutline = outline.Count <= outlineTarget
                 ? TakeFirst(outline, outline.Count)
-                : SelectEvenly(outline, remaining);
+                : SelectEvenly(outline, outlineTarget);
             remaining = Mathf.Max(0, remaining - selectedOutline.Count);
-            var selectedAccent = TakeFirst(accent, Mathf.Min(accent.Count, remaining));
+            var selectedAccent = TakeFirst(accent, Mathf.Min(accent.Count, Mathf.Max(0, remaining - reservedFillCount)));
             remaining = Mathf.Max(0, remaining - selectedAccent.Count);
-            var selectedFill = TakeFirst(fill, remaining);
+            var selectedFill = TakeFirst(fill, Mathf.Min(fill.Count, remaining));
 
             var ordered = new List<VehicleShapeCell>(cells.Count);
             ordered.AddRange(selectedFeature);
@@ -950,6 +1010,35 @@ namespace BusPuzzle
         {
             cells.Sort((left, right) =>
                 GetCenterDistanceSquared(right.Cell).CompareTo(GetCenterDistanceSquared(left.Cell)));
+        }
+
+        private static void SortHeartPathCells(List<VehicleShapeCell> cells)
+        {
+            cells.Sort((left, right) =>
+            {
+                var progressCompare = GetHeartPathProgress(left.Cell)
+                    .CompareTo(GetHeartPathProgress(right.Cell));
+                if (progressCompare != 0)
+                {
+                    return progressCompare;
+                }
+
+                return GetCenterDistanceSquared(right.Cell).CompareTo(GetCenterDistanceSquared(left.Cell));
+            });
+        }
+
+        private static void SortHeartFillCells(List<VehicleShapeCell> cells)
+        {
+            cells.Sort((left, right) =>
+            {
+                var verticalCompare = right.Cell.y.CompareTo(left.Cell.y);
+                if (verticalCompare != 0)
+                {
+                    return verticalCompare;
+                }
+
+                return Mathf.Abs(left.Cell.x - CenterX).CompareTo(Mathf.Abs(right.Cell.x - CenterX));
+            });
         }
 
         private static VehicleShapeLayoutKind ToShapeKind(VehicleLayoutPatternId pattern)
@@ -2117,6 +2206,31 @@ namespace BusPuzzle
             }
 
             return bestProgress;
+        }
+
+        private static float GetHeartPathProgress(Vector2Int cell)
+        {
+            var x = cell.x - CenterX;
+            var y = cell.y;
+            var absX = Mathf.Abs(x);
+            if (y <= 2.4f && absX <= 1.8f)
+            {
+                return absX * 0.08f;
+            }
+
+            if (x < 0f)
+            {
+                var angle = Mathf.Atan2(y - 5.2f, x + 1.35f);
+                return 1f + Mathf.InverseLerp(-2.25f, 1.55f, angle) * 3f;
+            }
+
+            if (y >= 9.3f && absX <= 1.4f)
+            {
+                return 4.15f + absX * 0.06f;
+            }
+
+            var rightAngle = Mathf.Atan2(y - 5.2f, x - 1.35f);
+            return 5f + Mathf.InverseLerp(1.55f, -2.25f, rightAngle) * 3f;
         }
 
         private static bool IsNearStarOuterTip(

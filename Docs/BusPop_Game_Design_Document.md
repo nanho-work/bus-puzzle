@@ -89,6 +89,38 @@ flowchart TD
 
 이 구조는 조작을 단순하게 유지하고, 랭킹 기록도 “최고 클리어 스테이지” 기준으로 명확하게 관리하기 위한 선택이다.
 
+### 6.1 도형 스테이지 템플릿 운영 기준
+
+도형 스테이지는 차량 배치 자체가 별, 하트, 원 같은 명확한 실루엣을 만들되, 단순 장식이 아니라 실제 퍼즐로 풀 수 있어야 한다. 현재는 Stage 09를 테스트 슬롯으로 사용해 별 템플릿을 먼저 안정화하고, 완성된 별 템플릿을 잠근 뒤 하트/원/기타 도형도 같은 검수 기준으로 하나씩 확인한다.
+
+- 상용 후보는 소형차만 사용하지 않고 Small/Medium/Large 차량을 섞는다. 단, 광고 샘플을 그대로 맞추는 reference 후보는 시각 기준 확보를 위해 Small-only로 둘 수 있고, 이후 Size Mix 후보를 별도로 만든다.
+- 차량 간에는 겹침 없이 아주 작은 시각적 틈을 유지한다.
+- 외곽과 꼭지점이 도형으로 읽혀야 하며, 색상과 방향도 도형 흐름을 해치지 않아야 한다.
+- 별, 하트처럼 실루엣이 중요한 템플릿은 차량이 먼저 외곽 라인을 그리고, 내부 또는 외부 채움은 그 다음 우선순위로 배치한다.
+- 클리어 가능성 보정은 템플릿을 다시 만드는 단계가 아니라 검증 단계로 취급한다. 외곽 라인과 꼭지점 차량은 잠그고, opening moves나 greedy clear 보정은 내부/보조 차량만 조정한다.
+- 시작 가능한 차량 수는 너무 많지 않게 제한하되, 전체 차량은 greedy 출차 순서로 클리어 가능해야 한다.
+- 별 템플릿의 Hard 기준 목표 opening moves는 8~12대다.
+
+2026-07-04 기준 Stage 09는 템플릿 검수용 미리보기 슬롯이다. `Assets/BusPuzzle/Resources/Levels/Generated/Level_009.asset`은 언제든 다른 후보를 올려보는 preview asset으로만 사용하고, 잠금 후보 원본은 `Assets/BusPuzzle/Resources/ShapeTemplates` 아래에 별도 저장한다. 랜덤 도형 모드는 이 템플릿 원본들을 대상으로 하며, preview stage와 섞지 않는다.
+
+현재 잠금 후보:
+- Star Basic 01 selected: `Assets/BusPuzzle/Resources/ShapeTemplates/Star/Star_Basic_01.asset`, signature 96, 차량 32대, Small 19 / Medium 11 / Large 2, opening moves 12, `generationSolutionCount` 1, release generated level sequence validation 통과.
+
+템플릿 관리:
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Star Basic 01` 메뉴는 현재 Stage 09 preview를 별 기본 템플릿 원본으로 저장한다.
+- `Bus Puzzle/Shape Templates/Load Star Basic 01 Into Stage 09 Preview` 메뉴는 저장된 별 기본 템플릿을 Stage 09 preview 슬롯으로 다시 불러온다.
+- `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart` 메뉴는 Stage 09 preview 슬롯에 하트 후보를 올린다.
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Basic 01` 메뉴는 현재 Stage 09 preview를 하트 기본 템플릿 원본으로 저장한다.
+- `Bus Puzzle/Shape Templates/Load Heart Basic 01 Into Stage 09 Preview` 메뉴는 저장된 하트 기본 템플릿을 Stage 09 preview 슬롯으로 다시 불러온다.
+- `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Direction Mix` 메뉴는 저장된 하트 기준 후보는 유지하고, 같은 좌표에서 일부 차량 방향만 돌린 실험 후보를 Stage 09 preview 슬롯에 올린다.
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Direction Mix 01` 메뉴는 현재 Stage 09 direction mix preview를 별도 하트 방향 믹스 템플릿 원본으로 저장한다.
+- 후보 1, 후보 2, Size Mix처럼 같은 도형의 변형을 만들 때도 각각 별도 asset으로 저장한 뒤, preview stage는 검수용으로만 덮어쓴다.
+
+현재 검수 후보:
+- Star Size Mix Candidate: variant seed 41, Medium/Large 비율 40% 이상 및 Large 1대 이상 목표. 현재는 생성 훅과 검증 기준만 준비된 실험 후보이며, 강제 승격 방식은 clearability/greedy 조건과 충돌해 아직 잠금 후보로 저장하지 않는다.
+- Heart Basic 01 selected: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_Basic_01.asset`, `manualShape=heart_reference`, 차량 68대, Small-only, 좌측 차량 Left / 우측 차량 Right / 하단 중심 Down 방향, opening moves 23, `generationSolutionCount` 1.
+- Heart Direction Mix Candidate: Stage 09 preview 슬롯에서 Heart Basic 01과 같은 좌표를 유지하고, 상단/하단/중앙 일부 차량 방향만 회전한 후보로 검수한다. 현재 `manualShape=heart_direction_mix`, 차량 68대, Small-only, Up 2 / Right 36 / Down 3 / Left 27, opening moves 24, `generationSolutionCount` 1이다. 시각 검수 후 `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_DirectionMix_01.asset`로 잠글 수 있다.
+
 ## 7. 난이도 설계
 
 난이도는 차량 수, 색상 구성, 버스 크기, 승객 색상 흐름, 정류장 슬롯 압박으로 조절한다.

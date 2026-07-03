@@ -10,8 +10,9 @@ namespace BusPuzzle
         private const float FirstSubcellOffsetCells = -0.5f + SubcellStepCells * 0.5f;
         private const float MaxDenseOffsetComponentCells = 0.44f;
         private const float MaxDenseAngleOffsetDegrees = 45f;
-        private const float VisualPreviewCollisionScale = 0.84f;
+        private const float VisualPreviewCollisionScale = 1.0f;
         private const float DensePlacementPaddingCells = 0.0f;
+        private const float VisualPreviewPlacementPaddingCells = 0.035f;
         private const float DenseBoundaryPaddingCells = 0.05f;
         private const float CenterX = (BoardLayoutConfig.GridColumns - 1) * 0.5f;
         private const float CenterY = (BoardLayoutConfig.GridRows - 1) * 0.5f;
@@ -188,6 +189,7 @@ namespace BusPuzzle
                     vehicles.Count,
                     targetVehicleCount,
                     minimumDenseVehicleCount,
+                    layoutVariantIndex,
                     useVisualPreviewQuality,
                     sizeCandidates);
 
@@ -289,6 +291,23 @@ namespace BusPuzzle
             var outwardDirection = GetOutwardDirection(slot.GridPosition);
             var outwardYaw = DirectionToYaw(outwardDirection);
             var slotYaw = NormalizeYaw(DirectionToYaw(slot.Direction) + slot.AngleOffsetDegrees);
+            if (ShouldPreserveStarLinePose(libraryId, slot))
+            {
+                AddYaw(yawCandidates, slotYaw);
+                AddYaw(yawCandidates, slotYaw + 2f);
+                AddYaw(yawCandidates, slotYaw - 2f);
+                BuildOffsetCandidates(slot, libraryId, slotIndex, layoutVariantIndex, forceEscapeLanes, offsetCandidates);
+                for (var yawIndex = 0; yawIndex < yawCandidates.Count; yawIndex++)
+                {
+                    for (var offsetIndex = 0; offsetIndex < offsetCandidates.Count; offsetIndex++)
+                    {
+                        AddPoseFromYaw(candidates, yawCandidates[yawIndex], offsetCandidates[offsetIndex]);
+                    }
+                }
+
+                return;
+            }
+
             if (forceRadialEscapes &&
                 (!ShouldLockShapeYaw(libraryId, slot) ||
                     IsRadialPetalLibrary(libraryId) ||
@@ -477,6 +496,12 @@ namespace BusPuzzle
             offsets.Clear();
             var maxOffsetComponentCells = GetMaxOffsetComponentCells(slot, libraryId);
             var locksShapeLine = ShouldLockShapeYaw(libraryId, slot);
+            if (ShouldPreserveStarLinePose(libraryId, slot))
+            {
+                AppendStarLineOffsets(slot, maxOffsetComponentCells, offsets);
+                return;
+            }
+
             if (locksShapeLine)
             {
                 AddOffset(offsets, slot.PositionOffsetCells, maxOffsetComponentCells);
@@ -490,6 +515,24 @@ namespace BusPuzzle
                 AddOffset(offsets, slot.PositionOffsetCells, maxOffsetComponentCells);
                 AddOffset(offsets, Vector2.zero, maxOffsetComponentCells);
             }
+        }
+
+        private static void AppendStarLineOffsets(
+            VehicleLayoutSlot slot,
+            float maxOffsetComponentCells,
+            List<Vector2> offsets)
+        {
+            AddOffset(offsets, slot.PositionOffsetCells, maxOffsetComponentCells);
+            AddOffset(offsets, Vector2.zero, maxOffsetComponentCells);
+
+            var yawRadians = (DirectionToYaw(slot.Direction) + slot.AngleOffsetDegrees) * Mathf.Deg2Rad;
+            var forward = new Vector2(Mathf.Sin(yawRadians), Mathf.Cos(yawRadians));
+            var right = new Vector2(forward.y, -forward.x);
+            var baseOffset = slot.PositionOffsetCells;
+            AddOffset(offsets, baseOffset + forward * 0.08f, maxOffsetComponentCells);
+            AddOffset(offsets, baseOffset - forward * 0.08f, maxOffsetComponentCells);
+            AddOffset(offsets, baseOffset + right * 0.04f, maxOffsetComponentCells);
+            AddOffset(offsets, baseOffset - right * 0.04f, maxOffsetComponentCells);
         }
 
         private static void AppendRotatedLayerOffsets(
@@ -640,6 +683,11 @@ namespace BusPuzzle
 
         private static float GetMaxOffsetComponentCells(VehicleLayoutSlot slot, VehicleShapeLibraryId libraryId)
         {
+            if (ShouldPreserveStarLinePose(libraryId, slot))
+            {
+                return 0.12f;
+            }
+
             if (IsFeatureSlot(libraryId, slot))
             {
                 return 0.16f;
@@ -661,17 +709,78 @@ namespace BusPuzzle
             int vehicleIndex,
             int targetVehicleCount,
             int minimumDenseVehicleCount,
+            int layoutVariantIndex,
             bool useVisualPreviewQuality,
             List<BusSize> sizes)
         {
             sizes.Clear();
+            var preferred = PickDenseSize(slot, libraryId, profile, slotIndex, vehicleIndex, targetVehicleCount);
             if (useVisualPreviewQuality)
             {
+                var hash = Mathf.Abs(layoutVariantIndex + slotIndex * 17 + vehicleIndex * 23 + slot.GridPosition.x * 5 + slot.GridPosition.y * 7);
+                if (UsesStarSizeMixPreview(libraryId, layoutVariantIndex))
+                {
+                    if (AllowsStarSizeMixLargeVehicle(slot, hash) &&
+                        targetVehicleCount >= 34 &&
+                        hash % 4 != 1)
+                    {
+                        AddSizeCandidate(sizes, BusSize.Large);
+                    }
+
+                    if (slot.ShapeRole != VehicleShapeCellRole.Accent &&
+                        AllowsMediumVehicle(libraryId, slot) &&
+                        targetVehicleCount >= 34)
+                    {
+                        AddSizeCandidate(sizes, BusSize.Medium);
+                    }
+
+                    if (preferred != BusSize.Small)
+                    {
+                        AddSizeCandidate(sizes, preferred);
+                    }
+
+                    AddSizeCandidate(sizes, BusSize.Small);
+                    if (AllowsStarSizeMixLargeVehicle(slot, hash))
+                    {
+                        AddSizeCandidate(sizes, BusSize.Large);
+                    }
+
+                    return;
+                }
+
+                if (AllowsMediumVehicle(libraryId, slot) &&
+                    targetVehicleCount >= 34 &&
+                    hash % 3 == 0)
+                {
+                    AddSizeCandidate(sizes, BusSize.Medium);
+                }
+
+                if (ShouldPrioritizeVisualPreviewLargeVehicle(libraryId, slot, targetVehicleCount, hash))
+                {
+                    AddSizeCandidate(sizes, BusSize.Large);
+                }
+
+                if (preferred != BusSize.Small)
+                {
+                    AddSizeCandidate(sizes, preferred);
+                }
+
                 AddSizeCandidate(sizes, BusSize.Small);
+                if (AllowsMediumVehicle(libraryId, slot) && targetVehicleCount >= 34)
+                {
+                    AddSizeCandidate(sizes, BusSize.Medium);
+                }
+
+                if (libraryId == VehicleShapeLibraryId.Star &&
+                    slot.ShapeRole == VehicleShapeCellRole.Fill &&
+                    targetVehicleCount >= 34)
+                {
+                    AddSizeCandidate(sizes, BusSize.Large);
+                }
+
                 return;
             }
 
-            var preferred = PickDenseSize(slot, libraryId, profile, slotIndex, vehicleIndex, targetVehicleCount);
             if (vehicleIndex < minimumDenseVehicleCount && ShouldProtectSilhouetteDensity(libraryId, slot))
             {
                 AddSizeCandidate(sizes, BusSize.Small);
@@ -775,6 +884,46 @@ namespace BusPuzzle
                 : BusSize.Small;
         }
 
+        private static bool UsesStarSizeMixPreview(VehicleShapeLibraryId libraryId, int layoutVariantIndex)
+        {
+            return libraryId == VehicleShapeLibraryId.Star &&
+                VehicleLayoutPatternEngine.TryGetShapeLibraryVariantSeed(layoutVariantIndex, out var variantSeed) &&
+                variantSeed == StageGenerationPlanner.StarSizeMixVariantSeed;
+        }
+
+        private static bool AllowsStarSizeMixLargeVehicle(VehicleLayoutSlot slot, int hash)
+        {
+            if (slot.ShapeRole == VehicleShapeCellRole.Fill)
+            {
+                return true;
+            }
+
+            return slot.ShapeRole == VehicleShapeCellRole.Outline &&
+                !IsFeatureSlot(VehicleShapeLibraryId.Star, slot) &&
+                hash % 5 == 0;
+        }
+
+        private static bool ShouldPrioritizeVisualPreviewLargeVehicle(
+            VehicleShapeLibraryId libraryId,
+            VehicleLayoutSlot slot,
+            int targetVehicleCount,
+            int hash)
+        {
+            if (!AllowsLargeVehicle(libraryId, slot))
+            {
+                return false;
+            }
+
+            if (libraryId == VehicleShapeLibraryId.Star &&
+                slot.ShapeRole == VehicleShapeCellRole.Fill &&
+                targetVehicleCount >= 34)
+            {
+                return hash % 2 == 0;
+            }
+
+            return targetVehicleCount >= 46 && hash % 11 == 0;
+        }
+
         private static float GetDenseSizePressure(LevelDifficultyProfile profile, int targetVehicleCount)
         {
             var countPressure = Mathf.InverseLerp(34f, 50f, targetVehicleCount);
@@ -869,6 +1018,13 @@ namespace BusPuzzle
                 return false;
             }
 
+            if ((libraryId == VehicleShapeLibraryId.Heart ||
+                libraryId == VehicleShapeLibraryId.HeartArrow) &&
+                !IsFeatureSlot(libraryId, slot))
+            {
+                return true;
+            }
+
             switch (libraryId)
             {
                 case VehicleShapeLibraryId.Circle:
@@ -876,8 +1032,6 @@ namespace BusPuzzle
                 case VehicleShapeLibraryId.SemiCircle:
                 case VehicleShapeLibraryId.DoubleRing:
                 case VehicleShapeLibraryId.Spiral:
-                case VehicleShapeLibraryId.Heart:
-                case VehicleShapeLibraryId.HeartArrow:
                 case VehicleShapeLibraryId.Star:
                 case VehicleShapeLibraryId.Flower:
                 case VehicleShapeLibraryId.Sunburst:
@@ -1182,6 +1336,11 @@ namespace BusPuzzle
 
         private static float GetLockedShapeYawJitter(VehicleLayoutSlot slot, VehicleShapeLibraryId libraryId)
         {
+            if (ShouldPreserveStarLinePose(libraryId, slot))
+            {
+                return 0f;
+            }
+
             if (libraryId == VehicleShapeLibraryId.Star)
             {
                 return 6f;
@@ -1197,6 +1356,11 @@ namespace BusPuzzle
 
         private static bool ShouldAllowReverseShapeYaw(VehicleLayoutSlot slot, VehicleShapeLibraryId libraryId)
         {
+            if (ShouldPreserveStarLinePose(libraryId, slot))
+            {
+                return false;
+            }
+
             if (!ShouldLockShapeYaw(libraryId, slot))
             {
                 return false;
@@ -1218,6 +1382,11 @@ namespace BusPuzzle
             int layoutVariantIndex,
             bool forceEscapeLanes)
         {
+            if (ShouldPreserveStarLinePose(libraryId, slot))
+            {
+                return false;
+            }
+
             if (!ShouldLockShapeYaw(libraryId, slot))
             {
                 return true;
@@ -1268,6 +1437,13 @@ namespace BusPuzzle
             }
 
             return IsFeatureSlot(libraryId, slot) ? hash % 3 == 0 : hash % 5 == 0;
+        }
+
+        private static bool ShouldPreserveStarLinePose(VehicleShapeLibraryId libraryId, VehicleLayoutSlot slot)
+        {
+            return libraryId == VehicleShapeLibraryId.Star &&
+                slot.ShapeKind != VehicleShapeLayoutKind.None &&
+                slot.ShapeRole != VehicleShapeCellRole.Fill;
         }
 
         private static bool IsNearOuterBand(Vector2Int cell)
@@ -1329,9 +1505,7 @@ namespace BusPuzzle
             }
 
             var candidateFootprint = GetDensePlacementFootprint(candidate, useVisualPreviewQuality);
-            var candidateVisualFootprint = useVisualPreviewQuality
-                ? candidateFootprint
-                : BoardLayoutConfig.GetVehicleVisualFootprintCells(candidate);
+            var candidateVisualFootprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(candidate);
             for (var index = 0; index < placedVehicles.Count; index++)
             {
                 var placed = placedVehicles[index];
@@ -1340,11 +1514,10 @@ namespace BusPuzzle
                     return false;
                 }
 
-                var placedVisualFootprint = useVisualPreviewQuality
-                    ? GetDensePlacementFootprint(placed, true)
-                    : BoardLayoutConfig.GetVehicleVisualFootprintCells(placed);
+                var placedVisualFootprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(placed);
+                var visualPadding = useVisualPreviewQuality ? VisualPreviewPlacementPaddingCells : DensePlacementPaddingCells;
                 if (candidateVisualFootprint.Overlaps(placedVisualFootprint) ||
-                    candidateVisualFootprint.IsWithinPadding(placedVisualFootprint, DensePlacementPaddingCells))
+                    candidateVisualFootprint.IsWithinPadding(placedVisualFootprint, visualPadding))
                 {
                     return false;
                 }

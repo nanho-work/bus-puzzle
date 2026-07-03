@@ -75,6 +75,7 @@ namespace BusPuzzle
             profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             var libraryId = (VehicleShapeLibraryId)libraryIndex;
             var metrics = CalculateMetrics(profile, layoutVariantIndex, vehicles);
+            var usesLockedTemplateQualityProfile = UsesLockedTemplateQualityProfile(libraryId);
             var minimumCoverage = ShapeLibraryVehicleCoverage.GetMinimumVehicleCount(profile, layoutVariantIndex);
             if (metrics.VehicleCount < minimumCoverage)
             {
@@ -82,9 +83,31 @@ namespace BusPuzzle
                 return true;
             }
 
+            if (usesLockedTemplateQualityProfile)
+            {
+                var minimumMediumLarge = GetMinimumMediumLargeVehicleCount(profile, libraryId, metrics.VehicleCount);
+                if (metrics.MediumLargeCount < minimumMediumLarge)
+                {
+                    message = $"Shape library medium/large mix {metrics.MediumLargeCount}/{metrics.VehicleCount} is below required minimum {minimumMediumLarge}.";
+                    return true;
+                }
+
+                var minimumLarge = GetMinimumLargeVehicleCount(profile, libraryId, metrics.VehicleCount);
+                if (metrics.LargeCount < minimumLarge)
+                {
+                    message = $"Shape library large vehicles {metrics.LargeCount}/{metrics.VehicleCount} are below required minimum {minimumLarge}.";
+                    return true;
+                }
+            }
+
             if (!IsRelaxedCircularLibrary(libraryId))
             {
-                var minimumMatched = GetMinimumShapeMatchedCount(libraryId, metrics.VehicleCount);
+                var minimumMatched = GetMinimumShapeMatchedCount(
+                    libraryId,
+                    layoutVariantIndex,
+                    metrics.VehicleCount,
+                    metrics.MediumLargeCount,
+                    usesLockedTemplateQualityProfile);
                 if (metrics.ShapeMatchedCount < minimumMatched)
                 {
                     message = $"Shape library silhouette match {metrics.ShapeMatchedCount}/{metrics.VehicleCount} is below required minimum {minimumMatched}.";
@@ -118,7 +141,12 @@ namespace BusPuzzle
 
             if (!IsRelaxedCircularLibrary(libraryId))
             {
-                var maximumFidelityScore = GetMaximumShapeFidelityScore(profile, libraryId, metrics.VehicleCount);
+                var maximumFidelityScore = GetMaximumShapeFidelityScore(
+                    profile,
+                    libraryId,
+                    layoutVariantIndex,
+                    metrics.VehicleCount,
+                    usesLockedTemplateQualityProfile);
                 if (metrics.ShapeFidelityScore > maximumFidelityScore)
                 {
                     message = $"Shape library fidelity score {metrics.ShapeFidelityScore} exceeds maximum {maximumFidelityScore}.";
@@ -171,16 +199,7 @@ namespace BusPuzzle
                     outwardFacingCount++;
                 }
 
-                var position = new Vector2(
-                    vehicle.GridPosition.x + vehicle.PositionOffsetCells.x,
-                    vehicle.GridPosition.y + vehicle.PositionOffsetCells.y);
-                if (definition.Kind != VehicleShapeLayoutKind.None &&
-                    VehicleShapeLayoutEngine.TryFindNearestShapeCell(
-                        definition,
-                        position,
-                        out var nearestCell,
-                        out var distanceCells) &&
-                    distanceCells <= ShapeCellMatchDistanceCells)
+                if (TryGetShapeMatchedCell(definition, vehicle, out var nearestCell))
                 {
                     shapeMatchedCount++;
                     if (nearestCell.Role == VehicleShapeCellRole.Outline)
@@ -206,6 +225,72 @@ namespace BusPuzzle
                 outwardFacingCount,
                 openingExitCount,
                 shapeFidelityScore);
+        }
+
+        private static bool TryGetShapeMatchedCell(
+            VehicleShapeLayoutDefinition definition,
+            BusDefinition vehicle,
+            out VehicleShapeCell matchedCell)
+        {
+            matchedCell = default;
+            if (definition.Kind == VehicleShapeLayoutKind.None)
+            {
+                return false;
+            }
+
+            var position = new Vector2(
+                vehicle.GridPosition.x + vehicle.PositionOffsetCells.x,
+                vehicle.GridPosition.y + vehicle.PositionOffsetCells.y);
+            if (TryGetShapeMatchedCell(definition, position, ShapeCellMatchDistanceCells, out matchedCell))
+            {
+                return true;
+            }
+
+            if (!UsesSizeAwareShapeMatching(definition) || vehicle.Size == BusSize.Small)
+            {
+                return false;
+            }
+
+            var footprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(vehicle);
+            var forwardReach = footprint.Forward * footprint.HalfLength;
+            var rightReach = footprint.Right * footprint.HalfWidth * 0.35f;
+            const float sizeAwareMatchDistanceCells = 0.98f;
+            return TryGetShapeMatchedCell(definition, footprint.Center, sizeAwareMatchDistanceCells, out matchedCell) ||
+                TryGetShapeMatchedCell(definition, footprint.Center + forwardReach * 0.45f, sizeAwareMatchDistanceCells, out matchedCell) ||
+                TryGetShapeMatchedCell(definition, footprint.Center - forwardReach * 0.45f, sizeAwareMatchDistanceCells, out matchedCell) ||
+                TryGetShapeMatchedCell(definition, footprint.Center + forwardReach * 0.80f + rightReach, sizeAwareMatchDistanceCells, out matchedCell) ||
+                TryGetShapeMatchedCell(definition, footprint.Center + forwardReach * 0.80f - rightReach, sizeAwareMatchDistanceCells, out matchedCell) ||
+                TryGetShapeMatchedCell(definition, footprint.Center - forwardReach * 0.80f + rightReach, sizeAwareMatchDistanceCells, out matchedCell) ||
+                TryGetShapeMatchedCell(definition, footprint.Center - forwardReach * 0.80f - rightReach, sizeAwareMatchDistanceCells, out matchedCell);
+        }
+
+        private static bool TryGetShapeMatchedCell(
+            VehicleShapeLayoutDefinition definition,
+            Vector2 position,
+            float maxDistanceCells,
+            out VehicleShapeCell matchedCell)
+        {
+            matchedCell = default;
+            return VehicleShapeLayoutEngine.TryFindNearestShapeCell(
+                    definition,
+                    position,
+                    out matchedCell,
+                    out var distanceCells) &&
+                distanceCells <= maxDistanceCells;
+        }
+
+        private static bool UsesSizeAwareShapeMatching(VehicleShapeLayoutDefinition definition)
+        {
+            return definition.LibraryId == VehicleShapeLibraryId.Star &&
+                definition.VariantSeed == StageGenerationPlanner.StarSizeMixVariantSeed;
+        }
+
+        private static bool UsesStarSizeMixLayoutVariant(int layoutVariantIndex)
+        {
+            return VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex) &&
+                (VehicleShapeLibraryId)libraryIndex == VehicleShapeLibraryId.Star &&
+                VehicleLayoutPatternEngine.TryGetShapeLibraryVariantSeed(layoutVariantIndex, out var variantSeed) &&
+                variantSeed == StageGenerationPlanner.StarSizeMixVariantSeed;
         }
 
         public static int GetMinimumMediumLargeVehicleCount(
@@ -244,6 +329,11 @@ namespace BusPuzzle
             VehicleShapeLibraryId libraryId,
             int vehicleCount)
         {
+            if (libraryId == VehicleShapeLibraryId.Star && vehicleCount >= 30)
+            {
+                return 1;
+            }
+
             if (!SupportsLargeVehicle(libraryId) || vehicleCount < 46)
             {
                 return 0;
@@ -411,7 +501,12 @@ namespace BusPuzzle
             return IsLinearLibrary(libraryId) ? 0.76f : 0.82f;
         }
 
-        private static int GetMinimumShapeMatchedCount(VehicleShapeLibraryId libraryId, int vehicleCount)
+        private static int GetMinimumShapeMatchedCount(
+            VehicleShapeLibraryId libraryId,
+            int layoutVariantIndex,
+            int vehicleCount,
+            int mediumLargeCount,
+            bool usesLockedTemplateQualityProfile)
         {
             if (vehicleCount <= 0)
             {
@@ -419,6 +514,14 @@ namespace BusPuzzle
             }
 
             var minimum = Mathf.CeilToInt(vehicleCount * GetMinimumShapeMatchRatio(libraryId));
+            if (usesLockedTemplateQualityProfile && libraryId == VehicleShapeLibraryId.Star)
+            {
+                var mixedSizeCoverageCredit = Mathf.Max(0, mediumLargeCount - 3);
+                var mixedSizeMinimumRatio = UsesStarSizeMixLayoutVariant(layoutVariantIndex) ? 0.50f : 0.55f;
+                var mixedSizeMinimum = Mathf.CeilToInt(vehicleCount * mixedSizeMinimumRatio);
+                minimum = Mathf.Max(mixedSizeMinimum, minimum - mixedSizeCoverageCredit);
+            }
+
             return IsSparsePathLibrary(libraryId)
                 ? Mathf.Clamp(minimum, Mathf.Min(vehicleCount, 5), vehicleCount)
                 : Mathf.Clamp(Mathf.Max(8, minimum), 0, vehicleCount);
@@ -427,7 +530,9 @@ namespace BusPuzzle
         private static int GetMaximumShapeFidelityScore(
             LevelDifficultyProfile profile,
             VehicleShapeLibraryId libraryId,
-            int vehicleCount)
+            int layoutVariantIndex,
+            int vehicleCount,
+            bool usesLockedTemplateQualityProfile)
         {
             if (vehicleCount <= 0)
             {
@@ -435,7 +540,11 @@ namespace BusPuzzle
             }
 
             profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
-            var perVehicle = IsLinearLibrary(libraryId)
+            var perVehicle = usesLockedTemplateQualityProfile && libraryId == VehicleShapeLibraryId.Star
+                ? UsesStarSizeMixLayoutVariant(layoutVariantIndex)
+                    ? 40f
+                    : 31f
+                : IsLinearLibrary(libraryId)
                 ? 15f
                 : IsRelaxedCircularLibrary(libraryId)
                     ? 17f
@@ -452,6 +561,11 @@ namespace BusPuzzle
             }
 
             return Mathf.RoundToInt(vehicleCount * perVehicle + 90f);
+        }
+
+        private static bool UsesLockedTemplateQualityProfile(VehicleShapeLibraryId libraryId)
+        {
+            return libraryId == VehicleShapeLibraryId.Star;
         }
 
         private static bool RestrictsOutwardFacing(VehicleShapeLibraryId libraryId)

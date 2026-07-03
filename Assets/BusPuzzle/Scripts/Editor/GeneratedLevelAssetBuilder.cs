@@ -10,12 +10,29 @@ namespace BusPuzzle.EditorTools
     {
         private const string LevelDirectory = "Assets/BusPuzzle/Resources/Levels";
         private const string GeneratedLevelDirectory = LevelDirectory + "/Generated";
+        private const string ShapeTemplateDirectory = "Assets/BusPuzzle/Resources/ShapeTemplates";
+        private const string StarShapeTemplateDirectory = ShapeTemplateDirectory + "/Star";
+        private const string StarBasicShapeTemplatePath = StarShapeTemplateDirectory + "/Star_Basic_01.asset";
+        private const string StarBasicShapeTemplateDisplayName = "Star Basic 01";
+        private const string HeartShapeTemplateDirectory = ShapeTemplateDirectory + "/Heart";
+        private const string HeartBasicShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_Basic_01.asset";
+        private const string HeartBasicShapeTemplateDisplayName = "Heart Basic 01";
+        private const string HeartDirectionMixShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_DirectionMix_01.asset";
+        private const string HeartDirectionMixShapeTemplateDisplayName = "Heart Direction Mix 01";
         private const string ActiveLevelSequencePath = LevelDirectory + "/LevelSequence.asset";
         private const string GeneratedLevelSequencePath = GeneratedLevelDirectory + "/GeneratedLevelSequence.asset";
         private const string StageGenerationConfigPath = LevelDirectory + "/StageGenerationConfig.asset";
+        private const int ShapeTemplatePreviewStageNumber = 9;
         private const int GeneratedStageBatchSize = 25;
         private const int PreviewStageCount = 100;
         private const int ShapeLibraryPreviewStageCount = 31;
+        private const int DefaultVisualPreviewMinimumOpeningMoveCount = 3;
+        private const int StarPreviewMinimumOpeningMoveCount = 8;
+        private const int StarPreviewMaximumOpeningMoveCount = 12;
+        private const int StarSizeMixPreviewMaximumOpeningMoveCount = 16;
+        private const int ManualHeartGridColumns = 14;
+        private const int ManualHeartGridRows = 14;
+        private const int ManualShapeSolutionNodeVisitLimit = 50000;
 
         private enum GeneratedStageBuildMode
         {
@@ -23,6 +40,12 @@ namespace BusPuzzle.EditorTools
             NextBatch,
             PreviewFirst100,
             ShapeLibraryPreview
+        }
+
+        private enum ManualHeartDirectionMode
+        {
+            Reference,
+            DirectionMix
         }
 
         [MenuItem("Bus Puzzle/Levels/Rebuild Generated Stage Set")]
@@ -46,12 +69,103 @@ namespace BusPuzzle.EditorTools
         [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Star")]
         public static void RebuildShapeLibraryPreviewStage09Star()
         {
-            RebuildSingleShapeLibraryPreviewStage(9);
+            RebuildSingleShapeLibraryPreviewStage(ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Star Size Mix")]
+        public static void RebuildShapeLibraryPreviewStage09StarSizeMix()
+        {
+            RebuildSingleShapeLibraryPreviewStage(ShapeTemplatePreviewStageNumber, StageGenerationPlanner.StarSizeMixVariantSeed);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart")]
+        public static void RebuildShapeLibraryPreviewStage09Heart()
+        {
+            RebuildStage09ManualHeart(ManualHeartDirectionMode.Reference);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Direction Mix")]
+        public static void RebuildShapeLibraryPreviewStage09HeartDirectionMix()
+        {
+            SaveManualHeartReferenceTemplate();
+            RebuildStage09ManualHeart(ManualHeartDirectionMode.DirectionMix);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Star Basic 01")]
+        public static void SaveStage09PreviewAsStarBasicTemplate()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                StarBasicShapeTemplatePath,
+                StarBasicShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Star Basic 01 Into Stage 09 Preview")]
+        public static void LoadStarBasicTemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                StarBasicShapeTemplatePath,
+                StarBasicShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Star Basic 01")]
+        public static void ValidateStarBasicShapeTemplate()
+        {
+            ValidateShapeTemplate(StarBasicShapeTemplatePath, StarBasicShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Basic 01")]
+        public static void SaveStage09PreviewAsHeartBasicTemplate()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                HeartBasicShapeTemplatePath,
+                HeartBasicShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Heart Basic 01 Into Stage 09 Preview")]
+        public static void LoadHeartBasicTemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                HeartBasicShapeTemplatePath,
+                HeartBasicShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Heart Basic 01")]
+        public static void ValidateHeartBasicShapeTemplate()
+        {
+            ValidateShapeTemplate(HeartBasicShapeTemplatePath, HeartBasicShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Direction Mix 01")]
+        public static void SaveStage09PreviewAsHeartDirectionMixTemplate()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                HeartDirectionMixShapeTemplatePath,
+                HeartDirectionMixShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Heart Direction Mix 01 Into Stage 09 Preview")]
+        public static void LoadHeartDirectionMixTemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                HeartDirectionMixShapeTemplatePath,
+                HeartDirectionMixShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Heart Direction Mix 01")]
+        public static void ValidateHeartDirectionMixShapeTemplate()
+        {
+            ValidateShapeTemplate(HeartDirectionMixShapeTemplatePath, HeartDirectionMixShapeTemplateDisplayName);
         }
 
         public static void RebuildShapeLibraryPreviewStageFromCommandLine()
         {
-            RebuildSingleShapeLibraryPreviewStage(ReadCommandLineStageNumber(9));
+            RebuildSingleShapeLibraryPreviewStage(ReadCommandLineStageNumber(ShapeTemplatePreviewStageNumber));
         }
 
         [MenuItem("Bus Puzzle/Levels/Build Next Generated Stage Batch")]
@@ -266,6 +380,21 @@ namespace BusPuzzle.EditorTools
 
         private static void RebuildSingleShapeLibraryPreviewStage(int stageNumber)
         {
+            RebuildSingleShapeLibraryPreviewStage(stageNumber, 0);
+        }
+
+        private static void RebuildSingleShapeLibraryPreviewStage(
+            int stageNumber,
+            int shapeLibraryVariantSeed)
+        {
+            RebuildSingleShapeLibraryPreviewStage(stageNumber, -1, shapeLibraryVariantSeed);
+        }
+
+        private static void RebuildSingleShapeLibraryPreviewStage(
+            int stageNumber,
+            int shapeLibraryIndexOverride,
+            int shapeLibraryVariantSeed)
+        {
             var maxShapeLibraryStage = ShapeLibraryPreviewStageCount;
             if (stageNumber < 2 || stageNumber > maxShapeLibraryStage)
             {
@@ -281,21 +410,38 @@ namespace BusPuzzle.EditorTools
 
             var config = LoadConfig();
             Directory.CreateDirectory(GeneratedLevelDirectory);
-            var request = StageGenerationPlanner.CreateShapeLibraryPreviewRequest(config, stageNumber);
-            var minimumVisualPreviewVehicleCount = Mathf.CeilToInt(request.Profile.TargetVehicleCount * 0.92f);
-            const int minimumOpeningMoveCount = 3;
+            var request = shapeLibraryIndexOverride >= 0
+                ? StageGenerationPlanner.CreateShapeLibraryPreviewRequestForLibrary(
+                    config,
+                    stageNumber,
+                    shapeLibraryIndexOverride,
+                    shapeLibraryVariantSeed)
+                : StageGenerationPlanner.CreateShapeLibraryPreviewRequest(config, stageNumber, shapeLibraryVariantSeed);
+            var generationSignature = StageGenerationSignature.Create(config, request);
+            var minimumVisualPreviewVehicleCount = ShapeLibraryVehicleCoverage.GetMinimumVehicleCount(
+                request.Profile,
+                request.VehicleLayoutVariantIndex);
+            GetVisualPreviewOpeningMoveRange(request, out var minimumOpeningMoveCount, out var maximumOpeningMoveCount);
             var openingMoveCount = 0;
             var cancelled = false;
             LevelData generatedLevel = null;
             LevelValidationReport report = null;
+            var candidateAttempts = StageGenerationPlanner.UsesStarSizeMixShapeLibraryTemplate(request)
+                ? config.CandidateAttemptsPerStage * 4
+                : config.CandidateAttemptsPerStage;
+            var validationRejectedCount = 0;
+            var vehicleCountRejectedCount = 0;
+            var sizeMixRejectedCount = 0;
+            var openingRejectedCount = 0;
+            var greedyRejectedCount = 0;
             try
             {
-                for (var candidate = 0; candidate < config.CandidateAttemptsPerStage; candidate++)
+                for (var candidate = 0; candidate < candidateAttempts; candidate++)
                 {
                     cancelled = EditorUtility.DisplayCancelableProgressBar(
                         "Rebuilding Single Shape Library Preview",
-                        $"Stage {stageNumber:000} visual candidate {candidate + 1}/{config.CandidateAttemptsPerStage}",
-                        Mathf.Clamp01(candidate / (float)Mathf.Max(1, config.CandidateAttemptsPerStage)));
+                        $"Stage {stageNumber:000} visual candidate {candidate + 1}/{candidateAttempts}",
+                        Mathf.Clamp01(candidate / (float)Mathf.Max(1, candidateAttempts)));
                     if (cancelled)
                     {
                         break;
@@ -308,16 +454,58 @@ namespace BusPuzzle.EditorTools
                         config.ReleaseVehicleGenerationAttempts,
                         false,
                         true);
+                    if (!TryApplyVisualPreviewVariantAdjustments(candidateLevel, request, candidate))
+                    {
+                        sizeMixRejectedCount++;
+                        continue;
+                    }
+
+                    candidateLevel.SetGenerationMetadata(generationSignature, 1);
                     report = LevelValidator.Validate(candidateLevel, false);
+                    if (report.HasErrors)
+                    {
+                        validationRejectedCount++;
+                        continue;
+                    }
+
                     if (candidateLevel.Buses == null ||
                         candidateLevel.Buses.Count < minimumVisualPreviewVehicleCount)
                     {
+                        vehicleCountRejectedCount++;
+                        continue;
+                    }
+
+                    if (!HasRequiredVisualPreviewVehicleSizes(request, candidateLevel.Buses))
+                    {
+                        sizeMixRejectedCount++;
                         continue;
                     }
 
                     openingMoveCount = LevelGenerator.CountOpeningMoves(candidateLevel.Buses);
-                    if (openingMoveCount < minimumOpeningMoveCount)
+                    var hasGreedyExitOrder = LevelGenerator.HasGreedyExitOrder(candidateLevel.Buses);
+                    if (openingMoveCount < minimumOpeningMoveCount ||
+                        openingMoveCount > maximumOpeningMoveCount ||
+                        !hasGreedyExitOrder)
                     {
+                        if (!TryApplyOpeningMoveConstraint(
+                            candidateLevel,
+                            request,
+                            candidate,
+                            generationSignature,
+                            minimumOpeningMoveCount,
+                            maximumOpeningMoveCount,
+                            out openingMoveCount,
+                            out report))
+                        {
+                            openingRejectedCount++;
+                            continue;
+                        }
+                    }
+
+                    if (!StageGenerationPlanner.UsesStarSizeMixShapeLibraryTemplate(request) &&
+                        !LevelGenerator.HasGreedyExitOrder(candidateLevel.Buses))
+                    {
+                        greedyRejectedCount++;
                         continue;
                     }
 
@@ -330,7 +518,9 @@ namespace BusPuzzle.EditorTools
                     var message = cancelled
                         ? $"Shape library preview stage {stageNumber:000} rebuild cancelled."
                         : $"Failed to rebuild shape library preview stage {stageNumber:000}. " +
-                        $"{CreateReportMessage(generatedLevel, report)}";
+                        $"{CreateReportMessage(generatedLevel, report)} " +
+                        $"Rejects validation={validationRejectedCount}, vehicles={vehicleCountRejectedCount}, " +
+                        $"sizes={sizeMixRejectedCount}, opening={openingRejectedCount}, greedy={greedyRejectedCount}.";
                     Debug.LogError(message);
                     if (Application.isBatchMode)
                     {
@@ -340,9 +530,7 @@ namespace BusPuzzle.EditorTools
                     return;
                 }
 
-                generatedLevel.SetGenerationMetadata(
-                    StageGenerationSignature.Create(config, request),
-                    0);
+                generatedLevel.SetGenerationMetadata(generationSignature, 1);
                 SaveLevel($"Level_{stageNumber:000}", generatedLevel);
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
@@ -355,6 +543,540 @@ namespace BusPuzzle.EditorTools
             {
                 EditorUtility.ClearProgressBar();
             }
+        }
+
+        private static void RebuildStage09ManualHeart(ManualHeartDirectionMode directionMode)
+        {
+            var level = CreateManualHeartLevel(directionMode, $"Stage {ShapeTemplatePreviewStageNumber:000} Hard");
+            if (level == null)
+            {
+                return;
+            }
+
+            var vehicles = level.Buses;
+            var openingMoveCount = LevelGenerator.CountOpeningMoves(level.Buses);
+            SaveLevel($"Level_{ShapeTemplatePreviewStageNumber:000}", level);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                $"Rebuilt manual heart {GetManualHeartModeLogName(directionMode)} preview stage {ShapeTemplatePreviewStageNumber:000}: " +
+                $"vehicles {vehicles.Count}, opening moves {openingMoveCount}, " +
+                $"solutions {level.GenerationSolutionCount}, road {level.RoadPresetId}.");
+        }
+
+        private static void SaveManualHeartReferenceTemplate()
+        {
+            var referenceLevel = CreateManualHeartLevel(
+                ManualHeartDirectionMode.Reference,
+                HeartBasicShapeTemplateDisplayName);
+            if (referenceLevel == null)
+            {
+                return;
+            }
+
+            var template = SaveLevelAssetCopy(
+                referenceLevel,
+                HeartBasicShapeTemplatePath,
+                Path.GetFileNameWithoutExtension(HeartBasicShapeTemplatePath),
+                HeartBasicShapeTemplateDisplayName);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                $"Saved manual heart reference template {HeartBasicShapeTemplateDisplayName}: " +
+                $"{HeartBasicShapeTemplatePath}. {CreateLevelSummary(template)}.");
+        }
+
+        private static LevelData CreateManualHeartLevel(ManualHeartDirectionMode directionMode, string levelName)
+        {
+            var vehicles = CreateManualHeartReferenceVehicles(directionMode);
+            var profile = LevelDifficultyProfile.CreateCustom(
+                LevelDifficulty.Hard,
+                vehicles.Count,
+                9,
+                0.54f,
+                0.48f,
+                true);
+            var flowPlan = LevelGenerator.BuildPassengerFlowPlanFromVehicleOrder(
+                profile,
+                vehicles,
+                GetManualHeartPassengerSeed(directionMode));
+            var level = ScriptableObject.CreateInstance<LevelData>();
+            level.hideFlags = HideFlags.None;
+            level.ConfigureWithPassengerFlowPlan(
+                levelName,
+                profile,
+                flowPlan,
+                vehicles,
+                25,
+                RotaryRoadPresetId.SmallCircleTest);
+
+            var report = LevelValidator.Validate(level, false);
+            if (report.HasErrors)
+            {
+                FailAssetOperation(report.ToConsoleMessage($"Manual Heart {GetManualHeartModeLogName(directionMode)}"));
+                return null;
+            }
+
+            var solutionAnalysis = StageSolutionAnalyzer.Analyze(
+                level.Buses,
+                level.Garages,
+                1,
+                ManualShapeSolutionNodeVisitLimit);
+            if (!solutionAnalysis.IsSolvable)
+            {
+                FailAssetOperation($"Manual Heart {GetManualHeartModeLogName(directionMode)} is not clearable.");
+                return null;
+            }
+
+            level.SetGenerationMetadata(GetManualHeartGenerationSignature(directionMode), solutionAnalysis.SolutionCount);
+            return level;
+        }
+
+        private static List<BusDefinition> CreateManualHeartReferenceVehicles(ManualHeartDirectionMode directionMode)
+        {
+            var rows = new[]
+            {
+                new ManualHeartRow(11.2f, new[] { 3.4f, 4.8f, 8.2f, 9.6f }),
+                new ManualHeartRow(10.2f, new[] { 2.4f, 3.8f, 5.2f, 7.8f, 9.2f, 10.6f }),
+                new ManualHeartRow(9.2f, new[] { 1.6f, 3.0f, 4.4f, 5.8f, 7.2f, 8.6f, 10.0f, 11.4f }),
+                new ManualHeartRow(8.2f, new[] { 1.2f, 2.6f, 4.0f, 5.4f, 6.8f, 8.2f, 9.6f, 11.0f, 12.4f }),
+                new ManualHeartRow(7.2f, new[] { 1.5f, 2.9f, 4.3f, 5.7f, 7.1f, 8.5f, 9.9f, 11.3f }),
+                new ManualHeartRow(6.2f, new[] { 2.0f, 3.4f, 4.8f, 6.2f, 7.6f, 9.0f, 10.4f, 11.8f }),
+                new ManualHeartRow(5.2f, new[] { 2.8f, 4.2f, 5.6f, 7.0f, 8.4f, 9.8f, 11.2f }),
+                new ManualHeartRow(4.2f, new[] { 3.6f, 5.0f, 6.4f, 7.8f, 9.2f, 10.6f }),
+                new ManualHeartRow(3.2f, new[] { 4.4f, 5.8f, 7.2f, 8.6f, 10.0f }),
+                new ManualHeartRow(2.2f, new[] { 5.2f, 6.6f, 8.0f, 9.4f }),
+                new ManualHeartRow(1.2f, new[] { 6.0f, 7.4f, 8.8f })
+            };
+            var colors = new[]
+            {
+                PuzzleColor.Red,
+                PuzzleColor.SkyBlue,
+                PuzzleColor.Yellow,
+                PuzzleColor.Purple,
+                PuzzleColor.Pink,
+                PuzzleColor.Blue,
+                PuzzleColor.Green,
+                PuzzleColor.Orange,
+                PuzzleColor.Lime
+            };
+            var vehicles = new List<BusDefinition>();
+            for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
+            {
+                var row = rows[rowIndex];
+                AppendManualHeartRowVehicles(vehicles, row, colors, rowIndex, directionMode);
+            }
+
+            return vehicles;
+        }
+
+        private static void AppendManualHeartRowVehicles(
+            List<BusDefinition> vehicles,
+            ManualHeartRow row,
+            IReadOnlyList<PuzzleColor> colors,
+            int rowIndex,
+            ManualHeartDirectionMode directionMode)
+        {
+            var left = new List<float>();
+            var right = new List<float>();
+            for (var index = 0; index < row.Columns.Length; index++)
+            {
+                var column = row.Columns[index];
+                if (column < 6.8f)
+                {
+                    left.Add(column);
+                    continue;
+                }
+
+                right.Add(column);
+            }
+
+            left.Sort();
+            right.Sort((a, b) => b.CompareTo(a));
+            for (var index = 0; index < Mathf.Max(left.Count, right.Count); index++)
+            {
+                if (index < left.Count)
+                {
+                    AddManualHeartVehicle(vehicles, left[index], row.Row, colors, rowIndex, index, true, directionMode);
+                }
+
+                if (index < right.Count)
+                {
+                    AddManualHeartVehicle(vehicles, right[index], row.Row, colors, rowIndex, index, false, directionMode);
+                }
+            }
+        }
+
+        private static void AddManualHeartVehicle(
+            List<BusDefinition> vehicles,
+            float column,
+            float row,
+            IReadOnlyList<PuzzleColor> colors,
+            int rowIndex,
+            int localIndex,
+            bool exitsLeft,
+            ManualHeartDirectionMode directionMode)
+        {
+            var yaw = GetManualHeartYaw(column, row, rowIndex, localIndex, exitsLeft, directionMode);
+            var direction = DirectionFromYaw(yaw);
+            var angleOffset = Mathf.DeltaAngle(GridDirectionUtility.ToYawDegrees(direction), yaw);
+            var color = colors[(vehicles.Count + rowIndex * 2 + localIndex) % colors.Count];
+            var size = GetManualHeartSize(column, row);
+            var gridPosition = new Vector2Int(
+                Mathf.Clamp(Mathf.RoundToInt(column), 0, ManualHeartGridColumns - 1),
+                Mathf.Clamp(Mathf.RoundToInt(row), 0, ManualHeartGridRows - 1));
+            var positionOffset = new Vector2(column - gridPosition.x, row - gridPosition.y);
+            vehicles.Add(new BusDefinition(
+                color,
+                size,
+                direction,
+                gridPosition,
+                angleOffset,
+                positionOffset));
+        }
+
+        private static float GetManualHeartYaw(
+            float column,
+            float row,
+            int rowIndex,
+            int localIndex,
+            bool exitsLeft,
+            ManualHeartDirectionMode directionMode)
+        {
+            if (directionMode == ManualHeartDirectionMode.DirectionMix)
+            {
+                return GetManualHeartDirectionMixYaw(column, row, rowIndex, localIndex, exitsLeft);
+            }
+
+            return GetManualHeartReferenceYaw(column, row, exitsLeft);
+        }
+
+        private static float GetManualHeartReferenceYaw(float column, float row, bool exitsLeft)
+        {
+            if (row <= 1.5f && column > 6.5f && column < 7.9f)
+            {
+                return 180f;
+            }
+
+            return exitsLeft ? -90f : 90f;
+        }
+
+        private static float GetManualHeartDirectionMixYaw(
+            float column,
+            float row,
+            int rowIndex,
+            int localIndex,
+            bool exitsLeft)
+        {
+            if (Mathf.Abs(row - 11.2f) <= 0.05f &&
+                (Mathf.Abs(column - 4.8f) <= 0.05f || Mathf.Abs(column - 8.2f) <= 0.05f))
+            {
+                return 0f;
+            }
+
+            if (row <= 1.5f && column >= 5.7f && column <= 8.9f)
+            {
+                return 180f;
+            }
+
+            if (row >= 2.1f && row <= 10.3f)
+            {
+                if (exitsLeft &&
+                    rowIndex % 2 == 1 &&
+                    column >= 5.0f &&
+                    column <= 6.6f)
+                {
+                    return 90f;
+                }
+
+                if (!exitsLeft &&
+                    rowIndex % 2 == 0 &&
+                    column >= 7.0f &&
+                    column <= 8.2f)
+                {
+                    return -90f;
+                }
+            }
+
+            return GetManualHeartReferenceYaw(column, row, exitsLeft);
+        }
+
+        private static int GetManualHeartPassengerSeed(ManualHeartDirectionMode directionMode)
+        {
+            return directionMode == ManualHeartDirectionMode.DirectionMix ? 19082 : 19081;
+        }
+
+        private static string GetManualHeartGenerationSignature(ManualHeartDirectionMode directionMode)
+        {
+            return directionMode == ManualHeartDirectionMode.DirectionMix
+                ? "manualShape=heart_direction_mix;stage=9;source=heart_reference_01;"
+                : "manualShape=heart_reference;stage=9;source=ad_reference_heart;";
+        }
+
+        private static string GetManualHeartModeLogName(ManualHeartDirectionMode directionMode)
+        {
+            return directionMode == ManualHeartDirectionMode.DirectionMix ? "direction mix" : "reference";
+        }
+
+        private static GridDirection DirectionFromYaw(float yaw)
+        {
+            yaw = Mathf.Repeat(yaw + 360f, 360f);
+            if (yaw >= 45f && yaw < 135f)
+            {
+                return GridDirection.Right;
+            }
+
+            if (yaw >= 135f && yaw < 225f)
+            {
+                return GridDirection.Down;
+            }
+
+            return yaw >= 225f && yaw < 315f ? GridDirection.Left : GridDirection.Up;
+        }
+
+        private static BusSize GetManualHeartSize(float column, float row)
+        {
+            return BusSize.Small;
+        }
+
+        private readonly struct ManualHeartRow
+        {
+            public ManualHeartRow(float row, float[] columns)
+            {
+                Row = row;
+                Columns = columns;
+            }
+
+            public float Row { get; }
+            public float[] Columns { get; }
+        }
+
+        private static void SavePreviewStageAsShapeTemplate(
+            int previewStageNumber,
+            string templatePath,
+            string templateDisplayName)
+        {
+            var previewAssetName = $"Level_{previewStageNumber:000}";
+            var previewPath = GetLevelPath(previewAssetName);
+            var previewLevel = AssetDatabase.LoadAssetAtPath<LevelData>(previewPath);
+            if (previewLevel == null)
+            {
+                FailAssetOperation($"Preview stage asset is missing: {previewPath}");
+                return;
+            }
+
+            ValidateLevelForAssetOperation(previewLevel, $"preview stage {previewStageNumber:000}");
+            var template = SaveLevelAssetCopy(
+                previewLevel,
+                templatePath,
+                Path.GetFileNameWithoutExtension(templatePath),
+                templateDisplayName);
+            ValidateLevelForAssetOperation(template, templateDisplayName);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                $"Saved shape template {templateDisplayName} from preview stage {previewStageNumber:000}: " +
+                $"{templatePath}. {CreateLevelSummary(template)}.");
+        }
+
+        private static void LoadShapeTemplateIntoPreviewStage(
+            string templatePath,
+            string templateDisplayName,
+            int previewStageNumber)
+        {
+            var template = AssetDatabase.LoadAssetAtPath<LevelData>(templatePath);
+            if (template == null)
+            {
+                FailAssetOperation($"Shape template asset is missing: {templatePath}");
+                return;
+            }
+
+            ValidateLevelForAssetOperation(template, templateDisplayName);
+            var previewAssetName = $"Level_{previewStageNumber:000}";
+            var previewPath = GetLevelPath(previewAssetName);
+            var preview = SaveLevelAssetCopy(template, previewPath, previewAssetName, previewAssetName);
+            ValidateLevelForAssetOperation(preview, $"preview stage {previewStageNumber:000}");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                $"Loaded shape template {templateDisplayName} into preview stage {previewStageNumber:000}: " +
+                $"{previewPath}. {CreateLevelSummary(preview)}.");
+        }
+
+        private static void ValidateShapeTemplate(string templatePath, string templateDisplayName)
+        {
+            var template = AssetDatabase.LoadAssetAtPath<LevelData>(templatePath);
+            if (template == null)
+            {
+                FailAssetOperation($"Shape template asset is missing: {templatePath}");
+                return;
+            }
+
+            ValidateLevelForAssetOperation(template, templateDisplayName);
+            Debug.Log($"Shape template {templateDisplayName} passed validation: {templatePath}. {CreateLevelSummary(template)}.");
+        }
+
+        private static bool TryApplyOpeningMoveConstraint(
+            LevelData level,
+            StageGenerationRequest request,
+            int candidateOffset,
+            string generationSignature,
+            int minimumOpeningMoveCount,
+            int maximumOpeningMoveCount,
+            out int openingMoveCount,
+            out LevelValidationReport report)
+        {
+            openingMoveCount = level != null ? LevelGenerator.CountOpeningMoves(level.Buses) : 0;
+            report = level != null ? LevelValidator.Validate(level, false) : null;
+            if (level == null ||
+                openingMoveCount < minimumOpeningMoveCount ||
+                openingMoveCount <= maximumOpeningMoveCount ||
+                !LevelGenerator.TryConstrainOpeningMoves(
+                    level.Buses,
+                    request.Profile,
+                    request.VehicleLayoutVariantIndex,
+                    minimumOpeningMoveCount,
+                    maximumOpeningMoveCount,
+                    out var constrainedBuses))
+            {
+                return false;
+            }
+
+            if (LevelGenerator.TryBuildGreedyOrderedVehicles(constrainedBuses, out var orderedBuses))
+            {
+                constrainedBuses = orderedBuses;
+            }
+
+            var seed = request.Seed + candidateOffset * 7919;
+            var flowPlan = LevelGenerator.BuildPassengerFlowPlanFromVehicleOrder(request.Profile, constrainedBuses, seed);
+            level.ConfigureWithPassengerFlowPlan(
+                level.LevelName,
+                level.DifficultyProfile,
+                flowPlan,
+                constrainedBuses,
+                level.RotaryStartCapacity,
+                level.RoadPresetId,
+                null,
+                level.Garages,
+                level.PresentationMode);
+            level.SetGenerationMetadata(generationSignature, 1);
+            report = LevelValidator.Validate(level, false);
+            if (report.HasErrors)
+            {
+                return false;
+            }
+
+            openingMoveCount = LevelGenerator.CountOpeningMoves(level.Buses);
+            return openingMoveCount >= minimumOpeningMoveCount &&
+                openingMoveCount <= maximumOpeningMoveCount &&
+                HasRequiredVisualPreviewVehicleSizes(request, level.Buses) &&
+                LevelGenerator.HasGreedyExitOrder(level.Buses);
+        }
+
+        private static bool TryApplyVisualPreviewVariantAdjustments(
+            LevelData level,
+            StageGenerationRequest request,
+            int candidateOffset)
+        {
+            if (level == null ||
+                !StageGenerationPlanner.UsesStarSizeMixShapeLibraryTemplate(request))
+            {
+                return true;
+            }
+
+            return true;
+        }
+
+        private static bool HasRequiredVisualPreviewVehicleSizes(
+            StageGenerationRequest request,
+            IReadOnlyList<BusDefinition> buses)
+        {
+            if (buses == null ||
+                CountMediumLargeVehicles(buses) < GetMinimumVisualPreviewMediumLargeCount(buses.Count))
+            {
+                return false;
+            }
+
+            if (StageGenerationPlanner.UsesStarSizeMixShapeLibraryTemplate(request))
+            {
+                var minimumMediumLarge = Mathf.CeilToInt(buses.Count * 0.40f);
+                return CountMediumLargeVehicles(buses) >= minimumMediumLarge &&
+                    CountLargeVehicles(buses) >= 1;
+            }
+
+            return !StageGenerationPlanner.UsesStarShapeLibraryTemplate(request) ||
+                CountLargeVehicles(buses) >= 1;
+        }
+
+        private static int CountMediumLargeVehicles(IReadOnlyList<BusDefinition> buses)
+        {
+            if (buses == null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (buses[index].Size != BusSize.Small)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountLargeVehicles(IReadOnlyList<BusDefinition> buses)
+        {
+            if (buses == null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (buses[index].Size == BusSize.Large)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int GetMinimumVisualPreviewMediumLargeCount(int vehicleCount)
+        {
+            if (vehicleCount >= 40)
+            {
+                return 4;
+            }
+
+            return vehicleCount >= 34 ? 3 : 2;
+        }
+
+        private static void GetVisualPreviewOpeningMoveRange(
+            StageGenerationRequest request,
+            out int minimum,
+            out int maximum)
+        {
+            if (StageGenerationPlanner.UsesStarSizeMixShapeLibraryTemplate(request))
+            {
+                minimum = StarPreviewMinimumOpeningMoveCount;
+                maximum = StarSizeMixPreviewMaximumOpeningMoveCount;
+                return;
+            }
+
+            if (StageGenerationPlanner.UsesStarShapeLibraryTemplate(request))
+            {
+                minimum = StarPreviewMinimumOpeningMoveCount;
+                maximum = StarPreviewMaximumOpeningMoveCount;
+                return;
+            }
+
+            minimum = DefaultVisualPreviewMinimumOpeningMoveCount;
+            maximum = int.MaxValue;
         }
 
         private static int ReadCommandLineStageNumber(int fallbackStageNumber)
@@ -386,6 +1108,127 @@ namespace BusPuzzle.EditorTools
             }
 
             return fallbackStageNumber;
+        }
+
+        private static LevelData SaveLevelAssetCopy(
+            LevelData source,
+            string destinationPath,
+            string assetName,
+            string levelDisplayName)
+        {
+            EnsureAssetDirectory(Path.GetDirectoryName(destinationPath)?.Replace('\\', '/'));
+            var existing = AssetDatabase.LoadAssetAtPath<LevelData>(destinationPath);
+            if (existing == null)
+            {
+                existing = UnityEngine.Object.Instantiate(source);
+                existing.hideFlags = HideFlags.None;
+                EnsureLevelAssetName(existing, assetName);
+                SetSerializedLevelName(existing, levelDisplayName);
+                AssetDatabase.CreateAsset(existing, destinationPath);
+                return existing;
+            }
+
+            EditorUtility.CopySerialized(source, existing);
+            existing.hideFlags = HideFlags.None;
+            EnsureLevelAssetName(existing, assetName);
+            SetSerializedLevelName(existing, levelDisplayName);
+            EditorUtility.SetDirty(existing);
+            return existing;
+        }
+
+        private static void EnsureAssetDirectory(string assetDirectory)
+        {
+            if (string.IsNullOrEmpty(assetDirectory) ||
+                AssetDatabase.IsValidFolder(assetDirectory))
+            {
+                return;
+            }
+
+            var parentDirectory = Path.GetDirectoryName(assetDirectory)?.Replace('\\', '/');
+            if (!string.IsNullOrEmpty(parentDirectory))
+            {
+                EnsureAssetDirectory(parentDirectory);
+            }
+
+            if (!string.IsNullOrEmpty(parentDirectory) &&
+                !AssetDatabase.IsValidFolder(assetDirectory))
+            {
+                AssetDatabase.CreateFolder(parentDirectory, Path.GetFileName(assetDirectory));
+            }
+        }
+
+        private static void SetSerializedLevelName(LevelData level, string levelDisplayName)
+        {
+            if (level == null ||
+                string.IsNullOrEmpty(levelDisplayName))
+            {
+                return;
+            }
+
+            var serializedLevel = new SerializedObject(level);
+            var property = serializedLevel.FindProperty("levelName");
+            if (property == null)
+            {
+                return;
+            }
+
+            property.stringValue = levelDisplayName;
+            serializedLevel.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void ValidateLevelForAssetOperation(LevelData level, string displayName)
+        {
+            var report = LevelValidator.Validate(level);
+            if (report.HasErrors)
+            {
+                FailAssetOperation(report.ToConsoleMessage(displayName));
+                return;
+            }
+
+            if (report.HasIssues)
+            {
+                Debug.LogWarning(report.ToConsoleMessage(displayName), level);
+            }
+        }
+
+        private static string CreateLevelSummary(LevelData level)
+        {
+            if (level == null)
+            {
+                return "missing level data";
+            }
+
+            var smallCount = 0;
+            var mediumCount = 0;
+            var largeCount = 0;
+            var buses = level.Buses;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                switch (buses[index].Size)
+                {
+                    case BusSize.Medium:
+                        mediumCount++;
+                        break;
+                    case BusSize.Large:
+                        largeCount++;
+                        break;
+                    default:
+                        smallCount++;
+                        break;
+                }
+            }
+
+            return $"vehicles {buses.Count}, Small {smallCount} / Medium {mediumCount} / Large {largeCount}, " +
+                $"opening moves {LevelGenerator.CountOpeningMoves(buses)}, generation solutions {level.GenerationSolutionCount}";
+        }
+
+        private static void FailAssetOperation(string message)
+        {
+            Debug.LogError(message);
+            if (Application.isBatchMode)
+            {
+                throw new System.InvalidOperationException(message);
+            }
         }
 
         private static LevelData SaveLevel(string assetName, LevelData generatedLevel)

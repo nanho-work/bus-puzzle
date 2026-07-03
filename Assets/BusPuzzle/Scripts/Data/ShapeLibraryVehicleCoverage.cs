@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace BusPuzzle
 {
-    internal static class ShapeLibraryVehicleCoverage
+    public static class ShapeLibraryVehicleCoverage
     {
         public static bool RequiresCoverage(int layoutVariantIndex)
         {

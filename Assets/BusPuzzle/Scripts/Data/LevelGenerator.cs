@@ -94,7 +94,10 @@ namespace BusPuzzle
                 ShapeLibraryVehicleCoverage.RequiresCoverage(request.VehicleLayoutVariantIndex) &&
                 (garages == null || garages.Count == 0))
             {
-                buses = PrepareVisualPreviewOpeningVehicles(buses);
+                buses = PrepareVisualPreviewOpeningVehicles(
+                    buses,
+                    request.Profile,
+                    request.VehicleLayoutVariantIndex);
             }
 
             var flowPlan = useVisualPreviewFlow &&
@@ -589,14 +592,21 @@ namespace BusPuzzle
                 VehicleShapeLayoutEngine.IsFeatureCell(shapeDefinition, nearestCell);
         }
 
-        private static List<BusDefinition> PrepareVisualPreviewOpeningVehicles(List<BusDefinition> buses)
+        private static List<BusDefinition> PrepareVisualPreviewOpeningVehicles(
+            List<BusDefinition> buses,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex)
         {
             if (buses == null || buses.Count == 0)
             {
                 return buses;
             }
 
-            var candidates = BuildVisualPreviewOpeningCandidates(buses);
+            var protectedLineIndices = BuildVisualPreviewProtectedLineIndices(
+                buses,
+                profile,
+                layoutVariantIndex);
+            var candidates = BuildVisualPreviewOpeningCandidates(buses, protectedLineIndices);
             var selectedIndices = new List<int>();
             var selected = new HashSet<int>();
             for (var candidateIndex = 0; candidateIndex < candidates.Count && selectedIndices.Count < 6; candidateIndex++)
@@ -624,6 +634,16 @@ namespace BusPuzzle
                 return buses;
             }
 
+            if (TryBuildGreedyOrderedVehicles(buses, out var greedyOrdered))
+            {
+                return greedyOrdered;
+            }
+
+            if (TryRepairGreedyOrderedVehicles(buses, protectedLineIndices, out var repairedOrdered))
+            {
+                return repairedOrdered;
+            }
+
             var ordered = new List<BusDefinition>(buses.Count);
             for (var index = 0; index < selectedIndices.Count; index++)
             {
@@ -641,11 +661,18 @@ namespace BusPuzzle
             return ordered;
         }
 
-        private static List<VisualPreviewOpeningCandidate> BuildVisualPreviewOpeningCandidates(IReadOnlyList<BusDefinition> buses)
+        private static List<VisualPreviewOpeningCandidate> BuildVisualPreviewOpeningCandidates(
+            IReadOnlyList<BusDefinition> buses,
+            HashSet<int> protectedLineIndices)
         {
             var candidates = new List<VisualPreviewOpeningCandidate>();
             for (var index = 0; index < buses.Count; index++)
             {
+                if (protectedLineIndices != null && protectedLineIndices.Contains(index))
+                {
+                    continue;
+                }
+
                 var bus = buses[index];
                 var directions = GetVisualPreviewOpeningDirections(bus);
                 for (var directionIndex = 0; directionIndex < directions.Count; directionIndex++)
@@ -659,6 +686,11 @@ namespace BusPuzzle
                         0f,
                         GetVisualPreviewOpeningOffset(direction),
                         bus.StartsConcealed);
+                    if (!IsWithinRecommendedBoardBounds(adjusted))
+                    {
+                        continue;
+                    }
+
                     var edgeScore = GetVisualPreviewEdgeScore(bus.GridPosition, direction);
                     candidates.Add(new VisualPreviewOpeningCandidate(index, adjusted, edgeScore + directionIndex * 0.05f));
                 }
@@ -707,7 +739,16 @@ namespace BusPuzzle
 
         private static Vector2 GetVisualPreviewOpeningOffset(GridDirection direction)
         {
-            const float offsetCells = 0.34f;
+            return GetVisualPreviewOpeningOffset(direction, 0);
+        }
+
+        private static Vector2 GetVisualPreviewOpeningOffset(GridDirection direction, int offsetIndex)
+        {
+            var offsetCells = offsetIndex == 0
+                ? 0.34f
+                : offsetIndex == 1
+                    ? 0.22f
+                    : 0f;
             switch (direction)
             {
                 case GridDirection.Left:
@@ -748,6 +789,357 @@ namespace BusPuzzle
             return openingMoves;
         }
 
+        public static bool HasGreedyExitOrder(IReadOnlyList<BusDefinition> buses)
+        {
+            return LevelVehicleExitPlanner.TryFindExitOrder(buses, out var exitOrder, out _) &&
+                exitOrder.Count == (buses != null ? buses.Count : 0);
+        }
+
+        public static bool TryBuildGreedyOrderedVehicles(
+            IReadOnlyList<BusDefinition> buses,
+            out List<BusDefinition> orderedVehicles)
+        {
+            orderedVehicles = new List<BusDefinition>();
+            if (buses == null ||
+                !LevelVehicleExitPlanner.TryFindExitOrder(buses, out var exitOrder, out _) ||
+                exitOrder.Count != buses.Count)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < exitOrder.Count; index++)
+            {
+                orderedVehicles.Add(buses[exitOrder[index]]);
+            }
+
+            return true;
+        }
+
+        public static bool TryConstrainOpeningMoves(
+            IReadOnlyList<BusDefinition> buses,
+            int minimumOpeningMoves,
+            int maximumOpeningMoves,
+            out List<BusDefinition> constrainedBuses)
+        {
+            return TryConstrainOpeningMoves(
+                buses,
+                null,
+                int.MaxValue,
+                minimumOpeningMoves,
+                maximumOpeningMoves,
+                out constrainedBuses);
+        }
+
+        public static bool TryConstrainOpeningMoves(
+            IReadOnlyList<BusDefinition> buses,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex,
+            int minimumOpeningMoves,
+            int maximumOpeningMoves,
+            out List<BusDefinition> constrainedBuses)
+        {
+            constrainedBuses = buses != null ? new List<BusDefinition>(buses) : new List<BusDefinition>();
+            if (buses == null || buses.Count == 0)
+            {
+                return false;
+            }
+
+            minimumOpeningMoves = Mathf.Clamp(minimumOpeningMoves, 0, buses.Count);
+            maximumOpeningMoves = Mathf.Clamp(Mathf.Max(minimumOpeningMoves, maximumOpeningMoves), minimumOpeningMoves, buses.Count);
+            var openingMoveCount = CountOpeningMoves(constrainedBuses);
+            if (openingMoveCount < minimumOpeningMoves)
+            {
+                return false;
+            }
+
+            var protectedLineIndices = BuildVisualPreviewProtectedLineIndices(
+                constrainedBuses,
+                profile,
+                layoutVariantIndex);
+            var safety = constrainedBuses.Count * 4;
+            var hasGreedyExitOrder = HasGreedyExitOrder(constrainedBuses);
+            while ((openingMoveCount > maximumOpeningMoves || !hasGreedyExitOrder) && safety-- > 0)
+            {
+                if (!TryFindOpeningReductionMove(
+                    constrainedBuses,
+                    protectedLineIndices,
+                    minimumOpeningMoves,
+                    maximumOpeningMoves,
+                    openingMoveCount,
+                    out var adjustedIndex,
+                    out var adjustedBus,
+                    out var adjustedOpeningMoveCount))
+                {
+                    return false;
+                }
+
+                constrainedBuses[adjustedIndex] = adjustedBus;
+                openingMoveCount = adjustedOpeningMoveCount;
+                hasGreedyExitOrder = HasGreedyExitOrder(constrainedBuses);
+            }
+
+            return openingMoveCount >= minimumOpeningMoves &&
+                openingMoveCount <= maximumOpeningMoves &&
+                hasGreedyExitOrder;
+        }
+
+        public static bool TryApplyStarSizeMixSizing(
+            IReadOnlyList<BusDefinition> buses,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex,
+            int minimumMediumLargeCount,
+            int minimumLargeCount,
+            out List<BusDefinition> resizedBuses)
+        {
+            resizedBuses = buses != null ? new List<BusDefinition>(buses) : new List<BusDefinition>();
+            if (buses == null ||
+                buses.Count == 0 ||
+                !VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex) ||
+                (VehicleShapeLibraryId)libraryIndex != VehicleShapeLibraryId.Star ||
+                !VehicleLayoutPatternEngine.TryGetShapeLibraryVariantSeed(layoutVariantIndex, out var variantSeed) ||
+                variantSeed != StageGenerationPlanner.StarSizeMixVariantSeed ||
+                !VehicleLayoutPatternEngine.TryCreateShapeDefinition(
+                    profile,
+                    Mathf.Max(buses.Count, profile != null ? profile.TargetVehicleCount : buses.Count),
+                    layoutVariantIndex,
+                    out var shapeDefinition))
+            {
+                return false;
+            }
+
+            PromoteStarSizeMixVehicles(
+                resizedBuses,
+                shapeDefinition,
+                BusSize.Large,
+                minimumLargeCount);
+            PromoteStarSizeMixVehicles(
+                resizedBuses,
+                shapeDefinition,
+                BusSize.Medium,
+                minimumMediumLargeCount);
+
+            return CountMediumLargeVehicles(resizedBuses) >= minimumMediumLargeCount &&
+                CountLargeVehicles(resizedBuses) >= minimumLargeCount &&
+                HasGreedyExitOrder(resizedBuses);
+        }
+
+        private static void PromoteStarSizeMixVehicles(
+            List<BusDefinition> buses,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            BusSize targetSize,
+            int minimumCount)
+        {
+            var candidates = BuildStarSizeMixPromotionCandidates(buses, shapeDefinition, targetSize);
+            for (var candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
+            {
+                if (targetSize == BusSize.Large && CountLargeVehicles(buses) >= minimumCount)
+                {
+                    return;
+                }
+
+                if (targetSize == BusSize.Medium && CountMediumLargeVehicles(buses) >= minimumCount)
+                {
+                    return;
+                }
+
+                var vehicleIndex = candidates[candidateIndex];
+                var bus = buses[vehicleIndex];
+                if (bus.Size == targetSize ||
+                    (targetSize == BusSize.Medium && bus.Size == BusSize.Large))
+                {
+                    continue;
+                }
+
+                var promoted = new BusDefinition(
+                    bus.Color,
+                    targetSize,
+                    bus.Direction,
+                    bus.GridPosition,
+                    bus.AngleOffsetDegrees,
+                    bus.PositionOffsetCells,
+                    bus.StartsConcealed);
+                var adjusted = new List<BusDefinition>(buses);
+                adjusted[vehicleIndex] = promoted;
+                if (!IsWithinRecommendedBoardBounds(promoted) ||
+                    HasVehicleStartOverlap(adjusted, vehicleIndex) ||
+                    !HasGreedyExitOrder(adjusted))
+                {
+                    continue;
+                }
+
+                buses[vehicleIndex] = promoted;
+            }
+        }
+
+        private static List<int> BuildStarSizeMixPromotionCandidates(
+            IReadOnlyList<BusDefinition> buses,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            BusSize targetSize)
+        {
+            var candidates = new List<int>();
+            if (buses == null)
+            {
+                return candidates;
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (IsStarSizeMixPromotionCandidate(buses[index], shapeDefinition, targetSize))
+                {
+                    candidates.Add(index);
+                }
+            }
+
+            candidates.Sort((left, right) =>
+                GetStarSizeMixPromotionScore(buses[left], shapeDefinition, targetSize)
+                    .CompareTo(GetStarSizeMixPromotionScore(buses[right], shapeDefinition, targetSize)));
+            return candidates;
+        }
+
+        private static bool IsStarSizeMixPromotionCandidate(
+            BusDefinition bus,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            BusSize targetSize)
+        {
+            if (targetSize == BusSize.Large && bus.Size == BusSize.Large)
+            {
+                return false;
+            }
+
+            if (targetSize == BusSize.Medium && bus.Size != BusSize.Small)
+            {
+                return false;
+            }
+
+            if (!TryFindNearestShapeCell(bus, shapeDefinition, out var nearestCell, out var distanceCells) ||
+                distanceCells > 1.15f ||
+                nearestCell.Role == VehicleShapeCellRole.Accent)
+            {
+                return false;
+            }
+
+            if (targetSize == BusSize.Large)
+            {
+                return nearestCell.Role == VehicleShapeCellRole.Fill ||
+                    nearestCell.Role == VehicleShapeCellRole.Outline;
+            }
+
+            return true;
+        }
+
+        private static float GetStarSizeMixPromotionScore(
+            BusDefinition bus,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            BusSize targetSize)
+        {
+            if (!TryFindNearestShapeCell(bus, shapeDefinition, out var nearestCell, out var distanceCells))
+            {
+                return 999f;
+            }
+
+            var roleScore = nearestCell.Role == VehicleShapeCellRole.Fill
+                ? 0f
+                : nearestCell.Role == VehicleShapeCellRole.Outline
+                    ? 10f
+                    : 100f;
+            var sizeScore = bus.Size == BusSize.Medium && targetSize == BusSize.Large ? -2f : 0f;
+            return roleScore + distanceCells + sizeScore;
+        }
+
+        private static bool TryFindNearestShapeCell(
+            BusDefinition bus,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            out VehicleShapeCell nearestCell,
+            out float distanceCells)
+        {
+            var position = new Vector2(
+                bus.GridPosition.x + bus.PositionOffsetCells.x,
+                bus.GridPosition.y + bus.PositionOffsetCells.y);
+            return VehicleShapeLayoutEngine.TryFindNearestShapeCell(
+                shapeDefinition,
+                position,
+                out nearestCell,
+                out distanceCells);
+        }
+
+        private static int CountMediumLargeVehicles(IReadOnlyList<BusDefinition> buses)
+        {
+            var count = 0;
+            if (buses == null)
+            {
+                return count;
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (buses[index].Size != BusSize.Small)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountLargeVehicles(IReadOnlyList<BusDefinition> buses)
+        {
+            var count = 0;
+            if (buses == null)
+            {
+                return count;
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (buses[index].Size == BusSize.Large)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static HashSet<int> BuildVisualPreviewProtectedLineIndices(
+            IReadOnlyList<BusDefinition> buses,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex)
+        {
+            var protectedIndices = new HashSet<int>();
+            if (buses == null ||
+                buses.Count == 0 ||
+                !VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex) ||
+                (VehicleShapeLibraryId)libraryIndex != VehicleShapeLibraryId.Star ||
+                !VehicleLayoutPatternEngine.TryCreateShapeDefinition(
+                    profile,
+                    Mathf.Max(1, buses.Count),
+                    layoutVariantIndex,
+                    out var shapeDefinition))
+            {
+                return protectedIndices;
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                var bus = buses[index];
+                var position = new Vector2(
+                    bus.GridPosition.x + bus.PositionOffsetCells.x,
+                    bus.GridPosition.y + bus.PositionOffsetCells.y);
+                if (VehicleShapeLayoutEngine.TryFindNearestShapeCell(
+                        shapeDefinition,
+                        position,
+                        out var nearestCell,
+                        out var distanceCells) &&
+                    nearestCell.Role != VehicleShapeCellRole.Fill &&
+                    distanceCells <= 0.95f)
+                {
+                    protectedIndices.Add(index);
+                }
+            }
+
+            return protectedIndices;
+        }
+
         private static bool HasOpeningMove(IReadOnlyList<BusDefinition> buses, int vehicleIndex)
         {
             var active = new bool[buses.Count];
@@ -757,6 +1149,354 @@ namespace BusPuzzle
             }
 
             return LevelVehicleExitPlanner.IsPathClear(vehicleIndex, buses, active, out _);
+        }
+
+        private static bool TryFindOpeningReductionMove(
+            IReadOnlyList<BusDefinition> buses,
+            HashSet<int> protectedLineIndices,
+            int minimumOpeningMoves,
+            int maximumOpeningMoves,
+            int currentOpeningMoves,
+            out int adjustedIndex,
+            out BusDefinition adjustedBus,
+            out int adjustedOpeningMoveCount)
+        {
+            adjustedIndex = -1;
+            adjustedBus = default;
+            adjustedOpeningMoveCount = currentOpeningMoves;
+            var bestScore = float.PositiveInfinity;
+            var openingIndices = GetOpeningMoveIndices(buses);
+            openingIndices.Sort((left, right) =>
+                GetOpeningReductionVehiclePriority(buses[left]).CompareTo(GetOpeningReductionVehiclePriority(buses[right])));
+
+            for (var openingIndex = 0; openingIndex < openingIndices.Count; openingIndex++)
+            {
+                var vehicleIndex = openingIndices[openingIndex];
+                if (protectedLineIndices != null && protectedLineIndices.Contains(vehicleIndex))
+                {
+                    continue;
+                }
+
+                var bus = buses[vehicleIndex];
+                var directions = GetVisualPreviewBlockingDirections(bus);
+                for (var directionIndex = 0; directionIndex < directions.Count; directionIndex++)
+                {
+                    var direction = directions[directionIndex];
+                    var offsets = GetVisualPreviewBlockingOffsets(bus);
+                    for (var offsetIndex = 0; offsetIndex < offsets.Count; offsetIndex++)
+                    {
+                        var candidate = new BusDefinition(
+                            bus.Color,
+                            bus.Size,
+                            direction,
+                            bus.GridPosition,
+                            0f,
+                            offsets[offsetIndex],
+                            bus.StartsConcealed);
+                        if (!IsWithinRecommendedBoardBounds(candidate))
+                        {
+                            continue;
+                        }
+
+                        if (IsSamePose(bus, candidate))
+                        {
+                            continue;
+                        }
+
+                        var adjusted = new List<BusDefinition>(buses);
+                        adjusted[vehicleIndex] = candidate;
+                        if (HasVehicleStartOverlap(adjusted, vehicleIndex))
+                        {
+                            continue;
+                        }
+
+                        var openingMoves = CountOpeningMoves(adjusted);
+                        if (openingMoves >= currentOpeningMoves || openingMoves < minimumOpeningMoves)
+                        {
+                            continue;
+                        }
+
+                        if (!HasGreedyExitOrder(adjusted))
+                        {
+                            continue;
+                        }
+
+                        var score = GetOpeningReductionMoveScore(
+                            bus,
+                            candidate,
+                            openingMoves,
+                            maximumOpeningMoves,
+                            directionIndex,
+                            offsetIndex);
+                        if (score >= bestScore)
+                        {
+                            continue;
+                        }
+
+                        bestScore = score;
+                        adjustedIndex = vehicleIndex;
+                        adjustedBus = candidate;
+                        adjustedOpeningMoveCount = openingMoves;
+                    }
+                }
+            }
+
+            return adjustedIndex >= 0;
+        }
+
+        private static List<int> GetOpeningMoveIndices(IReadOnlyList<BusDefinition> buses)
+        {
+            var indices = new List<int>();
+            if (buses == null || buses.Count == 0)
+            {
+                return indices;
+            }
+
+            var active = new bool[buses.Count];
+            for (var index = 0; index < active.Length; index++)
+            {
+                active[index] = true;
+            }
+
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (LevelVehicleExitPlanner.IsPathClear(index, buses, active, out _))
+                {
+                    indices.Add(index);
+                }
+            }
+
+            return indices;
+        }
+
+        private static List<GridDirection> GetVisualPreviewBlockingDirections(BusDefinition bus)
+        {
+            var directions = GetVisualPreviewOpeningDirections(bus);
+            directions.Reverse();
+            return directions;
+        }
+
+        private static List<Vector2> GetVisualPreviewBlockingOffsets(BusDefinition bus)
+        {
+            var offsets = new List<Vector2> { bus.PositionOffsetCells };
+            if (bus.PositionOffsetCells.sqrMagnitude > 0.0001f)
+            {
+                offsets.Add(Vector2.zero);
+            }
+
+            return offsets;
+        }
+
+        private static float GetOpeningReductionVehiclePriority(BusDefinition bus)
+        {
+            var sizePenalty = bus.Size == BusSize.Small
+                ? 0f
+                : bus.Size == BusSize.Medium
+                    ? 2f
+                    : 6f;
+            var offsetBonus = bus.PositionOffsetCells.sqrMagnitude > 0.04f ? -0.5f : 0f;
+            return sizePenalty + GetNearestBoardEdgeDistance(bus.GridPosition) * 0.05f + offsetBonus;
+        }
+
+        private static int GetNearestBoardEdgeDistance(Vector2Int gridPosition)
+        {
+            return Mathf.Min(
+                Mathf.Min(gridPosition.x, BoardLayoutConfig.GridColumns - 1 - gridPosition.x),
+                Mathf.Min(gridPosition.y, BoardLayoutConfig.GridRows - 1 - gridPosition.y));
+        }
+
+        private static float GetOpeningReductionMoveScore(
+            BusDefinition original,
+            BusDefinition candidate,
+            int openingMoves,
+            int maximumOpeningMoves,
+            int directionIndex,
+            int offsetIndex)
+        {
+            var rangeScore = openingMoves > maximumOpeningMoves
+                ? (openingMoves - maximumOpeningMoves) * 1000f
+                : (maximumOpeningMoves - openingMoves) * 20f;
+            var sizePenalty = original.Size == BusSize.Small
+                ? 0f
+                : original.Size == BusSize.Medium
+                    ? 4f
+                    : 16f;
+            var offsetPenalty = (candidate.PositionOffsetCells - original.PositionOffsetCells).sqrMagnitude * 12f;
+            return rangeScore + sizePenalty + directionIndex * 0.5f + offsetIndex * 0.25f + offsetPenalty;
+        }
+
+        private static bool IsSamePose(BusDefinition left, BusDefinition right)
+        {
+            return left.Direction == right.Direction &&
+                Mathf.Abs(left.AngleOffsetDegrees - right.AngleOffsetDegrees) <= 0.001f &&
+                (left.PositionOffsetCells - right.PositionOffsetCells).sqrMagnitude <= 0.000001f;
+        }
+
+        private static bool HasVehicleStartOverlap(IReadOnlyList<BusDefinition> buses, int vehicleIndex)
+        {
+            if (buses == null || vehicleIndex < 0 || vehicleIndex >= buses.Count)
+            {
+                return true;
+            }
+
+            var footprint = BoardLayoutConfig.GetVehicleFootprintCells(buses[vehicleIndex]);
+            var visualFootprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(buses[vehicleIndex]);
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (index == vehicleIndex)
+                {
+                    continue;
+                }
+
+                if (footprint.Overlaps(BoardLayoutConfig.GetVehicleFootprintCells(buses[index])) ||
+                    visualFootprint.Overlaps(BoardLayoutConfig.GetVehicleVisualFootprintCells(buses[index])))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryRepairGreedyOrderedVehicles(
+            IReadOnlyList<BusDefinition> buses,
+            HashSet<int> protectedLineIndices,
+            out List<BusDefinition> orderedVehicles)
+        {
+            orderedVehicles = new List<BusDefinition>();
+            if (buses == null || buses.Count == 0)
+            {
+                return false;
+            }
+
+            var repaired = new List<BusDefinition>(buses);
+            var active = new bool[repaired.Count];
+            for (var index = 0; index < active.Length; index++)
+            {
+                active[index] = true;
+            }
+
+            var exitOrder = new List<int>(repaired.Count);
+            var safety = repaired.Count * 3;
+            while (exitOrder.Count < repaired.Count && safety-- > 0)
+            {
+                var removedAny = false;
+                for (var index = 0; index < repaired.Count; index++)
+                {
+                    if (!active[index] ||
+                        !LevelVehicleExitPlanner.IsPathClear(index, repaired, active, out _))
+                    {
+                        continue;
+                    }
+
+                    active[index] = false;
+                    exitOrder.Add(index);
+                    removedAny = true;
+                }
+
+                if (removedAny)
+                {
+                    continue;
+                }
+
+                if (!TryFindGreedyRepairMove(
+                        repaired,
+                        active,
+                        protectedLineIndices,
+                        out var repairedIndex,
+                        out var repairedBus))
+                {
+                    return false;
+                }
+
+                repaired[repairedIndex] = repairedBus;
+                if (!LevelVehicleExitPlanner.IsPathClear(repairedIndex, repaired, active, out _))
+                {
+                    return false;
+                }
+
+                active[repairedIndex] = false;
+                exitOrder.Add(repairedIndex);
+            }
+
+            if (exitOrder.Count != repaired.Count)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < exitOrder.Count; index++)
+            {
+                orderedVehicles.Add(repaired[exitOrder[index]]);
+            }
+
+            return true;
+        }
+
+        private static bool TryFindGreedyRepairMove(
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<bool> active,
+            HashSet<int> protectedLineIndices,
+            out int repairedIndex,
+            out BusDefinition repairedBus)
+        {
+            repairedIndex = -1;
+            repairedBus = default;
+            var bestScore = float.PositiveInfinity;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (protectedLineIndices != null && protectedLineIndices.Contains(index))
+                {
+                    continue;
+                }
+
+                if (active != null && (index < 0 || index >= active.Count || !active[index]))
+                {
+                    continue;
+                }
+
+                var bus = buses[index];
+                var directions = GetVisualPreviewOpeningDirections(bus);
+                for (var directionIndex = 0; directionIndex < directions.Count; directionIndex++)
+                {
+                    var direction = directions[directionIndex];
+                    for (var offsetIndex = 0; offsetIndex < 3; offsetIndex++)
+                    {
+                        var candidate = new BusDefinition(
+                            bus.Color,
+                            bus.Size,
+                            direction,
+                            bus.GridPosition,
+                            0f,
+                            GetVisualPreviewOpeningOffset(direction, offsetIndex),
+                            bus.StartsConcealed);
+                        if (!IsWithinRecommendedBoardBounds(candidate))
+                        {
+                            continue;
+                        }
+
+                        var adjusted = new List<BusDefinition>(buses);
+                        adjusted[index] = candidate;
+                        if (!LevelVehicleExitPlanner.IsPathClear(index, adjusted, active, out _))
+                        {
+                            continue;
+                        }
+
+                        var score = GetVisualPreviewEdgeScore(bus.GridPosition, direction) +
+                            directionIndex * 0.15f +
+                            offsetIndex * 0.05f;
+                        if (score >= bestScore)
+                        {
+                            continue;
+                        }
+
+                        bestScore = score;
+                        repairedIndex = index;
+                        repairedBus = candidate;
+                    }
+                }
+            }
+
+            return repairedIndex >= 0;
         }
 
         private readonly struct VisualPreviewOpeningCandidate
@@ -966,6 +1706,18 @@ namespace BusPuzzle
                 firstBlockingIndex == 1 &&
                 !LevelVehicleExitPlanner.IsPathClear(1, pair, active, out var secondBlockingIndex) &&
                 secondBlockingIndex == 0;
+        }
+
+        private static bool IsWithinRecommendedBoardBounds(BusDefinition vehicle)
+        {
+            var footprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(vehicle);
+            const float minBoundary = -0.66f;
+            var maxXBoundary = BoardLayoutConfig.GridColumns - 0.34f;
+            var maxYBoundary = BoardLayoutConfig.GridRows - 0.34f;
+            return footprint.ProjectMin(Vector2.right) >= minBoundary &&
+                footprint.ProjectMax(Vector2.right) <= maxXBoundary &&
+                footprint.ProjectMin(Vector2.up) >= minBoundary &&
+                footprint.ProjectMax(Vector2.up) <= maxYBoundary;
         }
 
         private static bool IsVehicleTooCloseToGarage(VehicleFootprint vehicleFootprint, GarageDefinition garage)

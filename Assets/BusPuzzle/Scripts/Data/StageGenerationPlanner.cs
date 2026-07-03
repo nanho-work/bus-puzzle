@@ -63,6 +63,10 @@ namespace BusPuzzle
 
     public static class StageGenerationPlanner
     {
+        public const int StarSizeMixVariantSeed = 41;
+
+        public static int HeartShapeLibraryIndex => (int)VehicleShapeLibraryId.Heart;
+
         private const int ShapeLibraryPreviewLineVehicleCount = 38;
         private const int ShapeLibraryPreviewHardLineVehicleCount = 42;
         private const int ShapeLibraryPreviewSuperHardLineVehicleCount = 46;
@@ -75,9 +79,9 @@ namespace BusPuzzle
         private const int ShapeLibraryPreviewRadialVehicleCount = 30;
         private const int ShapeLibraryPreviewHardRadialVehicleCount = 34;
         private const int ShapeLibraryPreviewSuperHardRadialVehicleCount = 38;
-        private const int ShapeLibraryPreviewStarVehicleCount = 42;
-        private const int ShapeLibraryPreviewHardStarVehicleCount = 48;
-        private const int ShapeLibraryPreviewSuperHardStarVehicleCount = 54;
+        private const int ShapeLibraryPreviewStarVehicleCount = 32;
+        private const int ShapeLibraryPreviewHardStarVehicleCount = 34;
+        private const int ShapeLibraryPreviewSuperHardStarVehicleCount = 40;
         private const int ShapeLibraryPreviewHollowVehicleCount = 28;
         private const int ShapeLibraryPreviewHardHollowVehicleCount = 32;
         private const int ShapeLibraryPreviewSuperHardHollowVehicleCount = 36;
@@ -96,6 +100,9 @@ namespace BusPuzzle
         private const int ShapeLibraryPreviewFanVehicleCount = 12;
         private const int ShapeLibraryPreviewHardFanVehicleCount = 16;
         private const int ShapeLibraryPreviewSuperHardFanVehicleCount = 20;
+        private const int ShapeLibraryPreviewHeartVehicleCount = 32;
+        private const int ShapeLibraryPreviewHardHeartVehicleCount = 34;
+        private const int ShapeLibraryPreviewSuperHardHeartVehicleCount = 38;
         private const int ShapeLibraryPreviewIconVehicleCount = 30;
         private const int ShapeLibraryPreviewHardIconVehicleCount = 34;
         private const int ShapeLibraryPreviewSuperHardIconVehicleCount = 38;
@@ -185,8 +192,36 @@ namespace BusPuzzle
 
         public static StageGenerationRequest CreateShapeLibraryPreviewRequest(StageGenerationConfig config, int stageNumber)
         {
+            return CreateShapeLibraryPreviewRequest(config, stageNumber, 0);
+        }
+
+        public static StageGenerationRequest CreateShapeLibraryPreviewRequest(
+            StageGenerationConfig config,
+            int stageNumber,
+            int shapeLibraryVariantSeed)
+        {
             var request = CreateRequest(config, stageNumber);
             var libraryIndex = stageNumber - 2;
+            return CreateShapeLibraryPreviewRequestForLibrary(request, libraryIndex, shapeLibraryVariantSeed);
+        }
+
+        public static StageGenerationRequest CreateShapeLibraryPreviewRequestForLibrary(
+            StageGenerationConfig config,
+            int stageNumber,
+            int libraryIndex,
+            int shapeLibraryVariantSeed)
+        {
+            return CreateShapeLibraryPreviewRequestForLibrary(
+                CreateRequest(config, stageNumber),
+                libraryIndex,
+                shapeLibraryVariantSeed);
+        }
+
+        private static StageGenerationRequest CreateShapeLibraryPreviewRequestForLibrary(
+            StageGenerationRequest request,
+            int libraryIndex,
+            int shapeLibraryVariantSeed)
+        {
             if (libraryIndex < 0 || libraryIndex >= VehicleLayoutPatternEngine.ShapeLibraryVariantCount)
             {
                 return request;
@@ -202,7 +237,7 @@ namespace BusPuzzle
                 request.Progress,
                 request.Post50Pressure,
                 request.RoadPresetId,
-                VehicleLayoutPatternEngine.GetShapeLibraryVariantIndex(libraryIndex),
+                VehicleLayoutPatternEngine.GetShapeLibraryVariantIndex(libraryIndex, shapeLibraryVariantSeed),
                 VehicleLayoutPatternEngine.ShapeLibraryVariantCount,
                 0,
                 1,
@@ -211,6 +246,19 @@ namespace BusPuzzle
                 MysteryVehicleGenerationProfile.Disabled,
                 1,
                 1);
+        }
+
+        public static bool UsesStarShapeLibraryTemplate(StageGenerationRequest request)
+        {
+            return VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(request.VehicleLayoutVariantIndex, out var libraryIndex) &&
+                (VehicleShapeLibraryId)libraryIndex == VehicleShapeLibraryId.Star;
+        }
+
+        public static bool UsesStarSizeMixShapeLibraryTemplate(StageGenerationRequest request)
+        {
+            return UsesStarShapeLibraryTemplate(request) &&
+                VehicleLayoutPatternEngine.TryGetShapeLibraryVariantSeed(request.VehicleLayoutVariantIndex, out var variantSeed) &&
+                variantSeed == StarSizeMixVariantSeed;
         }
 
         private static LevelDifficultyProfile CreateShapeLibraryPreviewProfile(
@@ -376,6 +424,11 @@ namespace BusPuzzle
                             : ShapeLibraryPreviewMazeVehicleCount;
                 case VehicleShapeLibraryId.Heart:
                 case VehicleShapeLibraryId.HeartArrow:
+                    return difficulty == LevelDifficulty.SuperHard
+                        ? ShapeLibraryPreviewSuperHardHeartVehicleCount
+                        : difficulty == LevelDifficulty.Hard
+                            ? ShapeLibraryPreviewHardHeartVehicleCount
+                            : ShapeLibraryPreviewHeartVehicleCount;
                 case VehicleShapeLibraryId.Shield:
                 case VehicleShapeLibraryId.Smile:
                     return difficulty == LevelDifficulty.SuperHard

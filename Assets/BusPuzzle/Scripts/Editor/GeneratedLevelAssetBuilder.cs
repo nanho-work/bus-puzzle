@@ -19,6 +19,8 @@ namespace BusPuzzle.EditorTools
         private const string HeartBasicShapeTemplateDisplayName = "Heart Basic 01";
         private const string HeartDirectionMixShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_DirectionMix_01.asset";
         private const string HeartDirectionMixShapeTemplateDisplayName = "Heart Direction Mix 01";
+        private const string HeartColor4ShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_Color4_01.asset";
+        private const string HeartColor4ShapeTemplateDisplayName = "Heart Color 4 01";
         private const string ActiveLevelSequencePath = LevelDirectory + "/LevelSequence.asset";
         private const string GeneratedLevelSequencePath = GeneratedLevelDirectory + "/GeneratedLevelSequence.asset";
         private const string StageGenerationConfigPath = LevelDirectory + "/StageGenerationConfig.asset";
@@ -32,6 +34,7 @@ namespace BusPuzzle.EditorTools
         private const int StarSizeMixPreviewMaximumOpeningMoveCount = 16;
         private const int ManualHeartGridColumns = 14;
         private const int ManualHeartGridRows = 14;
+        private const int ManualHeartDirectionMixOuterPoseCount = 11;
         private const int ManualShapeSolutionNodeVisitLimit = 50000;
 
         private enum GeneratedStageBuildMode
@@ -42,10 +45,11 @@ namespace BusPuzzle.EditorTools
             ShapeLibraryPreview
         }
 
-        private enum ManualHeartDirectionMode
+        private enum ManualHeartVariantMode
         {
             Reference,
-            DirectionMix
+            DirectionMix,
+            Color4
         }
 
         [MenuItem("Bus Puzzle/Levels/Rebuild Generated Stage Set")]
@@ -81,14 +85,21 @@ namespace BusPuzzle.EditorTools
         [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart")]
         public static void RebuildShapeLibraryPreviewStage09Heart()
         {
-            RebuildStage09ManualHeart(ManualHeartDirectionMode.Reference);
+            RebuildStage09ManualHeart(ManualHeartVariantMode.Reference);
         }
 
         [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Direction Mix")]
         public static void RebuildShapeLibraryPreviewStage09HeartDirectionMix()
         {
             SaveManualHeartReferenceTemplate();
-            RebuildStage09ManualHeart(ManualHeartDirectionMode.DirectionMix);
+            RebuildStage09ManualHeart(ManualHeartVariantMode.DirectionMix);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Color 4")]
+        public static void RebuildShapeLibraryPreviewStage09HeartColor4()
+        {
+            SaveManualHeartReferenceTemplate();
+            RebuildStage09ManualHeart(ManualHeartVariantMode.Color4);
         }
 
         [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Star Basic 01")]
@@ -161,6 +172,30 @@ namespace BusPuzzle.EditorTools
         public static void ValidateHeartDirectionMixShapeTemplate()
         {
             ValidateShapeTemplate(HeartDirectionMixShapeTemplatePath, HeartDirectionMixShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Color 4 01")]
+        public static void SaveStage09PreviewAsHeartColor4Template()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                HeartColor4ShapeTemplatePath,
+                HeartColor4ShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Heart Color 4 01 Into Stage 09 Preview")]
+        public static void LoadHeartColor4TemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                HeartColor4ShapeTemplatePath,
+                HeartColor4ShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Heart Color 4 01")]
+        public static void ValidateHeartColor4ShapeTemplate()
+        {
+            ValidateShapeTemplate(HeartColor4ShapeTemplatePath, HeartColor4ShapeTemplateDisplayName);
         }
 
         public static void RebuildShapeLibraryPreviewStageFromCommandLine()
@@ -545,9 +580,9 @@ namespace BusPuzzle.EditorTools
             }
         }
 
-        private static void RebuildStage09ManualHeart(ManualHeartDirectionMode directionMode)
+        private static void RebuildStage09ManualHeart(ManualHeartVariantMode variantMode)
         {
-            var level = CreateManualHeartLevel(directionMode, $"Stage {ShapeTemplatePreviewStageNumber:000} Hard");
+            var level = CreateManualHeartLevel(variantMode, $"Stage {ShapeTemplatePreviewStageNumber:000} Hard");
             if (level == null)
             {
                 return;
@@ -559,7 +594,7 @@ namespace BusPuzzle.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log(
-                $"Rebuilt manual heart {GetManualHeartModeLogName(directionMode)} preview stage {ShapeTemplatePreviewStageNumber:000}: " +
+                $"Rebuilt manual heart {GetManualHeartVariantLogName(variantMode)} preview stage {ShapeTemplatePreviewStageNumber:000}: " +
                 $"vehicles {vehicles.Count}, opening moves {openingMoveCount}, " +
                 $"solutions {level.GenerationSolutionCount}, road {level.RoadPresetId}.");
         }
@@ -567,7 +602,7 @@ namespace BusPuzzle.EditorTools
         private static void SaveManualHeartReferenceTemplate()
         {
             var referenceLevel = CreateManualHeartLevel(
-                ManualHeartDirectionMode.Reference,
+                ManualHeartVariantMode.Reference,
                 HeartBasicShapeTemplateDisplayName);
             if (referenceLevel == null)
             {
@@ -586,20 +621,28 @@ namespace BusPuzzle.EditorTools
                 $"{HeartBasicShapeTemplatePath}. {CreateLevelSummary(template)}.");
         }
 
-        private static LevelData CreateManualHeartLevel(ManualHeartDirectionMode directionMode, string levelName)
+        private static LevelData CreateManualHeartLevel(ManualHeartVariantMode variantMode, string levelName)
         {
-            var vehicles = CreateManualHeartReferenceVehicles(directionMode);
+            var vehicles = CreateManualHeartReferenceVehicles(variantMode);
+            if (!LevelGenerator.TryBuildGreedyOrderedVehicles(vehicles, out var orderedVehicles))
+            {
+                Debug.LogWarning(CreateManualHeartGreedyFailureSummary(vehicles));
+                FailAssetOperation($"Manual Heart {GetManualHeartVariantLogName(variantMode)} does not have a greedy clear order.");
+                return null;
+            }
+
+            vehicles = orderedVehicles;
             var profile = LevelDifficultyProfile.CreateCustom(
                 LevelDifficulty.Hard,
                 vehicles.Count,
-                9,
+                GetManualHeartTargetColorCount(variantMode),
                 0.54f,
                 0.48f,
                 true);
             var flowPlan = LevelGenerator.BuildPassengerFlowPlanFromVehicleOrder(
                 profile,
                 vehicles,
-                GetManualHeartPassengerSeed(directionMode));
+                GetManualHeartPassengerSeed(variantMode));
             var level = ScriptableObject.CreateInstance<LevelData>();
             level.hideFlags = HideFlags.None;
             level.ConfigureWithPassengerFlowPlan(
@@ -613,7 +656,7 @@ namespace BusPuzzle.EditorTools
             var report = LevelValidator.Validate(level, false);
             if (report.HasErrors)
             {
-                FailAssetOperation(report.ToConsoleMessage($"Manual Heart {GetManualHeartModeLogName(directionMode)}"));
+                FailAssetOperation(report.ToConsoleMessage($"Manual Heart {GetManualHeartVariantLogName(variantMode)}"));
                 return null;
             }
 
@@ -624,15 +667,15 @@ namespace BusPuzzle.EditorTools
                 ManualShapeSolutionNodeVisitLimit);
             if (!solutionAnalysis.IsSolvable)
             {
-                FailAssetOperation($"Manual Heart {GetManualHeartModeLogName(directionMode)} is not clearable.");
+                FailAssetOperation($"Manual Heart {GetManualHeartVariantLogName(variantMode)} is not clearable.");
                 return null;
             }
 
-            level.SetGenerationMetadata(GetManualHeartGenerationSignature(directionMode), solutionAnalysis.SolutionCount);
+            level.SetGenerationMetadata(GetManualHeartGenerationSignature(variantMode), solutionAnalysis.SolutionCount);
             return level;
         }
 
-        private static List<BusDefinition> CreateManualHeartReferenceVehicles(ManualHeartDirectionMode directionMode)
+        private static List<BusDefinition> CreateManualHeartReferenceVehicles(ManualHeartVariantMode variantMode)
         {
             var rows = new[]
             {
@@ -648,26 +691,306 @@ namespace BusPuzzle.EditorTools
                 new ManualHeartRow(2.2f, new[] { 5.2f, 6.6f, 8.0f, 9.4f }),
                 new ManualHeartRow(1.2f, new[] { 6.0f, 7.4f, 8.8f })
             };
-            var colors = new[]
+            var colors = GetManualHeartColors(variantMode);
+            if (variantMode == ManualHeartVariantMode.DirectionMix)
             {
-                PuzzleColor.Red,
-                PuzzleColor.SkyBlue,
-                PuzzleColor.Yellow,
-                PuzzleColor.Purple,
-                PuzzleColor.Pink,
-                PuzzleColor.Blue,
-                PuzzleColor.Green,
-                PuzzleColor.Orange,
-                PuzzleColor.Lime
-            };
+                return CreateManualHeartDirectionFirstVehicles(rows, colors);
+            }
+
             var vehicles = new List<BusDefinition>();
             for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
             {
                 var row = rows[rowIndex];
-                AppendManualHeartRowVehicles(vehicles, row, colors, rowIndex, directionMode);
+                AppendManualHeartRowVehicles(vehicles, row, colors, rowIndex, variantMode);
             }
 
             return vehicles;
+        }
+
+        private static string CreateManualHeartGreedyFailureSummary(IReadOnlyList<BusDefinition> vehicles)
+        {
+            if (!LevelGenerator.TryFindGreedyExitOrder(vehicles, out var exitOrder, out var stuckIndices))
+            {
+                var lines = new List<string>
+                {
+                    $"Manual Heart greedy debug: exited {exitOrder.Count}/{vehicles.Count}, stuck {stuckIndices.Count}."
+                };
+                var limit = Mathf.Min(stuckIndices.Count, 12);
+                for (var index = 0; index < limit; index++)
+                {
+                    var vehicleIndex = stuckIndices[index];
+                    var vehicle = vehicles[vehicleIndex];
+                    var position = new Vector2(
+                        vehicle.GridPosition.x + vehicle.PositionOffsetCells.x,
+                        vehicle.GridPosition.y + vehicle.PositionOffsetCells.y);
+                    lines.Add(
+                        $"stuck #{vehicleIndex + 1}: {vehicle.Color} {vehicle.Size} {vehicle.Direction} yaw {vehicle.YawDegrees:0.#} at ({position.x:0.##}, {position.y:0.##})");
+                }
+
+                return string.Join("\n", lines);
+            }
+
+            return $"Manual Heart greedy debug: exit planner succeeded unexpectedly with {exitOrder.Count}/{vehicles.Count}.";
+        }
+
+        private static List<BusDefinition> CreateManualHeartDirectionFirstVehicles(
+            IReadOnlyList<ManualHeartRow> rows,
+            IReadOnlyList<PuzzleColor> colors)
+        {
+            var poses = CreateManualHeartAdCopyPoses();
+            var vehicles = new List<BusDefinition>(poses.Count);
+            var skippedOuterPoseCount = 0;
+            var skippedInteriorPoseCount = 0;
+            for (var index = 0; index < poses.Count; index++)
+            {
+                var isOuterPose = index < ManualHeartDirectionMixOuterPoseCount;
+                var pose = poses[index];
+                if (!TryAddManualHeartPoseVehicle(vehicles, pose, colors, index, isOuterPose))
+                {
+                    if (isOuterPose)
+                    {
+                        skippedOuterPoseCount++;
+                    }
+                    else
+                    {
+                        skippedInteriorPoseCount++;
+                    }
+                }
+            }
+
+            if (skippedOuterPoseCount > 0)
+            {
+                Debug.LogWarning(
+                    $"Manual Heart direction mix skipped {skippedOuterPoseCount} outer contour pose(s) that would visually overlap the heart contour.");
+            }
+
+            if (skippedInteriorPoseCount > 0)
+            {
+                Debug.Log(
+                    $"Manual Heart direction mix skipped {skippedInteriorPoseCount} interior pose(s) that would visually overlap the outer heart contour.");
+            }
+
+            return vehicles;
+        }
+
+        private static IReadOnlyList<ManualHeartPose> CreateManualHeartAdCopyPoses()
+        {
+            return new[]
+            {
+                new ManualHeartPose(5.0f, 10.7f, -78.11134f),
+                new ManualHeartPose(1.9f, 8.6f, -159.27446f),
+                new ManualHeartPose(2.7f, 4.7f, 145.124f),
+                new ManualHeartPose(4.1f, 3.2f, 132.1376f),
+                new ManualHeartPose(5.8f, 1.9f, 124.59229f),
+                new ManualHeartPose(8.3f, 1.9f, 56.30993f),
+                new ManualHeartPose(10.0f, 3.2f, 43.15239f),
+                new ManualHeartPose(11.3f, 5.1f, 26.56505f),
+                new ManualHeartPose(11.6f, 9.1f, -27.34988f),
+                new ManualHeartPose(8.7f, 10.7f, -104.82648f),
+                new ManualHeartPose(7.0f, 9.4f, -90f),
+
+                new ManualHeartPose(4.6f, 8.7f, -90f),
+                new ManualHeartPose(6.0f, 8.5f, -90f),
+                new ManualHeartPose(8.0f, 8.5f, 90f),
+                new ManualHeartPose(9.4f, 8.7f, 90f),
+                new ManualHeartPose(3.7f, 7.2f, -90f),
+                new ManualHeartPose(5.3f, 7.2f, -90f),
+                new ManualHeartPose(6.8f, 7.0f, 180f),
+                new ManualHeartPose(8.3f, 7.2f, 90f),
+                new ManualHeartPose(9.9f, 7.2f, 90f),
+                new ManualHeartPose(4.4f, 5.8f, -90f),
+                new ManualHeartPose(6.0f, 5.7f, -90f),
+                new ManualHeartPose(7.8f, 5.7f, 90f),
+                new ManualHeartPose(9.4f, 5.8f, 90f),
+                new ManualHeartPose(5.1f, 4.3f, -90f),
+                new ManualHeartPose(6.8f, 4.1f, 180f),
+                new ManualHeartPose(8.5f, 4.3f, 90f),
+                new ManualHeartPose(6.3f, 2.8f, 180f),
+                new ManualHeartPose(7.7f, 2.8f, 180f)
+            };
+        }
+
+        private static bool TryAddManualHeartPoseVehicle(
+            List<BusDefinition> vehicles,
+            ManualHeartPose pose,
+            IReadOnlyList<PuzzleColor> colors,
+            int index,
+            bool isOuterPose)
+        {
+            var size = BusSize.Small;
+            var direction = DirectionFromYaw(pose.Yaw);
+            var angleOffset = Mathf.DeltaAngle(GridDirectionUtility.ToYawDegrees(direction), pose.Yaw);
+            var color = colors[index % colors.Count];
+            if (TryFindManualHeartPosePlacement(
+                vehicles,
+                pose,
+                color,
+                size,
+                direction,
+                angleOffset,
+                isOuterPose,
+                out var placement))
+            {
+                vehicles.Add(placement);
+                return true;
+            }
+
+            if (isOuterPose)
+            {
+                Debug.LogWarning(
+                    $"Manual Heart direction mix could not place outer contour pose #{index + 1} without overlap; skipping it to keep the asset valid.");
+            }
+
+            return false;
+        }
+
+        private static bool TryFindManualHeartPosePlacement(
+            IReadOnlyList<BusDefinition> placedVehicles,
+            ManualHeartPose pose,
+            PuzzleColor color,
+            BusSize size,
+            GridDirection direction,
+            float angleOffset,
+            bool isOuterPose,
+            out BusDefinition placement)
+        {
+            var searchDirections = GetManualHeartPosePlacementSearchDirections(pose);
+            var maxSteps = isOuterPose ? 9 : 4;
+            var stepDistance = isOuterPose ? 0.12f : 0.10f;
+            var bestCandidate = default(BusDefinition);
+            var bestScore = float.MaxValue;
+            var foundCandidate = false;
+
+            for (var step = 0; step <= maxSteps; step++)
+            {
+                var distance = step * stepDistance;
+                for (var directionIndex = 0; directionIndex < searchDirections.Count; directionIndex++)
+                {
+                    if (step == 0 && directionIndex > 0)
+                    {
+                        continue;
+                    }
+
+                    var searchDirection = searchDirections[directionIndex];
+                    var visualCenter = ClampManualHeartPosition(pose.Position + searchDirection * distance);
+                    var rootPosition = GetManualHeartRootPositionFromVisualCenter(visualCenter, pose.Yaw, size);
+                    var candidate = CreateManualHeartBusDefinition(color, size, direction, angleOffset, rootPosition);
+                    if (ManualHeartOverlapsPlacedVehicles(candidate, placedVehicles))
+                    {
+                        continue;
+                    }
+
+                    var score = (visualCenter - pose.Position).sqrMagnitude + directionIndex * 0.001f;
+                    if (score < bestScore)
+                    {
+                        bestCandidate = candidate;
+                        bestScore = score;
+                        foundCandidate = true;
+                    }
+                }
+            }
+
+            placement = bestCandidate;
+            return foundCandidate;
+        }
+
+        private static IReadOnlyList<Vector2> GetManualHeartPosePlacementSearchDirections(ManualHeartPose pose)
+        {
+            var fromCenter = pose.Position - new Vector2(6.8f, 6.35f);
+            var outward = fromCenter.sqrMagnitude > 0.0001f ? fromCenter.normalized : Vector2.up;
+            var tangent = new Vector2(outward.y, -outward.x);
+            return new[]
+            {
+                Vector2.zero,
+                outward,
+                tangent,
+                -tangent,
+                outward + tangent,
+                outward - tangent,
+                -outward,
+                Vector2.up,
+                Vector2.down,
+                Vector2.left,
+                Vector2.right
+            };
+        }
+
+        private static Vector2 GetManualHeartRootPositionFromVisualCenter(
+            Vector2 visualCenter,
+            float yaw,
+            BusSize size)
+        {
+            var radians = yaw * Mathf.Deg2Rad;
+            var forward = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
+            var visualLength = BusSizeUtility.ToVisualLengthCells(size);
+            var visualCharacterLength = visualLength / Mathf.Max(1, BusSizeUtility.ToVisualCharacterUnits(size));
+            return visualCenter - forward * ((visualLength - visualCharacterLength) * 0.5f);
+        }
+
+        private static List<ManualHeartVehicleSeed> CreateManualHeartVehicleSeeds(IReadOnlyList<ManualHeartRow> rows)
+        {
+            var seeds = new List<ManualHeartVehicleSeed>();
+            for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+            {
+                var row = rows[rowIndex];
+                var left = new List<float>();
+                var right = new List<float>();
+                for (var index = 0; index < row.Columns.Length; index++)
+                {
+                    var column = row.Columns[index];
+                    if (column < 6.8f)
+                    {
+                        left.Add(column);
+                        continue;
+                    }
+
+                    right.Add(column);
+                }
+
+                left.Sort();
+                right.Sort((a, b) => b.CompareTo(a));
+                for (var index = 0; index < Mathf.Max(left.Count, right.Count); index++)
+                {
+                    if (index < left.Count)
+                    {
+                        seeds.Add(new ManualHeartVehicleSeed(left[index], row.Row, rowIndex, index, true, seeds.Count));
+                    }
+
+                    if (index < right.Count)
+                    {
+                        seeds.Add(new ManualHeartVehicleSeed(right[index], row.Row, rowIndex, index, false, seeds.Count));
+                    }
+                }
+            }
+
+            return seeds;
+        }
+
+        private static int CompareManualHeartDirectionMixSeeds(ManualHeartVehicleSeed left, ManualHeartVehicleSeed right)
+        {
+            var contourCompare = GetManualHeartContourPriority(left).CompareTo(GetManualHeartContourPriority(right));
+            if (contourCompare != 0)
+            {
+                return contourCompare;
+            }
+
+            return left.SourceIndex.CompareTo(right.SourceIndex);
+        }
+
+        private static int GetManualHeartContourPriority(ManualHeartVehicleSeed seed)
+        {
+            if (TryGetManualHeartAdContourYaw(
+                seed.Column,
+                seed.Row,
+                seed.RowIndex,
+                seed.LocalIndex,
+                seed.ExitsLeft,
+                out _))
+            {
+                return 0;
+            }
+
+            return 1;
         }
 
         private static void AppendManualHeartRowVehicles(
@@ -675,7 +998,7 @@ namespace BusPuzzle.EditorTools
             ManualHeartRow row,
             IReadOnlyList<PuzzleColor> colors,
             int rowIndex,
-            ManualHeartDirectionMode directionMode)
+            ManualHeartVariantMode variantMode)
         {
             var left = new List<float>();
             var right = new List<float>();
@@ -697,12 +1020,12 @@ namespace BusPuzzle.EditorTools
             {
                 if (index < left.Count)
                 {
-                    AddManualHeartVehicle(vehicles, left[index], row.Row, colors, rowIndex, index, true, directionMode);
+                    AddManualHeartVehicle(vehicles, left[index], row.Row, colors, rowIndex, index, true, variantMode);
                 }
 
                 if (index < right.Count)
                 {
-                    AddManualHeartVehicle(vehicles, right[index], row.Row, colors, rowIndex, index, false, directionMode);
+                    AddManualHeartVehicle(vehicles, right[index], row.Row, colors, rowIndex, index, false, variantMode);
                 }
             }
         }
@@ -715,17 +1038,18 @@ namespace BusPuzzle.EditorTools
             int rowIndex,
             int localIndex,
             bool exitsLeft,
-            ManualHeartDirectionMode directionMode)
+            ManualHeartVariantMode variantMode)
         {
-            var yaw = GetManualHeartYaw(column, row, rowIndex, localIndex, exitsLeft, directionMode);
+            var yaw = GetManualHeartYaw(column, row, rowIndex, localIndex, exitsLeft, variantMode);
             var direction = DirectionFromYaw(yaw);
             var angleOffset = Mathf.DeltaAngle(GridDirectionUtility.ToYawDegrees(direction), yaw);
             var color = colors[(vehicles.Count + rowIndex * 2 + localIndex) % colors.Count];
             var size = GetManualHeartSize(column, row);
+            var adjustedPosition = GetManualHeartPosition(column, row, variantMode);
             var gridPosition = new Vector2Int(
-                Mathf.Clamp(Mathf.RoundToInt(column), 0, ManualHeartGridColumns - 1),
-                Mathf.Clamp(Mathf.RoundToInt(row), 0, ManualHeartGridRows - 1));
-            var positionOffset = new Vector2(column - gridPosition.x, row - gridPosition.y);
+                Mathf.Clamp(Mathf.RoundToInt(adjustedPosition.x), 0, ManualHeartGridColumns - 1),
+                Mathf.Clamp(Mathf.RoundToInt(adjustedPosition.y), 0, ManualHeartGridRows - 1));
+            var positionOffset = new Vector2(adjustedPosition.x - gridPosition.x, adjustedPosition.y - gridPosition.y);
             vehicles.Add(new BusDefinition(
                 color,
                 size,
@@ -735,15 +1059,168 @@ namespace BusPuzzle.EditorTools
                 positionOffset));
         }
 
+        private static void AddManualHeartDirectionMixVehicle(
+            List<BusDefinition> vehicles,
+            ManualHeartVehicleSeed seed,
+            IReadOnlyList<PuzzleColor> colors)
+        {
+            var yaw = GetManualHeartDirectionMixYaw(
+                seed.Column,
+                seed.Row,
+                seed.RowIndex,
+                seed.LocalIndex,
+                seed.ExitsLeft);
+            var direction = DirectionFromYaw(yaw);
+            var angleOffset = Mathf.DeltaAngle(GridDirectionUtility.ToYawDegrees(direction), yaw);
+            var color = colors[(seed.SourceIndex + seed.RowIndex * 2 + seed.LocalIndex) % colors.Count];
+            var size = GetManualHeartSize(seed.Column, seed.Row);
+            var basePosition = GetManualHeartDirectionFirstPosition(seed);
+            var placement = FindManualHeartDirectionFirstPlacement(
+                vehicles,
+                color,
+                size,
+                direction,
+                angleOffset,
+                basePosition,
+                seed);
+            vehicles.Add(placement);
+        }
+
+        private static Vector2 GetManualHeartDirectionFirstPosition(ManualHeartVehicleSeed seed)
+        {
+            var shapeCenter = new Vector2(6.8f, 6.35f);
+            var position = new Vector2(seed.Column, seed.Row);
+            return shapeCenter + (position - shapeCenter) * 1.1f;
+        }
+
+        private static BusDefinition FindManualHeartDirectionFirstPlacement(
+            IReadOnlyList<BusDefinition> placedVehicles,
+            PuzzleColor color,
+            BusSize size,
+            GridDirection direction,
+            float angleOffset,
+            Vector2 basePosition,
+            ManualHeartVehicleSeed seed)
+        {
+            var searchDirections = GetManualHeartPlacementSearchDirections(basePosition, seed);
+            var bestCandidate = CreateManualHeartBusDefinition(color, size, direction, angleOffset, basePosition);
+            var bestScore = float.MaxValue;
+            for (var directionIndex = 0; directionIndex < searchDirections.Count; directionIndex++)
+            {
+                var searchDirection = searchDirections[directionIndex];
+                for (var step = 0; step <= 4; step++)
+                {
+                    var distance = step * 0.08f;
+                    if (step == 0 && directionIndex > 0)
+                    {
+                        continue;
+                    }
+
+                    var candidatePosition = ClampManualHeartPosition(basePosition + searchDirection * distance);
+                    var candidate = CreateManualHeartBusDefinition(color, size, direction, angleOffset, candidatePosition);
+                    if (ManualHeartOverlapsPlacedVehicles(candidate, placedVehicles))
+                    {
+                        continue;
+                    }
+
+                    var score = (candidatePosition - basePosition).sqrMagnitude + directionIndex * 0.0005f;
+                    if (score < bestScore)
+                    {
+                        bestCandidate = candidate;
+                        bestScore = score;
+                    }
+                }
+            }
+
+            return bestCandidate;
+        }
+
+        private static IReadOnlyList<Vector2> GetManualHeartPlacementSearchDirections(
+            Vector2 basePosition,
+            ManualHeartVehicleSeed seed)
+        {
+            var fromCenter = basePosition - new Vector2(6.8f, 6.35f);
+            var outward = fromCenter.sqrMagnitude > 0.0001f ? fromCenter.normalized : Vector2.up;
+            var side = seed.ExitsLeft ? Vector2.left : Vector2.right;
+            return new[]
+            {
+                Vector2.zero,
+                outward,
+                -outward,
+                side,
+                -side,
+                Vector2.up,
+                Vector2.down
+            };
+        }
+
+        private static Vector2 ClampManualHeartPosition(Vector2 position)
+        {
+            return new Vector2(
+                Mathf.Clamp(position.x, 0.2f, ManualHeartGridColumns - 1.2f),
+                Mathf.Clamp(position.y, 0.2f, ManualHeartGridRows - 1.2f));
+        }
+
+        private static BusDefinition CreateManualHeartBusDefinition(
+            PuzzleColor color,
+            BusSize size,
+            GridDirection direction,
+            float angleOffset,
+            Vector2 position)
+        {
+            var gridPosition = new Vector2Int(
+                Mathf.Clamp(Mathf.RoundToInt(position.x), 0, ManualHeartGridColumns - 1),
+                Mathf.Clamp(Mathf.RoundToInt(position.y), 0, ManualHeartGridRows - 1));
+            var positionOffset = new Vector2(position.x - gridPosition.x, position.y - gridPosition.y);
+            return new BusDefinition(color, size, direction, gridPosition, angleOffset, positionOffset);
+        }
+
+        private static bool ManualHeartOverlapsPlacedVehicles(
+            BusDefinition candidate,
+            IReadOnlyList<BusDefinition> placedVehicles)
+        {
+            var footprint = GetManualHeartVisualFootprintCells(candidate);
+            for (var index = 0; index < placedVehicles.Count; index++)
+            {
+                if (footprint.Overlaps(GetManualHeartVisualFootprintCells(placedVehicles[index])))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static VehicleFootprint GetManualHeartVisualFootprintCells(BusDefinition bus)
+        {
+            const float visualWidthCells = 0.72f * 1.32f;
+            const float bodyVisualWidthScale = 0.99f;
+            const float bodyVisualLengthScale = 1.03f;
+            var rootPosition = new Vector3(
+                bus.GridPosition.x + bus.PositionOffsetCells.x,
+                0f,
+                bus.GridPosition.y + bus.PositionOffsetCells.y);
+            var visualLength = BusSizeUtility.ToVisualLengthCells(bus.Size);
+            var visualCharacterLength = visualLength / Mathf.Max(1, BusSizeUtility.ToVisualCharacterUnits(bus.Size));
+            var rotation = bus.Rotation;
+            var visualCenter = rootPosition + rotation * new Vector3(0f, 0f, (visualLength - visualCharacterLength) * 0.5f);
+            return new VehicleFootprint(
+                visualCenter,
+                rotation * Vector3.right,
+                rotation * Vector3.forward,
+                visualWidthCells * bodyVisualWidthScale * 0.5f,
+                visualLength * bodyVisualLengthScale * 0.5f);
+        }
+
         private static float GetManualHeartYaw(
             float column,
             float row,
             int rowIndex,
             int localIndex,
             bool exitsLeft,
-            ManualHeartDirectionMode directionMode)
+            ManualHeartVariantMode variantMode)
         {
-            if (directionMode == ManualHeartDirectionMode.DirectionMix)
+            if (variantMode == ManualHeartVariantMode.DirectionMix)
             {
                 return GetManualHeartDirectionMixYaw(column, row, rowIndex, localIndex, exitsLeft);
             }
@@ -768,54 +1245,200 @@ namespace BusPuzzle.EditorTools
             int localIndex,
             bool exitsLeft)
         {
-            if (Mathf.Abs(row - 11.2f) <= 0.05f &&
-                (Mathf.Abs(column - 4.8f) <= 0.05f || Mathf.Abs(column - 8.2f) <= 0.05f))
+            if (TryGetManualHeartAdContourYaw(column, row, rowIndex, localIndex, exitsLeft, out var yaw))
             {
-                return 0f;
-            }
-
-            if (row <= 1.5f && column >= 5.7f && column <= 8.9f)
-            {
-                return 180f;
-            }
-
-            if (row >= 2.1f && row <= 10.3f)
-            {
-                if (exitsLeft &&
-                    rowIndex % 2 == 1 &&
-                    column >= 5.0f &&
-                    column <= 6.6f)
-                {
-                    return 90f;
-                }
-
-                if (!exitsLeft &&
-                    rowIndex % 2 == 0 &&
-                    column >= 7.0f &&
-                    column <= 8.2f)
-                {
-                    return -90f;
-                }
+                return yaw;
             }
 
             return GetManualHeartReferenceYaw(column, row, exitsLeft);
         }
 
-        private static int GetManualHeartPassengerSeed(ManualHeartDirectionMode directionMode)
+        private static Vector2 GetManualHeartPosition(
+            float column,
+            float row,
+            ManualHeartVariantMode variantMode)
         {
-            return directionMode == ManualHeartDirectionMode.DirectionMix ? 19082 : 19081;
+            var position = new Vector2(column, row);
+            if (variantMode != ManualHeartVariantMode.DirectionMix)
+            {
+                return position;
+            }
+
+            var shapeCenter = new Vector2(6.8f, 6.35f);
+            return shapeCenter + (position - shapeCenter) * 1.1f;
         }
 
-        private static string GetManualHeartGenerationSignature(ManualHeartDirectionMode directionMode)
+        private static bool TryGetManualHeartAdContourYaw(
+            float column,
+            float row,
+            int rowIndex,
+            int localIndex,
+            bool exitsLeft,
+            out float yaw)
         {
-            return directionMode == ManualHeartDirectionMode.DirectionMix
-                ? "manualShape=heart_direction_mix;stage=9;source=heart_reference_01;"
-                : "manualShape=heart_reference;stage=9;source=ad_reference_heart;";
+            if (TryGetManualHeartBottomContourYaw(column, rowIndex, out yaw))
+            {
+                return true;
+            }
+
+            if (rowIndex == 0)
+            {
+                yaw = GetManualHeartTopLobeYaw(column, localIndex, exitsLeft);
+                return true;
+            }
+
+            if (IsManualHeartInnerNotchContour(column, row, rowIndex))
+            {
+                yaw = exitsLeft ? 58f : -58f;
+                return true;
+            }
+
+            if (localIndex == 0)
+            {
+                yaw = GetManualHeartOuterSideYaw(rowIndex, exitsLeft);
+                return true;
+            }
+
+            return false;
         }
 
-        private static string GetManualHeartModeLogName(ManualHeartDirectionMode directionMode)
+        private static float GetManualHeartTopLobeYaw(float column, int localIndex, bool exitsLeft)
         {
-            return directionMode == ManualHeartDirectionMode.DirectionMix ? "direction mix" : "reference";
+            if (localIndex == 0)
+            {
+                return exitsLeft ? -68f : 68f;
+            }
+
+            return column < 6.8f ? 22f : -22f;
+        }
+
+        private static float GetManualHeartOuterSideYaw(int rowIndex, bool exitsLeft)
+        {
+            var sideYaw = 90f;
+            switch (rowIndex)
+            {
+                case 1:
+                    sideYaw = 72f;
+                    break;
+                case 2:
+                    sideYaw = 86f;
+                    break;
+                case 3:
+                    sideYaw = 96f;
+                    break;
+                case 4:
+                    sideYaw = 100f;
+                    break;
+                case 5:
+                    sideYaw = 106f;
+                    break;
+                case 6:
+                    sideYaw = 112f;
+                    break;
+                case 7:
+                    sideYaw = 108f;
+                    break;
+                case 8:
+                    sideYaw = 104f;
+                    break;
+            }
+
+            return exitsLeft ? -sideYaw : sideYaw;
+        }
+
+        private static bool TryGetManualHeartBottomContourYaw(float column, int rowIndex, out float yaw)
+        {
+            yaw = 0f;
+            if (rowIndex < 10)
+            {
+                return false;
+            }
+
+            var distanceFromPoint = column - 7.4f;
+            if (Mathf.Abs(distanceFromPoint) <= 0.45f)
+            {
+                yaw = 180f;
+                return true;
+            }
+
+            yaw = distanceFromPoint < 0f ? -126f : 126f;
+            return true;
+        }
+
+        private static bool IsManualHeartInnerNotchContour(float column, float row, int rowIndex)
+        {
+            return rowIndex <= 1 && row >= 9.1f && column >= 5.0f && column <= 8.0f;
+        }
+
+        private static IReadOnlyList<PuzzleColor> GetManualHeartColors(ManualHeartVariantMode variantMode)
+        {
+            if (variantMode == ManualHeartVariantMode.Color4)
+            {
+                return new[]
+                {
+                    PuzzleColor.Red,
+                    PuzzleColor.SkyBlue,
+                    PuzzleColor.Yellow,
+                    PuzzleColor.Purple
+                };
+            }
+
+            return new[]
+            {
+                PuzzleColor.Red,
+                PuzzleColor.SkyBlue,
+                PuzzleColor.Yellow,
+                PuzzleColor.Purple,
+                PuzzleColor.Pink,
+                PuzzleColor.Blue,
+                PuzzleColor.Green,
+                PuzzleColor.Orange,
+                PuzzleColor.Lime
+            };
+        }
+
+        private static int GetManualHeartTargetColorCount(ManualHeartVariantMode variantMode)
+        {
+            return variantMode == ManualHeartVariantMode.Color4 ? 4 : 9;
+        }
+
+        private static int GetManualHeartPassengerSeed(ManualHeartVariantMode variantMode)
+        {
+            switch (variantMode)
+            {
+                case ManualHeartVariantMode.DirectionMix:
+                    return 19082;
+                case ManualHeartVariantMode.Color4:
+                    return 19083;
+                default:
+                    return 19081;
+            }
+        }
+
+        private static string GetManualHeartGenerationSignature(ManualHeartVariantMode variantMode)
+        {
+            switch (variantMode)
+            {
+                case ManualHeartVariantMode.DirectionMix:
+                    return "manualShape=heart_direction_mix;stage=9;source=heart_basic_01;directionMode=manual_front_tangent_gap_v9;";
+                case ManualHeartVariantMode.Color4:
+                    return "manualShape=heart_color4;stage=9;source=heart_basic_01;colorCount=4;";
+                default:
+                    return "manualShape=heart_reference;stage=9;source=ad_reference_heart;";
+            }
+        }
+
+        private static string GetManualHeartVariantLogName(ManualHeartVariantMode variantMode)
+        {
+            switch (variantMode)
+            {
+                case ManualHeartVariantMode.DirectionMix:
+                    return "direction mix";
+                case ManualHeartVariantMode.Color4:
+                    return "color 4";
+                default:
+                    return "reference";
+            }
         }
 
         private static GridDirection DirectionFromYaw(float yaw)
@@ -849,6 +1472,44 @@ namespace BusPuzzle.EditorTools
 
             public float Row { get; }
             public float[] Columns { get; }
+        }
+
+        private readonly struct ManualHeartVehicleSeed
+        {
+            public ManualHeartVehicleSeed(
+                float column,
+                float row,
+                int rowIndex,
+                int localIndex,
+                bool exitsLeft,
+                int sourceIndex)
+            {
+                Column = column;
+                Row = row;
+                RowIndex = rowIndex;
+                LocalIndex = localIndex;
+                ExitsLeft = exitsLeft;
+                SourceIndex = sourceIndex;
+            }
+
+            public float Column { get; }
+            public float Row { get; }
+            public int RowIndex { get; }
+            public int LocalIndex { get; }
+            public bool ExitsLeft { get; }
+            public int SourceIndex { get; }
+        }
+
+        private readonly struct ManualHeartPose
+        {
+            public ManualHeartPose(float x, float y, float yaw)
+            {
+                Position = new Vector2(x, y);
+                Yaw = yaw;
+            }
+
+            public Vector2 Position { get; }
+            public float Yaw { get; }
         }
 
         private static void SavePreviewStageAsShapeTemplate(

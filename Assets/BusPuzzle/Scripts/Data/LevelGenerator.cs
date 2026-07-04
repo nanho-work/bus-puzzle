@@ -795,6 +795,14 @@ namespace BusPuzzle
                 exitOrder.Count == (buses != null ? buses.Count : 0);
         }
 
+        public static bool TryFindGreedyExitOrder(
+            IReadOnlyList<BusDefinition> buses,
+            out List<int> exitOrder,
+            out List<int> stuckIndices)
+        {
+            return LevelVehicleExitPlanner.TryFindExitOrder(buses, out exitOrder, out stuckIndices);
+        }
+
         public static bool TryBuildGreedyOrderedVehicles(
             IReadOnlyList<BusDefinition> buses,
             out List<BusDefinition> orderedVehicles)

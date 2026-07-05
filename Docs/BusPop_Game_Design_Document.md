@@ -110,7 +110,7 @@ flowchart TD
 4. Size Mix: 기준 실루엣을 유지하면서 Medium/Large 차량을 섞은 후보.
 5. Mystery: 기준 배치 일부 차량을 미스터리 처리한 후보.
 6. Garage: 기준 배치에 차고지/대기 차량 기믹을 추가한 후보.
-7. Big: 도형 크기와 차량 수를 키운 scale-up 후보.
+7. Big / Double Outline: 도형 크기와 차량 수를 키우거나 외곽을 한 겹 더 감싼 scale-up 후보.
 
 현재 잠금 후보:
 - Star Basic 01 selected: `Assets/BusPuzzle/Resources/ShapeTemplates/Star/Star_Basic_01.asset`, signature 96, 차량 32대, Small 19 / Medium 11 / Large 2, opening moves 12, `generationSolutionCount` 1, release generated level sequence validation 통과.
@@ -125,13 +125,25 @@ flowchart TD
 - `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Direction Mix 01` 메뉴는 현재 Stage 09 direction mix preview를 별도 하트 방향 믹스 템플릿 원본으로 저장한다.
 - `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Color 4` 메뉴는 저장된 하트 기준 후보는 유지하고, 같은 좌표/방향에서 차량 색상만 4색으로 제한한 실험 후보를 Stage 09 preview 슬롯에 올린다.
 - `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Color 4 01` 메뉴는 현재 Stage 09 color-limited preview를 별도 하트 4색 템플릿 원본으로 저장한다.
+- `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Size Mix` 메뉴는 하트 방향/채움 후보의 실루엣을 유지하면서 Medium/Large 차량을 섞은 실험 후보를 Stage 09 preview 슬롯에 올린다.
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Size Mix 01` 메뉴는 현재 Stage 09 size-mix preview를 별도 하트 크기 믹스 템플릿 원본으로 저장한다.
+- `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Mystery` 메뉴는 하트 방향/채움 후보의 실루엣을 유지하면서 내부 차량 일부를 미스터리 처리한 실험 후보를 Stage 09 preview 슬롯에 올린다.
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Mystery 01` 메뉴는 현재 Stage 09 mystery preview를 별도 하트 미스터리 템플릿 원본으로 저장한다.
+- `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Garage` 메뉴는 하트 2겹 외곽 후보의 중앙 좌우 차량 일부를 비우고 3시/9시 방향 차고지 2개를 추가한 후보를 Stage 09 preview 슬롯에 올린다.
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Garage 01` 메뉴는 현재 Stage 09 garage preview를 별도 하트 차고지 템플릿 원본으로 저장한다.
+- `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Double Outline` 메뉴는 하트 방향/채움 후보의 외곽을 차량으로 한 겹 더 감싼 2겹 외곽 후보를 Stage 09 preview 슬롯에 올린다.
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Double Outline 01` 메뉴는 현재 Stage 09 double-outline preview를 별도 하트 2겹 외곽 템플릿 원본으로 저장한다.
 - 후보 1, 후보 2, Size Mix처럼 같은 도형의 변형을 만들 때도 각각 별도 asset으로 저장한 뒤, preview stage는 검수용으로만 덮어쓴다.
 
 현재 검수 후보:
 - Star Size Mix Candidate: variant seed 41, Medium/Large 비율 40% 이상 및 Large 1대 이상 목표. 현재는 생성 훅과 검증 기준만 준비된 실험 후보이며, 강제 승격 방식은 clearability/greedy 조건과 충돌해 아직 잠금 후보로 저장하지 않는다.
 - Heart Basic 01 selected: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_Basic_01.asset`, `manualShape=heart_reference`, 차량 68대, Small-only, 좌측 차량 Left / 우측 차량 Right / 하단 중심 Down 방향, opening moves 23, `generationSolutionCount` 1.
-- Heart Direction Mix Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_DirectionMix_01.asset`에 저장된 3번 방향 변형 후보다. Stage 09 preview 슬롯에서 외곽 핵심 차량은 보이는 방향과 실제 출차 방향을 분리하지 않고, 실제 차량 yaw 자체를 하트 곡선 접선 방향으로 둔다. 완전히 닫힌 외곽 링은 opening move가 0이 되므로, 외곽 라인에 출차용 틈을 둔 `directionMode=manual_front_tangent_gap_v9`를 사용한다. 현재 차량 27대, Small-only, opening moves 8, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
+- Heart Direction Mix Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_DirectionMix_01.asset`에 저장된 3번 방향 변형 후보다. Stage 09 preview 슬롯에서 외곽 핵심 차량은 보이는 방향과 실제 출차 방향을 분리하지 않고, 실제 차량 yaw 자체를 하트 곡선 접선 방향으로 둔다. 완전히 닫힌 외곽 링은 opening move가 0이 되므로, 외곽 라인에 출차용 틈을 두고 내부 차량을 추가 채움한 `directionMode=manual_front_tangent_fill_v10`을 사용한다. 현재 차량 38대, Small-only, opening moves 7, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
 - Heart Color 4 Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_Color4_01.asset`에 저장된 color-limited 후보다. Stage 09 preview 슬롯에서 Heart Basic 01과 같은 좌표/방향을 유지하고, Red / SkyBlue / Yellow / Purple 4색만 반복한다. 현재 `manualShape=heart_color4`, 차량 68대, Small-only, targetColorCount 4, opening moves 23, `generationSolutionCount` 1이다.
+- Heart Size Mix Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_SizeMix_01.asset`에 저장된 4번 크기 변형 후보다. `manualShape=heart_size_mix`, `sizeMode=manual_medium_large_v1`, 차량 34대, Small 30 / Medium 3 / Large 1, opening moves 7, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
+- Heart Mystery Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_Mystery_01.asset`에 저장된 5번 미스터리 변형 후보다. `manualShape=heart_mystery`, `mysteryMode=inner_8_v1`, 차량 38대, Small-only, 내부 차량 8대 `startsConcealed`, opening moves 7, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
+- Heart Garage Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_Garage_01.asset`에 저장된 6번 Garage 변형 후보다. `manualShape=heart_garage`, `garageMode=side_pair_v1`, 3시/9시 방향 차고지 2개와 각 차고지 대기 차량 1대를 포함한다. 차량 51대(visible 47 / garages 2), Small-only, opening moves 3, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
+- Heart Double Outline Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_DoubleOutline_01.asset`에 저장된 7번 Big / Double Outline 변형 후보다. `manualShape=heart_double_outline`, `outlineMode=double_ring_tight_v2`, 차량 53대, Small-only, opening moves 3, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
 
 ## 7. 난이도 설계
 

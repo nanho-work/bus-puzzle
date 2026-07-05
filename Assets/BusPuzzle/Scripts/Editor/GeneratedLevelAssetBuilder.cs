@@ -21,6 +21,14 @@ namespace BusPuzzle.EditorTools
         private const string HeartDirectionMixShapeTemplateDisplayName = "Heart Direction Mix 01";
         private const string HeartColor4ShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_Color4_01.asset";
         private const string HeartColor4ShapeTemplateDisplayName = "Heart Color 4 01";
+        private const string HeartSizeMixShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_SizeMix_01.asset";
+        private const string HeartSizeMixShapeTemplateDisplayName = "Heart Size Mix 01";
+        private const string HeartMysteryShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_Mystery_01.asset";
+        private const string HeartMysteryShapeTemplateDisplayName = "Heart Mystery 01";
+        private const string HeartDoubleOutlineShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_DoubleOutline_01.asset";
+        private const string HeartDoubleOutlineShapeTemplateDisplayName = "Heart Double Outline 01";
+        private const string HeartGarageShapeTemplatePath = HeartShapeTemplateDirectory + "/Heart_Garage_01.asset";
+        private const string HeartGarageShapeTemplateDisplayName = "Heart Garage 01";
         private const string ActiveLevelSequencePath = LevelDirectory + "/LevelSequence.asset";
         private const string GeneratedLevelSequencePath = GeneratedLevelDirectory + "/GeneratedLevelSequence.asset";
         private const string StageGenerationConfigPath = LevelDirectory + "/StageGenerationConfig.asset";
@@ -35,6 +43,7 @@ namespace BusPuzzle.EditorTools
         private const int ManualHeartGridColumns = 14;
         private const int ManualHeartGridRows = 14;
         private const int ManualHeartDirectionMixOuterPoseCount = 11;
+        private const int ManualHeartDoubleOutlineOuterPoseCount = 31;
         private const int ManualShapeSolutionNodeVisitLimit = 50000;
 
         private enum GeneratedStageBuildMode
@@ -49,7 +58,11 @@ namespace BusPuzzle.EditorTools
         {
             Reference,
             DirectionMix,
-            Color4
+            Color4,
+            SizeMix,
+            Mystery,
+            DoubleOutline,
+            Garage
         }
 
         [MenuItem("Bus Puzzle/Levels/Rebuild Generated Stage Set")]
@@ -100,6 +113,34 @@ namespace BusPuzzle.EditorTools
         {
             SaveManualHeartReferenceTemplate();
             RebuildStage09ManualHeart(ManualHeartVariantMode.Color4);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Size Mix")]
+        public static void RebuildShapeLibraryPreviewStage09HeartSizeMix()
+        {
+            SaveManualHeartReferenceTemplate();
+            RebuildStage09ManualHeart(ManualHeartVariantMode.SizeMix);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Mystery")]
+        public static void RebuildShapeLibraryPreviewStage09HeartMystery()
+        {
+            SaveManualHeartReferenceTemplate();
+            RebuildStage09ManualHeart(ManualHeartVariantMode.Mystery);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Double Outline")]
+        public static void RebuildShapeLibraryPreviewStage09HeartDoubleOutline()
+        {
+            SaveManualHeartReferenceTemplate();
+            RebuildStage09ManualHeart(ManualHeartVariantMode.DoubleOutline);
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Garage")]
+        public static void RebuildShapeLibraryPreviewStage09HeartGarage()
+        {
+            SaveManualHeartReferenceTemplate();
+            RebuildStage09ManualHeart(ManualHeartVariantMode.Garage);
         }
 
         [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Star Basic 01")]
@@ -196,6 +237,102 @@ namespace BusPuzzle.EditorTools
         public static void ValidateHeartColor4ShapeTemplate()
         {
             ValidateShapeTemplate(HeartColor4ShapeTemplatePath, HeartColor4ShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Size Mix 01")]
+        public static void SaveStage09PreviewAsHeartSizeMixTemplate()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                HeartSizeMixShapeTemplatePath,
+                HeartSizeMixShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Heart Size Mix 01 Into Stage 09 Preview")]
+        public static void LoadHeartSizeMixTemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                HeartSizeMixShapeTemplatePath,
+                HeartSizeMixShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Heart Size Mix 01")]
+        public static void ValidateHeartSizeMixShapeTemplate()
+        {
+            ValidateShapeTemplate(HeartSizeMixShapeTemplatePath, HeartSizeMixShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Mystery 01")]
+        public static void SaveStage09PreviewAsHeartMysteryTemplate()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                HeartMysteryShapeTemplatePath,
+                HeartMysteryShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Heart Mystery 01 Into Stage 09 Preview")]
+        public static void LoadHeartMysteryTemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                HeartMysteryShapeTemplatePath,
+                HeartMysteryShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Heart Mystery 01")]
+        public static void ValidateHeartMysteryShapeTemplate()
+        {
+            ValidateShapeTemplate(HeartMysteryShapeTemplatePath, HeartMysteryShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Double Outline 01")]
+        public static void SaveStage09PreviewAsHeartDoubleOutlineTemplate()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                HeartDoubleOutlineShapeTemplatePath,
+                HeartDoubleOutlineShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Heart Double Outline 01 Into Stage 09 Preview")]
+        public static void LoadHeartDoubleOutlineTemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                HeartDoubleOutlineShapeTemplatePath,
+                HeartDoubleOutlineShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Heart Double Outline 01")]
+        public static void ValidateHeartDoubleOutlineShapeTemplate()
+        {
+            ValidateShapeTemplate(HeartDoubleOutlineShapeTemplatePath, HeartDoubleOutlineShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Garage 01")]
+        public static void SaveStage09PreviewAsHeartGarageTemplate()
+        {
+            SavePreviewStageAsShapeTemplate(
+                ShapeTemplatePreviewStageNumber,
+                HeartGarageShapeTemplatePath,
+                HeartGarageShapeTemplateDisplayName);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Load Heart Garage 01 Into Stage 09 Preview")]
+        public static void LoadHeartGarageTemplateIntoStage09Preview()
+        {
+            LoadShapeTemplateIntoPreviewStage(
+                HeartGarageShapeTemplatePath,
+                HeartGarageShapeTemplateDisplayName,
+                ShapeTemplatePreviewStageNumber);
+        }
+
+        [MenuItem("Bus Puzzle/Shape Templates/Validate Heart Garage 01")]
+        public static void ValidateHeartGarageShapeTemplate()
+        {
+            ValidateShapeTemplate(HeartGarageShapeTemplatePath, HeartGarageShapeTemplateDisplayName);
         }
 
         public static void RebuildShapeLibraryPreviewStageFromCommandLine()
@@ -624,6 +761,12 @@ namespace BusPuzzle.EditorTools
         private static LevelData CreateManualHeartLevel(ManualHeartVariantMode variantMode, string levelName)
         {
             var vehicles = CreateManualHeartReferenceVehicles(variantMode);
+            var garages = CreateManualHeartGarages(variantMode, GetManualHeartColors(variantMode));
+            if (garages.Count > 0)
+            {
+                vehicles = RemoveManualHeartVehiclesConflictingWithGarages(vehicles, garages, variantMode);
+            }
+
             if (!LevelGenerator.TryBuildGreedyOrderedVehicles(vehicles, out var orderedVehicles))
             {
                 Debug.LogWarning(CreateManualHeartGreedyFailureSummary(vehicles));
@@ -639,10 +782,12 @@ namespace BusPuzzle.EditorTools
                 0.54f,
                 0.48f,
                 true);
-            var flowPlan = LevelGenerator.BuildPassengerFlowPlanFromVehicleOrder(
-                profile,
-                vehicles,
-                GetManualHeartPassengerSeed(variantMode));
+            var flowPlan = garages.Count > 0
+                ? LevelGenerator.BuildPassengerFlowPlan(profile, vehicles, garages, GetManualHeartPassengerSeed(variantMode))
+                : LevelGenerator.BuildPassengerFlowPlanFromVehicleOrder(
+                    profile,
+                    vehicles,
+                    GetManualHeartPassengerSeed(variantMode));
             var level = ScriptableObject.CreateInstance<LevelData>();
             level.hideFlags = HideFlags.None;
             level.ConfigureWithPassengerFlowPlan(
@@ -651,7 +796,9 @@ namespace BusPuzzle.EditorTools
                 flowPlan,
                 vehicles,
                 25,
-                RotaryRoadPresetId.SmallCircleTest);
+                RotaryRoadPresetId.SmallCircleTest,
+                null,
+                garages);
 
             var report = LevelValidator.Validate(level, false);
             if (report.HasErrors)
@@ -692,9 +839,13 @@ namespace BusPuzzle.EditorTools
                 new ManualHeartRow(1.2f, new[] { 6.0f, 7.4f, 8.8f })
             };
             var colors = GetManualHeartColors(variantMode);
-            if (variantMode == ManualHeartVariantMode.DirectionMix)
+            if (variantMode == ManualHeartVariantMode.DirectionMix ||
+                variantMode == ManualHeartVariantMode.SizeMix ||
+                variantMode == ManualHeartVariantMode.Mystery ||
+                variantMode == ManualHeartVariantMode.DoubleOutline ||
+                variantMode == ManualHeartVariantMode.Garage)
             {
-                return CreateManualHeartDirectionFirstVehicles(rows, colors);
+                return CreateManualHeartDirectionFirstVehicles(colors, variantMode);
             }
 
             var vehicles = new List<BusDefinition>();
@@ -734,18 +885,21 @@ namespace BusPuzzle.EditorTools
         }
 
         private static List<BusDefinition> CreateManualHeartDirectionFirstVehicles(
-            IReadOnlyList<ManualHeartRow> rows,
-            IReadOnlyList<PuzzleColor> colors)
+            IReadOnlyList<PuzzleColor> colors,
+            ManualHeartVariantMode variantMode)
         {
-            var poses = CreateManualHeartAdCopyPoses();
+            var poses = CreateManualHeartVariantPoses(variantMode);
+            var outerPoseCount = GetManualHeartOuterPoseCount(variantMode);
             var vehicles = new List<BusDefinition>(poses.Count);
             var skippedOuterPoseCount = 0;
             var skippedInteriorPoseCount = 0;
             for (var index = 0; index < poses.Count; index++)
             {
-                var isOuterPose = index < ManualHeartDirectionMixOuterPoseCount;
+                var isOuterPose = index < outerPoseCount;
                 var pose = poses[index];
-                if (!TryAddManualHeartPoseVehicle(vehicles, pose, colors, index, isOuterPose))
+                var size = GetManualHeartPoseSize(variantMode, index);
+                var vehicleCountBeforeAdd = vehicles.Count;
+                if (!TryAddManualHeartPoseVehicle(vehicles, pose, colors, index, isOuterPose, size))
                 {
                     if (isOuterPose)
                     {
@@ -756,21 +910,189 @@ namespace BusPuzzle.EditorTools
                         skippedInteriorPoseCount++;
                     }
                 }
+
+                if (variantMode == ManualHeartVariantMode.Mystery &&
+                    IsManualHeartMysteryPose(index) &&
+                    vehicles.Count > vehicleCountBeforeAdd)
+                {
+                    var lastIndex = vehicles.Count - 1;
+                    vehicles[lastIndex] = vehicles[lastIndex].WithStartsConcealed(true);
+                }
             }
 
             if (skippedOuterPoseCount > 0)
             {
                 Debug.LogWarning(
-                    $"Manual Heart direction mix skipped {skippedOuterPoseCount} outer contour pose(s) that would visually overlap the heart contour.");
+                    $"Manual Heart {GetManualHeartVariantLogName(variantMode)} skipped {skippedOuterPoseCount} outer contour pose(s) that would visually overlap the heart contour.");
             }
 
             if (skippedInteriorPoseCount > 0)
             {
                 Debug.Log(
-                    $"Manual Heart direction mix skipped {skippedInteriorPoseCount} interior pose(s) that would visually overlap the outer heart contour.");
+                    $"Manual Heart {GetManualHeartVariantLogName(variantMode)} skipped {skippedInteriorPoseCount} interior pose(s) that would visually overlap the outer heart contour.");
             }
 
             return vehicles;
+        }
+
+        private static IReadOnlyList<ManualHeartPose> CreateManualHeartVariantPoses(ManualHeartVariantMode variantMode)
+        {
+            if (variantMode == ManualHeartVariantMode.DoubleOutline ||
+                variantMode == ManualHeartVariantMode.Garage)
+            {
+                return CreateManualHeartDoubleOutlinePoses();
+            }
+
+            return CreateManualHeartAdCopyPoses();
+        }
+
+        private static int GetManualHeartOuterPoseCount(ManualHeartVariantMode variantMode)
+        {
+            return variantMode == ManualHeartVariantMode.DoubleOutline ||
+                variantMode == ManualHeartVariantMode.Garage
+                ? ManualHeartDoubleOutlineOuterPoseCount
+                : ManualHeartDirectionMixOuterPoseCount;
+        }
+
+        private static List<GarageDefinition> CreateManualHeartGarages(
+            ManualHeartVariantMode variantMode,
+            IReadOnlyList<PuzzleColor> colors)
+        {
+            var garages = new List<GarageDefinition>();
+            if (variantMode != ManualHeartVariantMode.Garage)
+            {
+                return garages;
+            }
+
+            garages.Add(CreateManualHeartGarage(
+                new Vector2Int(5, 7),
+                GridDirection.Left,
+                colors[0 % colors.Count],
+                colors[1 % colors.Count]));
+            garages.Add(CreateManualHeartGarage(
+                new Vector2Int(9, 7),
+                GridDirection.Right,
+                colors[2 % colors.Count],
+                colors[3 % colors.Count]));
+            return garages;
+        }
+
+        private static GarageDefinition CreateManualHeartGarage(
+            Vector2Int garageCell,
+            GridDirection exitDirection,
+            PuzzleColor frontColor,
+            PuzzleColor queuedColor)
+        {
+            var frontCell = garageCell + GridDirectionUtility.ToGridVector(exitDirection);
+            var frontVehicle = new BusDefinition(frontColor, BusSize.Small, exitDirection, frontCell, 0f, Vector2.zero);
+            var queuedVehicles = new[]
+            {
+                new BusDefinition(queuedColor, BusSize.Small, exitDirection, frontCell, 0f, Vector2.zero)
+            };
+            return new GarageDefinition(garageCell, exitDirection, frontVehicle, queuedVehicles);
+        }
+
+        private static List<BusDefinition> RemoveManualHeartVehiclesConflictingWithGarages(
+            IReadOnlyList<BusDefinition> vehicles,
+            IReadOnlyList<GarageDefinition> garages,
+            ManualHeartVariantMode variantMode)
+        {
+            var filtered = new List<BusDefinition>(vehicles.Count);
+            for (var index = 0; index < vehicles.Count; index++)
+            {
+                if (!ManualHeartVehicleConflictsWithGarages(vehicles[index], garages))
+                {
+                    filtered.Add(vehicles[index]);
+                }
+            }
+
+            var removedCount = vehicles.Count - filtered.Count;
+            if (removedCount > 0)
+            {
+                Debug.Log(
+                    $"Manual Heart {GetManualHeartVariantLogName(variantMode)} removed {removedCount} center vehicle(s) to place garage anchors.");
+            }
+
+            return filtered;
+        }
+
+        private static bool ManualHeartVehicleConflictsWithGarages(
+            BusDefinition vehicle,
+            IReadOnlyList<GarageDefinition> garages)
+        {
+            const float garageClearanceCells = 0.06f;
+            var vehicleFootprint = GetManualHeartVisualFootprintCells(vehicle);
+            for (var garageIndex = 0; garageIndex < garages.Count; garageIndex++)
+            {
+                var garage = garages[garageIndex];
+                if (vehicleFootprint.IsWithinPadding(GetManualHeartGarageFootprintCells(garage), garageClearanceCells))
+                {
+                    return true;
+                }
+
+                foreach (var garageVehicle in garage.EnumerateVehicles())
+                {
+                    if (vehicleFootprint.IsWithinPadding(
+                        GetManualHeartVisualFootprintCells(garageVehicle),
+                        garageClearanceCells))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static VehicleFootprint GetManualHeartGarageFootprintCells(GarageDefinition garage)
+        {
+            return new VehicleFootprint(
+                new Vector3(garage.GridPosition.x, 0f, garage.GridPosition.y),
+                Vector3.right,
+                Vector3.forward,
+                0.45f,
+                0.45f);
+        }
+
+        private static IReadOnlyList<ManualHeartPose> CreateManualHeartDoubleOutlinePoses()
+        {
+            var basePoses = CreateManualHeartAdCopyPoses();
+            var poses = new List<ManualHeartPose>(basePoses.Count + 20);
+            for (var index = 0; index < ManualHeartDirectionMixOuterPoseCount; index++)
+            {
+                poses.Add(basePoses[index]);
+            }
+
+            poses.AddRange(new[]
+            {
+                new ManualHeartPose(4.5f, 11.6f, -62f),
+                new ManualHeartPose(2.7f, 11.0f, -110f),
+                new ManualHeartPose(1.4f, 9.6f, -150f),
+                new ManualHeartPose(0.8f, 8.0f, -174f),
+                new ManualHeartPose(0.9f, 6.5f, 174f),
+                new ManualHeartPose(1.4f, 5.2f, 162f),
+                new ManualHeartPose(2.2f, 4.0f, 148f),
+                new ManualHeartPose(3.3f, 2.7f, 136f),
+                new ManualHeartPose(4.6f, 1.5f, 124f),
+                new ManualHeartPose(5.9f, 0.7f, 112f),
+                new ManualHeartPose(7.0f, 0.4f, 180f),
+                new ManualHeartPose(8.2f, 0.7f, 68f),
+                new ManualHeartPose(9.5f, 1.5f, 56f),
+                new ManualHeartPose(10.8f, 2.7f, 44f),
+                new ManualHeartPose(11.8f, 4.1f, 30f),
+                new ManualHeartPose(12.5f, 5.6f, 18f),
+                new ManualHeartPose(12.7f, 7.0f, 6f),
+                new ManualHeartPose(12.4f, 8.3f, -18f),
+                new ManualHeartPose(11.7f, 9.6f, -34f),
+                new ManualHeartPose(10.4f, 10.8f, -64f)
+            });
+
+            for (var index = ManualHeartDirectionMixOuterPoseCount; index < basePoses.Count; index++)
+            {
+                poses.Add(basePoses[index]);
+            }
+
+            return poses;
         }
 
         private static IReadOnlyList<ManualHeartPose> CreateManualHeartAdCopyPoses()
@@ -806,7 +1128,18 @@ namespace BusPuzzle.EditorTools
                 new ManualHeartPose(6.8f, 4.1f, 180f),
                 new ManualHeartPose(8.5f, 4.3f, 90f),
                 new ManualHeartPose(6.3f, 2.8f, 180f),
-                new ManualHeartPose(7.7f, 2.8f, 180f)
+                new ManualHeartPose(7.7f, 2.8f, 180f),
+                new ManualHeartPose(6.6f, 3.2f, 180f),
+                new ManualHeartPose(3.4f, 6.2f, -90f),
+                new ManualHeartPose(8.6f, 3.2f, 90f),
+                new ManualHeartPose(10.0f, 9.2f, 90f),
+                new ManualHeartPose(3.0f, 8.4f, -90f),
+                new ManualHeartPose(11.3f, 7.2f, 90f),
+                new ManualHeartPose(2.0f, 6.2f, -90f),
+                new ManualHeartPose(3.0f, 9.2f, -90f),
+                new ManualHeartPose(3.8f, 10.2f, -90f),
+                new ManualHeartPose(11.8f, 6.2f, 90f),
+                new ManualHeartPose(7.4f, 1.2f, 180f)
             };
         }
 
@@ -815,9 +1148,9 @@ namespace BusPuzzle.EditorTools
             ManualHeartPose pose,
             IReadOnlyList<PuzzleColor> colors,
             int index,
-            bool isOuterPose)
+            bool isOuterPose,
+            BusSize size)
         {
-            var size = BusSize.Small;
             var direction = DirectionFromYaw(pose.Yaw);
             var angleOffset = Mathf.DeltaAngle(GridDirectionUtility.ToYawDegrees(direction), pose.Yaw);
             var color = colors[index % colors.Count];
@@ -1410,6 +1743,14 @@ namespace BusPuzzle.EditorTools
                     return 19082;
                 case ManualHeartVariantMode.Color4:
                     return 19083;
+                case ManualHeartVariantMode.SizeMix:
+                    return 19084;
+                case ManualHeartVariantMode.Mystery:
+                    return 19085;
+                case ManualHeartVariantMode.DoubleOutline:
+                    return 19086;
+                case ManualHeartVariantMode.Garage:
+                    return 19087;
                 default:
                     return 19081;
             }
@@ -1420,9 +1761,17 @@ namespace BusPuzzle.EditorTools
             switch (variantMode)
             {
                 case ManualHeartVariantMode.DirectionMix:
-                    return "manualShape=heart_direction_mix;stage=9;source=heart_basic_01;directionMode=manual_front_tangent_gap_v9;";
+                    return "manualShape=heart_direction_mix;stage=9;source=heart_basic_01;directionMode=manual_front_tangent_fill_v10;";
                 case ManualHeartVariantMode.Color4:
                     return "manualShape=heart_color4;stage=9;source=heart_basic_01;colorCount=4;";
+                case ManualHeartVariantMode.SizeMix:
+                    return "manualShape=heart_size_mix;stage=9;source=heart_basic_01;sizeMode=manual_medium_large_v1;";
+                case ManualHeartVariantMode.Mystery:
+                    return "manualShape=heart_mystery;stage=9;source=heart_direction_mix_01;mysteryMode=inner_8_v1;";
+                case ManualHeartVariantMode.DoubleOutline:
+                    return "manualShape=heart_double_outline;stage=9;source=heart_direction_mix_01;outlineMode=double_ring_tight_v2;";
+                case ManualHeartVariantMode.Garage:
+                    return "manualShape=heart_garage;stage=9;source=heart_double_outline_01;garageMode=side_pair_v1;";
                 default:
                     return "manualShape=heart_reference;stage=9;source=ad_reference_heart;";
             }
@@ -1436,8 +1785,57 @@ namespace BusPuzzle.EditorTools
                     return "direction mix";
                 case ManualHeartVariantMode.Color4:
                     return "color 4";
+                case ManualHeartVariantMode.SizeMix:
+                    return "size mix";
+                case ManualHeartVariantMode.Mystery:
+                    return "mystery";
+                case ManualHeartVariantMode.DoubleOutline:
+                    return "double outline";
+                case ManualHeartVariantMode.Garage:
+                    return "garage";
                 default:
                     return "reference";
+            }
+        }
+
+        private static bool IsManualHeartMysteryPose(int poseIndex)
+        {
+            switch (poseIndex)
+            {
+                case 12:
+                case 13:
+                case 17:
+                case 21:
+                case 22:
+                case 25:
+                case 30:
+                case 34:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static BusSize GetManualHeartPoseSize(ManualHeartVariantMode variantMode, int poseIndex)
+        {
+            if (variantMode != ManualHeartVariantMode.SizeMix)
+            {
+                return BusSize.Small;
+            }
+
+            switch (poseIndex)
+            {
+                case 25:
+                    return BusSize.Large;
+                case 12:
+                case 13:
+                case 21:
+                case 22:
+                case 30:
+                case 31:
+                    return BusSize.Medium;
+                default:
+                    return BusSize.Small;
             }
         }
 
@@ -1863,9 +2261,10 @@ namespace BusPuzzle.EditorTools
             var mediumCount = 0;
             var largeCount = 0;
             var buses = level.Buses;
-            for (var index = 0; index < buses.Count; index++)
+            var vehicles = level.AllVehicles;
+            for (var index = 0; index < vehicles.Count; index++)
             {
-                switch (buses[index].Size)
+                switch (vehicles[index].Size)
                 {
                     case BusSize.Medium:
                         mediumCount++;
@@ -1879,7 +2278,11 @@ namespace BusPuzzle.EditorTools
                 }
             }
 
-            return $"vehicles {buses.Count}, Small {smallCount} / Medium {mediumCount} / Large {largeCount}, " +
+            var garageCount = level.Garages.Count;
+            var vehicleSummary = garageCount > 0
+                ? $"vehicles {vehicles.Count} (visible {buses.Count}, garages {garageCount})"
+                : $"vehicles {vehicles.Count}";
+            return $"{vehicleSummary}, Small {smallCount} / Medium {mediumCount} / Large {largeCount}, " +
                 $"opening moves {LevelGenerator.CountOpeningMoves(buses)}, generation solutions {level.GenerationSolutionCount}";
         }
 

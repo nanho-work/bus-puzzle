@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 10000000000000000000000000000005, type: 3}
-  m_Name: Heart_DirectionMix_01
+  m_Name: Heart_Mystery_01
   m_EditorClassIdentifier: Assembly-CSharp::BusPuzzle.LevelData
-  levelName: Heart Direction Mix 01
+  levelName: Heart Mystery 01
   difficultyProfile:
     difficulty: 1
     passengerFlowRule:
@@ -35,7 +35,7 @@ MonoBehaviour:
   passengerFlowPlan:
     enabled: 1
     mode: 1
-    seed: 19082
+    seed: 19085
     minGroupUnits: 2
     maxGroupUnits: 7
     autoFillMissingCapacity: 1
@@ -235,7 +235,7 @@ MonoBehaviour:
     angleOffsetDegrees: 0
     positionOffsetCells: {x: -0.019999504, y: 0.19999981}
     gridPosition: {x: 11, y: 7}
-    startsConcealed: 0
+    startsConcealed: 1
   - color: 10
     size: 0
     direction: 3
@@ -298,7 +298,7 @@ MonoBehaviour:
     angleOffsetDegrees: 0
     positionOffsetCells: {x: -0.2326808, y: 0.45126343}
     gridPosition: {x: 8, y: 8}
-    startsConcealed: 0
+    startsConcealed: 1
   - color: 9
     size: 0
     direction: 1
@@ -333,7 +333,7 @@ MonoBehaviour:
     angleOffsetDegrees: 0
     positionOffsetCells: {x: 0.3203888, y: 0.18236971}
     gridPosition: {x: 3, y: 6}
-    startsConcealed: 0
+    startsConcealed: 1
   - color: 3
     size: 0
     direction: 3
@@ -375,7 +375,7 @@ MonoBehaviour:
     angleOffsetDegrees: 0
     positionOffsetCells: {x: 0.35487366, y: 0.40627766}
     gridPosition: {x: 6, y: 8}
-    startsConcealed: 0
+    startsConcealed: 1
   - color: 0
     size: 0
     direction: 1
@@ -396,14 +396,14 @@ MonoBehaviour:
     angleOffsetDegrees: 0
     positionOffsetCells: {x: 0.48000002, y: -0.3000002}
     gridPosition: {x: 7, y: 6}
-    startsConcealed: 0
+    startsConcealed: 1
   - color: 5
     size: 0
     direction: 2
     angleOffsetDegrees: 0
     positionOffsetCells: {x: -0.19999981, y: 0.42000008}
     gridPosition: {x: 7, y: 4}
-    startsConcealed: 0
+    startsConcealed: 1
   - color: 8
     size: 0
     direction: 1
@@ -438,7 +438,7 @@ MonoBehaviour:
     angleOffsetDegrees: 0
     positionOffsetCells: {x: 0.32000017, y: -0.3000002}
     gridPosition: {x: 6, y: 6}
-    startsConcealed: 0
+    startsConcealed: 1
   - color: 3
     size: 0
     direction: 3
@@ -459,7 +459,7 @@ MonoBehaviour:
     angleOffsetDegrees: 0
     positionOffsetCells: {x: -0.19999981, y: 0.32000017}
     gridPosition: {x: 7, y: 7}
-    startsConcealed: 0
+    startsConcealed: 1
   garages: []
-  generationSignature: manualShape=heart_direction_mix;stage=9;source=heart_basic_01;directionMode=manual_front_tangent_fill_v10;
+  generationSignature: manualShape=heart_mystery;stage=9;source=heart_direction_mix_01;mysteryMode=inner_8_v1;
   generationSolutionCount: 1

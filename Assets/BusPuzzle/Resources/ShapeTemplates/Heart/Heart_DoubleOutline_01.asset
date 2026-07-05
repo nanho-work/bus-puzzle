@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 10000000000000000000000000000005, type: 3}
-  m_Name: Level_009
+  m_Name: Heart_DoubleOutline_01
   m_EditorClassIdentifier: Assembly-CSharp::BusPuzzle.LevelData
-  levelName: Stage 009 Hard
+  levelName: Heart Double Outline 01
   difficultyProfile:
     difficulty: 1
     passengerFlowRule:
@@ -22,7 +22,7 @@ MonoBehaviour:
       maxGroupUnits: 7
       interferenceRatio: 0.38
       preserveSolutionRoute: 1
-    targetVehicleCount: 47
+    targetVehicleCount: 53
     targetColorCount: 9
     parkingTension: 0.54
     stationPressure: 0.48
@@ -35,7 +35,7 @@ MonoBehaviour:
   passengerFlowPlan:
     enabled: 1
     mode: 1
-    seed: 19087
+    seed: 19086
     minGroupUnits: 2
     maxGroupUnits: 7
     autoFillMissingCapacity: 1
@@ -73,6 +73,10 @@ MonoBehaviour:
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
+    - color: 0
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
     - color: 5
       size: 0
       overrideUnitCount: 0
@@ -85,6 +89,10 @@ MonoBehaviour:
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
+    - color: 4
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
     - color: 5
       size: 0
       overrideUnitCount: 0
@@ -97,6 +105,10 @@ MonoBehaviour:
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
+    - color: 2
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
     - color: 3
       size: 0
       overrideUnitCount: 0
@@ -133,7 +145,7 @@ MonoBehaviour:
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
-    - color: 8
+    - color: 1
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
@@ -142,6 +154,18 @@ MonoBehaviour:
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
     - color: 1
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
+    - color: 8
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
+    - color: 10
+      size: 0
+      overrideUnitCount: 0
+      preferredGroupUnitCount: 4
+    - color: 0
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
@@ -226,22 +250,6 @@ MonoBehaviour:
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
     - color: 3
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 0
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 2
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 9
-      size: 0
-      overrideUnitCount: 0
-      preferredGroupUnitCount: 4
-    - color: 4
       size: 0
       overrideUnitCount: 0
       preferredGroupUnitCount: 4
@@ -302,6 +310,13 @@ MonoBehaviour:
     positionOffsetCells: {x: -0.33344936, y: -0.31824684}
     gridPosition: {x: 13, y: 7}
     startsConcealed: 0
+  - color: 0
+    size: 0
+    direction: 1
+    angleOffsetDegrees: 0
+    positionOffsetCells: {x: -0.019999504, y: 0.19999981}
+    gridPosition: {x: 11, y: 7}
+    startsConcealed: 0
   - color: 5
     size: 0
     direction: 0
@@ -323,6 +338,13 @@ MonoBehaviour:
     positionOffsetCells: {x: -0.47991085, y: 0.28000736}
     gridPosition: {x: 13, y: 5}
     startsConcealed: 0
+  - color: 4
+    size: 0
+    direction: 1
+    angleOffsetDegrees: 0
+    positionOffsetCells: {x: -0.42000008, y: 0.19999981}
+    gridPosition: {x: 10, y: 7}
+    startsConcealed: 0
   - color: 5
     size: 0
     direction: 1
@@ -343,6 +365,13 @@ MonoBehaviour:
     angleOffsetDegrees: 30
     positionOffsetCells: {x: -0.25056934, y: -0.22637224}
     gridPosition: {x: 12, y: 4}
+    startsConcealed: 0
+  - color: 2
+    size: 0
+    direction: 1
+    angleOffsetDegrees: 0
+    positionOffsetCells: {x: -0.01999998, y: 0.19999981}
+    gridPosition: {x: 8, y: 7}
     startsConcealed: 0
   - color: 3
     size: 0
@@ -407,12 +436,12 @@ MonoBehaviour:
     positionOffsetCells: {x: 0.44440365, y: 0.43779612}
     gridPosition: {x: 9, y: 1}
     startsConcealed: 0
-  - color: 8
+  - color: 1
     size: 0
     direction: 3
     angleOffsetDegrees: 0
-    positionOffsetCells: {x: -0.27999973, y: -0.19999981}
-    gridPosition: {x: 5, y: 6}
+    positionOffsetCells: {x: 0.3203888, y: 0.18236971}
+    gridPosition: {x: 3, y: 6}
     startsConcealed: 0
   - color: 9
     size: 0
@@ -434,6 +463,27 @@ MonoBehaviour:
     angleOffsetDegrees: -22
     positionOffsetCells: {x: 0.25273323, y: -0.33328915}
     gridPosition: {x: 8, y: 1}
+    startsConcealed: 0
+  - color: 10
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 0
+    positionOffsetCells: {x: 0.01999998, y: 0.19999981}
+    gridPosition: {x: 4, y: 7}
+    startsConcealed: 0
+  - color: 0
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 0
+    positionOffsetCells: {x: -0.37999964, y: 0.19999981}
+    gridPosition: {x: 6, y: 7}
+    startsConcealed: 0
+  - color: 8
+    size: 0
+    direction: 3
+    angleOffsetDegrees: 0
+    positionOffsetCells: {x: -0.27999973, y: -0.19999981}
+    gridPosition: {x: 5, y: 6}
     startsConcealed: 0
   - color: 10
     size: 0
@@ -575,42 +625,6 @@ MonoBehaviour:
     positionOffsetCells: {x: -0.2326808, y: 0.45126343}
     gridPosition: {x: 8, y: 8}
     startsConcealed: 0
-  garages:
-  - gridPosition: {x: 5, y: 7}
-    exitDirection: 3
-    frontVehicle:
-      color: 0
-      size: 0
-      direction: 3
-      angleOffsetDegrees: 0
-      positionOffsetCells: {x: 0, y: 0}
-      gridPosition: {x: 4, y: 7}
-      startsConcealed: 0
-    queuedVehicles:
-    - color: 9
-      size: 0
-      direction: 3
-      angleOffsetDegrees: 0
-      positionOffsetCells: {x: 0, y: 0}
-      gridPosition: {x: 4, y: 7}
-      startsConcealed: 0
-  - gridPosition: {x: 9, y: 7}
-    exitDirection: 1
-    frontVehicle:
-      color: 2
-      size: 0
-      direction: 1
-      angleOffsetDegrees: 0
-      positionOffsetCells: {x: 0, y: 0}
-      gridPosition: {x: 10, y: 7}
-      startsConcealed: 0
-    queuedVehicles:
-    - color: 4
-      size: 0
-      direction: 1
-      angleOffsetDegrees: 0
-      positionOffsetCells: {x: 0, y: 0}
-      gridPosition: {x: 10, y: 7}
-      startsConcealed: 0
-  generationSignature: manualShape=heart_garage;stage=9;source=heart_double_outline_01;garageMode=side_pair_v1;
+  garages: []
+  generationSignature: manualShape=heart_double_outline;stage=9;source=heart_direction_mix_01;outlineMode=double_ring_tight_v2;
   generationSolutionCount: 1

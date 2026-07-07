@@ -135,6 +135,8 @@ flowchart TD
 - `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Garage Mystery 01` 메뉴는 현재 Stage 09 garage mystery preview를 별도 하트 차고지+미스터리 템플릿 원본으로 저장한다.
 - `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Color 4 Garage Mystery` 메뉴는 Heart Garage Mystery 후보의 모양/차고지/미스터리/차량 크기 규칙을 유지하면서 차량 색상을 4색으로 제한한 후보를 Stage 09 preview 슬롯에 올린다.
 - `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Color 4 Garage Mystery 01` 메뉴는 현재 Stage 09 color4 garage mystery preview를 별도 하트 4색+차고지+미스터리 템플릿 원본으로 저장한다.
+- `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Full Color Garage Mystery` 메뉴는 dense Heart Garage Mystery 후보의 모양/차고지/미스터리/차량 크기 규칙을 유지하면서 전체 9색 팔레트를 사용하는 후보를 Stage 09 preview 슬롯에 올린다.
+- `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Full Color Garage Mystery 01` 메뉴는 현재 Stage 09 full-color garage mystery preview를 별도 하트 전체색+차고지+미스터리 템플릿 원본으로 저장한다.
 - `Bus Puzzle/Levels/Rebuild Shape Library Preview Stage 09 Heart Double Outline` 메뉴는 하트 방향/채움 후보의 외곽을 차량으로 한 겹 더 감싼 2겹 외곽 후보를 Stage 09 preview 슬롯에 올린다.
 - `Bus Puzzle/Shape Templates/Save Stage 09 Preview As Heart Double Outline 01` 메뉴는 현재 Stage 09 double-outline preview를 별도 하트 2겹 외곽 템플릿 원본으로 저장한다.
 - 후보 1, 후보 2, Size Mix처럼 같은 도형의 변형을 만들 때도 각각 별도 asset으로 저장한 뒤, preview stage는 검수용으로만 덮어쓴다.
@@ -149,6 +151,7 @@ flowchart TD
 - Heart Garage Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_Garage_01.asset`에 저장된 6번 Garage 변형 후보다. `manualShape=heart_garage`, `garageMode=side_pair_v1`, 3시/9시 방향 차고지 2개와 각 차고지 대기 차량 1대를 포함한다. 차량 51대(visible 47 / garages 2), Small-only, opening moves 3, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
 - Heart Garage Mystery Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_GarageMystery_01.asset`에 저장된 Garage 파생 후보다. `manualShape=heart_garage_mystery`, `mysteryMode=outer_non_opening_v1`, `sizeMode=inner_and_garage_medium_large_v1`, 외곽 2줄 중 즉시 출차 가능 차량을 제외한 29대를 `startsConcealed` 처리하고, 내부와 차고지는 Medium/Large 위주로 구성한다. 차량 42대(visible 38 / garages 2), Small 30 / Medium 10 / Large 2, opening moves 3, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
 - Heart Color 4 Garage Mystery Candidate: Stage 09 preview 검수용 후보이며, `manualShape=heart_color4_garage_mystery`, Heart Garage Mystery의 하트 외곽 2줄/차고지/미스터리/내부 Medium-Large 규칙을 유지하고 차량 색상만 Red / SkyBlue / Yellow / Purple 4색으로 제한한다. 화면 검수 후 별도 `Heart_Color4GarageMystery_01.asset`로 잠근다.
+- Heart Full Color Garage Mystery Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_FullColorGarageMystery_01.asset`에 저장된 dense Garage Mystery 파생 후보다. `manualShape=heart_full_color_garage_mystery`, `colorCount=9`, `densityMode=outer_dense_v1`, 하트 외곽 2줄/차고지/미스터리/내부 Medium-Large 규칙을 유지하고 전체 9색 팔레트를 사용한다. 외곽 차량 37대 `startsConcealed`, 차량 46대(visible 42 / garages 2), Small 34 / Medium 10 / Large 2, opening moves 7, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
 - Heart Double Outline Candidate: `Assets/BusPuzzle/Resources/ShapeTemplates/Heart/Heart_DoubleOutline_01.asset`에 저장된 7번 Big / Double Outline 변형 후보다. `manualShape=heart_double_outline`, `outlineMode=double_ring_tight_v2`, 차량 53대, Small-only, opening moves 3, `generationSolutionCount` 1, 템플릿 validation 통과 상태다.
 
 ## 7. 난이도 설계

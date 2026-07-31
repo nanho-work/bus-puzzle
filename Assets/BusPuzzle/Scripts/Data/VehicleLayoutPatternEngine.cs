@@ -263,6 +263,69 @@ namespace BusPuzzle
             return Mathf.Max(1, patterns.Length);
         }
 
+        public static int GetEndlessCompatibleLayoutVariantIndex(
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex)
+        {
+            if (layoutVariantIndex < 0)
+            {
+                return layoutVariantIndex;
+            }
+
+            var patterns = GetPatternPool(profile);
+            if (patterns == null || patterns.Length == 0)
+            {
+                return layoutVariantIndex;
+            }
+
+            var patternIndex = layoutVariantIndex % patterns.Length;
+            var pattern = patterns[patternIndex];
+            VehicleLayoutPatternId replacementPattern;
+            switch (pattern)
+            {
+                case VehicleLayoutPatternId.PackedClusters:
+                    replacementPattern = VehicleLayoutPatternId.ShapeSquare;
+                    break;
+                case VehicleLayoutPatternId.DenseJam:
+                    replacementPattern = VehicleLayoutPatternId.ShapeSquare;
+                    break;
+                case VehicleLayoutPatternId.MazeRows:
+                    replacementPattern = VehicleLayoutPatternId.ShapeCross;
+                    break;
+                case VehicleLayoutPatternId.ShapeDiamond:
+                    // Endless diamonds repeatedly consume more than the runtime generation
+                    // budget while searching for a valid exit order. Locked stages retain
+                    // the diamond silhouette; runtime stages use the adjacent square shape.
+                    replacementPattern = VehicleLayoutPatternId.ShapeSquare;
+                    break;
+                case VehicleLayoutPatternId.ShapeHeart
+                    when profile != null &&
+                        profile.TargetVehicleCount >
+                        ShapeLibraryVehicleCoverage.HeartSilhouetteVehicleCapacity / 0.75f:
+                    // The authored Heart has room for 32 vehicles. Above the runtime
+                    // builder's 75% target threshold it cannot satisfy the vehicle-count
+                    // contract, so reserve Heart for the lower-density endless tiers.
+                    replacementPattern = VehicleLayoutPatternId.ShapeCircle;
+                    break;
+                default:
+                    return layoutVariantIndex;
+            }
+
+            // These layouts spend most of the runtime probe budget finding exits and can
+            // still yield an arbitrary-looking cluster. Preserve the variant cycle while
+            // substituting an equally dense, recognizable silhouette with several escape
+            // lanes. Locked stages 1-200 never enter this endless-only mapping.
+            for (var index = 0; index < patterns.Length; index++)
+            {
+                if (patterns[index] == replacementPattern)
+                {
+                    return layoutVariantIndex - patternIndex + index;
+                }
+            }
+
+            return layoutVariantIndex;
+        }
+
         public static List<VehicleLayoutSlot> CreateSlots(
             LevelDifficultyProfile profile,
             System.Random random,
@@ -405,6 +468,30 @@ namespace BusPuzzle
                 targetVehicleCount,
                 layoutVariantIndex,
                 out definition);
+        }
+
+        public static bool TryCreateTemplateQualityShapeDefinition(
+            LevelDifficultyProfile profile,
+            int targetVehicleCount,
+            int layoutVariantIndex,
+            out VehicleShapeLayoutDefinition definition)
+        {
+            if (!TryCreateShapeDefinition(
+                    profile,
+                    targetVehicleCount,
+                    layoutVariantIndex,
+                    out definition))
+            {
+                return false;
+            }
+
+            // Heart is a required visual contract rather than an optional template. Keep
+            // ShapeHeart/ShowcaseHeart (and the explicit Heart library) in the quality path
+            // even when Heart.asset is missing or malformed, so downstream validation can
+            // fail closed with a useful error instead of silently reverting to legacy shape
+            // grading. Other shapes retain the existing convention-based opt-in behavior.
+            return definition.LibraryId == VehicleShapeLibraryId.Heart ||
+                VehicleShapeTemplateCatalog.TryGetQualityTemplate(definition, out _);
         }
 
         private static VehicleLayoutPatternId PickPattern(

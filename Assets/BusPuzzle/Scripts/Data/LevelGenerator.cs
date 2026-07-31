@@ -91,8 +91,14 @@ namespace BusPuzzle
                 useVisualPreviewFlow);
             buses = ApplyMysteryVehicleModifiers(buses, request.MysteryVehicleProfile, seed + 1699);
             if (useVisualPreviewFlow &&
-                ShapeLibraryVehicleCoverage.RequiresCoverage(request.VehicleLayoutVariantIndex) &&
-                (garages == null || garages.Count == 0))
+                ShapeLibraryVehicleCoverage.RequiresCoverage(
+                    request.Profile,
+                    request.VehicleLayoutVariantIndex) &&
+                (garages == null || garages.Count == 0) &&
+                !IsTemplateBackedHeartLayout(
+                    request.Profile,
+                    request.VehicleLayoutVariantIndex,
+                    buses.Count))
             {
                 buses = PrepareVisualPreviewOpeningVehicles(
                     buses,
@@ -101,7 +107,9 @@ namespace BusPuzzle
             }
 
             var flowPlan = useVisualPreviewFlow &&
-                ShapeLibraryVehicleCoverage.RequiresCoverage(request.VehicleLayoutVariantIndex) &&
+                ShapeLibraryVehicleCoverage.RequiresCoverage(
+                    request.Profile,
+                    request.VehicleLayoutVariantIndex) &&
                 (garages == null || garages.Count == 0)
                 ? BuildPassengerFlowPlanFromVehicleOrder(request.Profile, buses, seed)
                 : BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
@@ -175,7 +183,8 @@ namespace BusPuzzle
                     targetVehicleCount,
                     garages,
                     effectiveLayoutVariantIndex,
-                    useVisualPreviewQuality);
+                    useVisualPreviewQuality,
+                    attempt);
                 if (CanAcceptShapeLibraryVisualProbe(
                         vehicles,
                         profile,
@@ -230,14 +239,16 @@ namespace BusPuzzle
         {
             if (useSolutionAnalyzer ||
                 vehicles == null ||
-                !ShapeLibraryVehicleCoverage.RequiresCoverage(layoutVariantIndex) ||
+                !ShapeLibraryVehicleCoverage.RequiresCoverage(profile, layoutVariantIndex) ||
                 !ShapeLibraryVehicleCoverage.IsSatisfied(profile, layoutVariantIndex, vehicles.Count))
             {
                 return false;
             }
 
-            return useVisualPreviewQuality ||
-                ShapeLibraryLayoutQuality.IsSatisfied(profile, layoutVariantIndex, vehicles);
+            // Visual previews deliberately defer exit ordering to the pair-aware opening
+            // pass. Production candidates continue into HasPlayableExitOrder below so a
+            // pretty but stuck shape can never be accepted early.
+            return useVisualPreviewQuality;
         }
 
         private static bool HasPlayableExitOrder(
@@ -256,7 +267,7 @@ namespace BusPuzzle
                     return false;
                 }
 
-                if (ShapeLibraryVehicleCoverage.RequiresCoverage(layoutVariantIndex))
+                if (ShapeLibraryVehicleCoverage.RequiresCoverage(profile, layoutVariantIndex))
                 {
                     if (!ShapeLibraryVehicleCoverage.IsSatisfied(profile, layoutVariantIndex, vehicles.Count) ||
                         !ShapeLibraryLayoutQuality.IsSatisfied(profile, layoutVariantIndex, vehicles))
@@ -434,7 +445,8 @@ namespace BusPuzzle
             int targetVehicleCount,
             IReadOnlyList<GarageDefinition> garages,
             int layoutVariantIndex,
-            bool useVisualPreviewQuality = false)
+            bool useVisualPreviewQuality = false,
+            int placementProbeIndex = 0)
         {
             var vehicles = new List<BusDefinition>();
             var colors = PickColorSet(profile.TargetColorCount);
@@ -446,8 +458,33 @@ namespace BusPuzzle
                     layoutVariantIndex,
                     colors,
                     out var denseShowcaseVehicles,
-                    useVisualPreviewQuality))
+                    useVisualPreviewQuality,
+                    placementProbeIndex))
             {
+                if (IsTemplateBackedHeartLayout(
+                        profile,
+                        layoutVariantIndex,
+                        denseShowcaseVehicles.Count))
+                {
+                    // Three bounded mirror-pair passes are the authored Heart opening
+                    // contract. The first creates the initial exits, the second repairs
+                    // the tip/notch footprint, and the last handles the extra central
+                    // bridge pair used by high-budget Hearts. Every pass preserves
+                    // left/right symmetry and is rechecked by the final silhouette gate.
+                    for (var openingPass = 0; openingPass < 3; openingPass++)
+                    {
+                        if (openingPass > 0 && HasGreedyExitOrder(denseShowcaseVehicles))
+                        {
+                            break;
+                        }
+
+                        denseShowcaseVehicles = PrepareVisualPreviewOpeningVehicles(
+                            denseShowcaseVehicles,
+                            profile,
+                            layoutVariantIndex);
+                    }
+                }
+
                 return RecolorShapeLibraryVehiclesForExitOrder(
                     denseShowcaseVehicles,
                     profile,
@@ -606,7 +643,14 @@ namespace BusPuzzle
                 buses,
                 profile,
                 layoutVariantIndex);
-            var candidates = BuildVisualPreviewOpeningCandidates(buses, protectedLineIndices);
+            var preserveHeartMirrorPairs = IsTemplateBackedHeartLayout(
+                profile,
+                layoutVariantIndex,
+                buses.Count);
+            var candidates = BuildVisualPreviewOpeningCandidates(
+                buses,
+                protectedLineIndices,
+                preserveHeartMirrorPairs);
             var selectedIndices = new List<int>();
             var selected = new HashSet<int>();
             for (var candidateIndex = 0; candidateIndex < candidates.Count && selectedIndices.Count < 6; candidateIndex++)
@@ -619,7 +663,29 @@ namespace BusPuzzle
 
                 var adjusted = new List<BusDefinition>(buses);
                 adjusted[candidate.VehicleIndex] = candidate.Bus;
-                if (!HasOpeningMove(adjusted, candidate.VehicleIndex))
+                var mirroredPartnerIndex = -1;
+                if (preserveHeartMirrorPairs)
+                {
+                    mirroredPartnerIndex = FindMirroredHeartPartnerIndex(
+                        buses,
+                        candidate.VehicleIndex);
+                    if (mirroredPartnerIndex < 0 || selected.Contains(mirroredPartnerIndex))
+                    {
+                        continue;
+                    }
+
+                    adjusted[mirroredPartnerIndex] = CreateMirroredHeartBus(
+                        candidate.Bus,
+                        buses[mirroredPartnerIndex]);
+                }
+
+                if (HasVehicleStartOverlap(adjusted, candidate.VehicleIndex) ||
+                    (mirroredPartnerIndex >= 0 &&
+                        !IsWithinRecommendedBoardBounds(adjusted[mirroredPartnerIndex])) ||
+                    !HasOpeningMove(adjusted, candidate.VehicleIndex) ||
+                    (mirroredPartnerIndex >= 0 &&
+                        (HasVehicleStartOverlap(adjusted, mirroredPartnerIndex) ||
+                         !HasOpeningMove(adjusted, mirroredPartnerIndex))))
                 {
                     continue;
                 }
@@ -627,6 +693,12 @@ namespace BusPuzzle
                 buses[candidate.VehicleIndex] = candidate.Bus;
                 selected.Add(candidate.VehicleIndex);
                 selectedIndices.Add(candidate.VehicleIndex);
+                if (mirroredPartnerIndex >= 0)
+                {
+                    buses[mirroredPartnerIndex] = adjusted[mirroredPartnerIndex];
+                    selected.Add(mirroredPartnerIndex);
+                    selectedIndices.Add(mirroredPartnerIndex);
+                }
             }
 
             if (selectedIndices.Count == 0)
@@ -639,8 +711,14 @@ namespace BusPuzzle
                 return greedyOrdered;
             }
 
-            if (TryRepairGreedyOrderedVehicles(buses, protectedLineIndices, out var repairedOrdered))
+            if (TryRepairGreedyOrderedVehicles(
+                    buses,
+                    protectedLineIndices,
+                    out var repairedOrdered))
             {
+                // Heart repairs are allowed only as a bounded fallback. The caller's
+                // mandatory silhouette/symmetry gate rejects any repair that makes the
+                // named shape visually unacceptable.
                 return repairedOrdered;
             }
 
@@ -663,7 +741,8 @@ namespace BusPuzzle
 
         private static List<VisualPreviewOpeningCandidate> BuildVisualPreviewOpeningCandidates(
             IReadOnlyList<BusDefinition> buses,
-            HashSet<int> protectedLineIndices)
+            HashSet<int> protectedLineIndices,
+            bool prioritizeHeartTip)
         {
             var candidates = new List<VisualPreviewOpeningCandidate>();
             for (var index = 0; index < buses.Count; index++)
@@ -691,13 +770,31 @@ namespace BusPuzzle
                         continue;
                     }
 
-                    var edgeScore = GetVisualPreviewEdgeScore(bus.GridPosition, direction);
+                    var edgeScore = GetVisualPreviewEdgeScore(bus.GridPosition, direction) +
+                        GetHeartTipOpeningPriority(bus, direction, prioritizeHeartTip);
                     candidates.Add(new VisualPreviewOpeningCandidate(index, adjusted, edgeScore + directionIndex * 0.05f));
                 }
             }
 
             candidates.Sort((left, right) => left.Score.CompareTo(right.Score));
             return candidates;
+        }
+
+        private static float GetHeartTipOpeningPriority(
+            BusDefinition bus,
+            GridDirection direction,
+            bool prioritizeHeartTip)
+        {
+            if (!prioritizeHeartTip || direction != GridDirection.Down)
+            {
+                return 0f;
+            }
+
+            var centerX = (BoardLayoutConfig.GridColumns - 1) * 0.5f;
+            return bus.GridPosition.y <= 3 &&
+                Mathf.Abs(bus.GridPosition.x - centerX) <= 1.5f
+                ? -100f
+                : 0f;
         }
 
         private static List<GridDirection> GetVisualPreviewOpeningDirections(BusDefinition bus)
@@ -762,6 +859,85 @@ namespace BusPuzzle
                 default:
                     return Vector2.zero;
             }
+        }
+
+        private static bool IsTemplateBackedHeartLayout(
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex,
+            int vehicleCount)
+        {
+            return VehicleLayoutPatternEngine.TryCreateTemplateQualityShapeDefinition(
+                    profile,
+                    Mathf.Max(1, vehicleCount),
+                    layoutVariantIndex,
+                    out var definition) &&
+                (definition.LibraryId == VehicleShapeLibraryId.Heart ||
+                 definition.LibraryId == VehicleShapeLibraryId.HeartArrow);
+        }
+
+        private static int FindMirroredHeartPartnerIndex(
+            IReadOnlyList<BusDefinition> buses,
+            int vehicleIndex)
+        {
+            if (buses == null || vehicleIndex < 0 || vehicleIndex >= buses.Count)
+            {
+                return -1;
+            }
+
+            var source = buses[vehicleIndex];
+            var mirrorX = BoardLayoutConfig.GridColumns - 1 - source.GridPosition.x;
+            for (var index = 0; index < buses.Count; index++)
+            {
+                if (index == vehicleIndex)
+                {
+                    continue;
+                }
+
+                var candidate = buses[index];
+                if (candidate.Size == source.Size &&
+                    candidate.GridPosition.x == mirrorX &&
+                    candidate.GridPosition.y == source.GridPosition.y)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private static BusDefinition CreateMirroredHeartBus(
+            BusDefinition source,
+            BusDefinition partner)
+        {
+            var mirroredYaw = Mathf.Repeat(-source.YawDegrees + 360f, 360f);
+            var direction = DirectionFromVisualYaw(mirroredYaw);
+            var angleOffset = Mathf.DeltaAngle(
+                GridDirectionUtility.ToYawDegrees(direction),
+                mirroredYaw);
+            return new BusDefinition(
+                partner.Color,
+                partner.Size,
+                direction,
+                partner.GridPosition,
+                angleOffset,
+                new Vector2(-source.PositionOffsetCells.x, source.PositionOffsetCells.y),
+                partner.StartsConcealed);
+        }
+
+        private static GridDirection DirectionFromVisualYaw(float yaw)
+        {
+            yaw = Mathf.Repeat(yaw + 360f, 360f);
+            if (yaw >= 45f && yaw < 135f)
+            {
+                return GridDirection.Right;
+            }
+
+            if (yaw >= 135f && yaw < 225f)
+            {
+                return GridDirection.Down;
+            }
+
+            return yaw >= 225f && yaw < 315f ? GridDirection.Left : GridDirection.Up;
         }
 
         public static int CountOpeningMoves(IReadOnlyList<BusDefinition> buses)
@@ -866,6 +1042,15 @@ namespace BusPuzzle
                 layoutVariantIndex);
             var safety = constrainedBuses.Count * 4;
             var hasGreedyExitOrder = HasGreedyExitOrder(constrainedBuses);
+            if (IsTemplateBackedHeartLayout(profile, layoutVariantIndex, constrainedBuses.Count) &&
+                (openingMoveCount > maximumOpeningMoves || !hasGreedyExitOrder))
+            {
+                // The generic reducer edits one pose at a time. A Heart is authored and
+                // graded in mirror pairs, so reject this probe instead of silently
+                // destroying symmetry after the pair-aware opening pass.
+                return false;
+            }
+
             while ((openingMoveCount > maximumOpeningMoves || !hasGreedyExitOrder) && safety-- > 0)
             {
                 if (!TryFindOpeningReductionMove(
@@ -1157,6 +1342,16 @@ namespace BusPuzzle
             }
 
             return LevelVehicleExitPlanner.IsPathClear(vehicleIndex, buses, active, out _);
+        }
+
+        public static bool IsVehiclePathClearForValidation(
+            IReadOnlyList<BusDefinition> buses,
+            int vehicleIndex)
+        {
+            return buses != null &&
+                vehicleIndex >= 0 &&
+                vehicleIndex < buses.Count &&
+                HasOpeningMove(buses, vehicleIndex);
         }
 
         private static bool TryFindOpeningReductionMove(
@@ -1484,7 +1679,8 @@ namespace BusPuzzle
 
                         var adjusted = new List<BusDefinition>(buses);
                         adjusted[index] = candidate;
-                        if (!LevelVehicleExitPlanner.IsPathClear(index, adjusted, active, out _))
+                        if (HasVehicleStartOverlap(adjusted, index) ||
+                            !LevelVehicleExitPlanner.IsPathClear(index, adjusted, active, out _))
                         {
                             continue;
                         }

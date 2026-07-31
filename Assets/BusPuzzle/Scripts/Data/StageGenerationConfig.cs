@@ -225,10 +225,16 @@ namespace BusPuzzle
     [CreateAssetMenu(menuName = "Bus Puzzle/Stage Generation Config", fileName = "StageGenerationConfig")]
     public sealed class StageGenerationConfig : ScriptableObject
     {
+        public const int EndlessScheduleVersion = 2;
+
+        private const int MinimumEndlessIntensity = 0;
+        private const int MaximumEndlessIntensity = 5;
+
         [SerializeField, Range(1, 500)] private int generatedStageCount = 50;
         [SerializeField, Range(1, 500)] private int difficultyRampStartStage = 11;
         [SerializeField, Range(1, 500)] private int difficultyRampReferenceStage = 30;
         [SerializeField, Range(1, 500)] private int difficultyRampMaxStage = 50;
+        [SerializeField, Range(1, 499)] private int post50RampStartStage = 50;
         [SerializeField, Range(2, 500)] private int post50RampMaxStage = 100;
         [SerializeField, Range(1, 512)] private int post50NormalMinSolutionCount = 24;
         [SerializeField, Range(1, 512)] private int post50NormalMaxSolutionCount = 90;
@@ -253,6 +259,14 @@ namespace BusPuzzle
         [SerializeField, Range(1, 80)] private int runtimeVehicleGenerationAttempts = 8;
         [SerializeField, Range(1, 512)] private int solutionCountLimit = 256;
         [SerializeField, Range(0, 10)] private int runtimePreloadAheadCount = 3;
+        [SerializeField, Range(1f, 5000f)] private float endlessMasterySoftnessStages = 800f;
+        [SerializeField, Range(0f, 0.75f)] private float endlessMasteryIntensityFloor = 0.75f;
+        [SerializeField, Range(4, 80)] private int endlessNormalVehicleMin = 38;
+        [SerializeField, Range(4, 80)] private int endlessNormalVehicleMax = 42;
+        [SerializeField, Range(4, 80)] private int endlessHardVehicleMin = 43;
+        [SerializeField, Range(4, 80)] private int endlessHardVehicleMax = 46;
+        [SerializeField, Range(4, 80)] private int endlessSuperHardVehicleMin = 47;
+        [SerializeField, Range(4, 80)] private int endlessSuperHardVehicleMax = 50;
         [SerializeField] private List<StagePatternEntry> stagePattern = new List<StagePatternEntry>
         {
             StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
@@ -260,6 +274,41 @@ namespace BusPuzzle
             StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
             StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
             StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.LightMysteryVehicles)
+        };
+        // A prime-length challenge rhythm is intentionally different from the road and
+        // layout cycles. Their combined tuple therefore takes a long time to repeat even
+        // though every individual axis remains bounded and deterministic.
+        [SerializeField] private List<StagePatternEntry> endlessStagePattern = new List<StagePatternEntry>
+        {
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.MysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.LightMysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None),
+            StagePatternEntry.Create(LevelDifficulty.Hard, StageModifierFlags.MysteryVehicles),
+            StagePatternEntry.Create(LevelDifficulty.SuperHard, StageModifierFlags.Garages | StageModifierFlags.MysteryVehicles)
+        };
+        [SerializeField] private List<int> endlessIntensityPattern = new List<int>
+        {
+            5, 4, 0, 3, 5, 4, 0, 2, 1, 1,
+            3, 0, 4, 2, 1, 1, 0, 3, 2, 4,
+            1, 0, 5, 2, 3, 1, 2, 0, 3
         };
         [SerializeField, HideInInspector] private List<LevelDifficulty> difficultyPattern = new List<LevelDifficulty>
         {
@@ -280,7 +329,8 @@ namespace BusPuzzle
         public int DifficultyRampStartStage => Mathf.Clamp(difficultyRampStartStage, 1, 500);
         public int DifficultyRampReferenceStage => Mathf.Clamp(difficultyRampReferenceStage, 1, 500);
         public int DifficultyRampMaxStage => Mathf.Max(DifficultyRampStartStage, Mathf.Clamp(difficultyRampMaxStage, 1, 500));
-        public int Post50RampMaxStage => Mathf.Max(GeneratedStageCount + 1, Mathf.Clamp(post50RampMaxStage, 2, 500));
+        public int Post50RampStartStage => Mathf.Clamp(post50RampStartStage, 1, 499);
+        public int Post50RampMaxStage => Mathf.Max(Post50RampStartStage + 1, Mathf.Clamp(post50RampMaxStage, 2, 500));
         public int BaseSeed => baseSeed;
         public int CandidateAttemptsPerStage => Mathf.Max(1, candidateAttemptsPerStage);
         public int ReleaseVehicleGenerationAttempts => Mathf.Clamp(releaseVehicleGenerationAttempts, 1, 80);
@@ -290,12 +340,25 @@ namespace BusPuzzle
         public int RuntimeVehicleGenerationAttempts => Mathf.Clamp(runtimeVehicleGenerationAttempts, 1, 80);
         public int SolutionCountLimit => Mathf.Max(1, solutionCountLimit);
         public int RuntimePreloadAheadCount => Mathf.Clamp(runtimePreloadAheadCount, 0, 10);
+        public int EndlessPatternLength => GetUsableEndlessPattern().Count;
+        public int EndlessIntensityPatternLength => GetUsableEndlessIntensityPattern().Count;
+        public float EndlessMasteryIntensityFloor => Mathf.Clamp(endlessMasteryIntensityFloor, 0f, 0.75f);
         public GarageGenerationRule SuperHardGarageRule => superHardGarageRule ?? new GarageGenerationRule();
         public MysteryVehicleGenerationRule MysteryVehicleRule => mysteryVehicleRule ?? MysteryVehicleGenerationRule.DefaultMystery();
         public MysteryVehicleGenerationRule LightMysteryVehicleRule => lightMysteryVehicleRule ?? MysteryVehicleGenerationRule.DefaultLightMystery();
 
         public StagePatternEntry GetPatternEntryForStage(int stageNumber)
         {
+            if (stageNumber > GeneratedStageCount)
+            {
+                var endlessPattern = GetUsableEndlessPattern();
+                var endlessEntry = endlessPattern[GetEndlessBeat(stageNumber)];
+                if (endlessEntry != null)
+                {
+                    return endlessEntry;
+                }
+            }
+
             if (stagePattern != null && stagePattern.Count > 0)
             {
                 var entry = stagePattern[Mathf.Abs(stageNumber - 1) % stagePattern.Count];
@@ -317,7 +380,63 @@ namespace BusPuzzle
         public StageModifierFlags GetModifiersForStage(int stageNumber)
         {
             var entry = GetPatternEntryForStage(stageNumber);
+            if (stageNumber > GeneratedStageCount)
+            {
+                return entry.Modifiers;
+            }
+
             return GetPost50AdjustedModifiers(entry.Difficulty, entry.Modifiers, GetPost50Pressure(stageNumber));
+        }
+
+        public int GetEndlessBeat(int stageNumber)
+        {
+            return GetEndlessPatternIndex(stageNumber, GetUsableEndlessPattern().Count);
+        }
+
+        public int GetEndlessEpoch(int stageNumber)
+        {
+            var patternLength = Mathf.Max(1, GetUsableEndlessPattern().Count);
+            var zeroBasedEndlessStage = GetZeroBasedEndlessStage(stageNumber);
+            return (int)Math.Min(int.MaxValue, zeroBasedEndlessStage / patternLength);
+        }
+
+        public int GetEndlessIntensity(int stageNumber)
+        {
+            var pattern = GetUsableEndlessIntensityPattern();
+            var index = GetEndlessPatternIndex(stageNumber, pattern.Count);
+            return Mathf.Clamp(pattern[index], MinimumEndlessIntensity, MaximumEndlessIntensity);
+        }
+
+        public float GetEndlessMasteryPressure(int stageNumber)
+        {
+            if (stageNumber <= GeneratedStageCount)
+            {
+                return 0f;
+            }
+
+            var zeroBasedEndlessStage = GetZeroBasedEndlessStage(stageNumber);
+            var softness = Mathf.Max(1f, endlessMasterySoftnessStages);
+            return Mathf.Clamp01(1f - Mathf.Exp(-(float)(zeroBasedEndlessStage / softness)));
+        }
+
+        public float GetEndlessChallengeProgress(int stageNumber)
+        {
+            var intensity = GetEndlessIntensity(stageNumber);
+            var intensityProgress = Mathf.InverseLerp(
+                MinimumEndlessIntensity,
+                MaximumEndlessIntensity,
+                intensity);
+            // Intensity zero is a deliberate recovery beat. It must remain genuinely
+            // lighter even after long-run mastery has raised the rest of the schedule.
+            if (intensity <= MinimumEndlessIntensity)
+            {
+                return 0f;
+            }
+
+            var masteryPressure = GetEndlessMasteryPressure(stageNumber);
+            var masteryFloor = masteryPressure * EndlessMasteryIntensityFloor;
+            return Mathf.Clamp01(
+                masteryFloor + intensityProgress * (1f - masteryFloor));
         }
 
         public StageModifierFlags GetPost50AdjustedModifiers(
@@ -406,7 +525,7 @@ namespace BusPuzzle
 
         public float GetPost50Pressure(int stageNumber)
         {
-            var startStage = GeneratedStageCount;
+            var startStage = Post50RampStartStage;
             if (stageNumber <= startStage)
             {
                 return 0f;
@@ -420,6 +539,11 @@ namespace BusPuzzle
             if (profile == null)
             {
                 return null;
+            }
+
+            if (stageNumber > GeneratedStageCount)
+            {
+                return ApplyEndlessProfileVariation(profile, stageNumber);
             }
 
             var pressure = GetLongRunVehiclePressure(stageNumber);
@@ -443,6 +567,59 @@ namespace BusPuzzle
                 profile.TargetColorCount,
                 profile.ParkingTension,
                 profile.StationPressure,
+                profile.RequireSolutionRoute);
+        }
+
+        private LevelDifficultyProfile ApplyEndlessProfileVariation(
+            LevelDifficultyProfile profile,
+            int stageNumber)
+        {
+            GetEndlessVehicleRange(profile.Difficulty, out var minVehicleCount, out var maxVehicleCount);
+            var intensityProgress = GetEndlessChallengeProgress(stageNumber);
+            var targetVehicleCount = Mathf.RoundToInt(
+                Mathf.Lerp(minVehicleCount, maxVehicleCount, intensityProgress));
+
+            int minColorCount;
+            int maxColorCount;
+            float minParkingTension;
+            float maxParkingTension;
+            float minStationPressure;
+            float maxStationPressure;
+            switch (profile.Difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    minColorCount = 9;
+                    maxColorCount = 10;
+                    minParkingTension = 0.68f;
+                    maxParkingTension = 0.76f;
+                    minStationPressure = 0.68f;
+                    maxStationPressure = 0.76f;
+                    break;
+                case LevelDifficulty.SuperHard:
+                    minColorCount = 11;
+                    maxColorCount = 12;
+                    minParkingTension = 0.78f;
+                    maxParkingTension = 0.84f;
+                    minStationPressure = 0.78f;
+                    maxStationPressure = 0.84f;
+                    break;
+                default:
+                    minColorCount = 8;
+                    maxColorCount = 9;
+                    minParkingTension = 0.58f;
+                    maxParkingTension = 0.64f;
+                    minStationPressure = 0.56f;
+                    maxStationPressure = 0.62f;
+                    break;
+            }
+
+            return LevelDifficultyProfile.CreateCustom(
+                profile.Difficulty,
+                profile.PassengerFlowRule,
+                targetVehicleCount,
+                Mathf.RoundToInt(Mathf.Lerp(minColorCount, maxColorCount, intensityProgress)),
+                Mathf.Lerp(minParkingTension, maxParkingTension, intensityProgress),
+                Mathf.Lerp(minStationPressure, maxStationPressure, intensityProgress),
                 profile.RequireSolutionRoute);
         }
 
@@ -522,6 +699,92 @@ namespace BusPuzzle
                 default:
                     return Mathf.Clamp(longRunNormalVehicleCap, 4, 80);
             }
+        }
+
+        private void GetEndlessVehicleRange(
+            LevelDifficulty difficulty,
+            out int minVehicleCount,
+            out int maxVehicleCount)
+        {
+            // Reserve at least one vehicle between the complete tier bands. This keeps
+            // Normal < Hard < SuperHard even if somebody later enters overlapping values
+            // in the inspector, while still respecting LevelDifficultyProfile's hard cap.
+            var normalMin = Mathf.Clamp(endlessNormalVehicleMin, 4, 78);
+            var normalMax = Mathf.Clamp(
+                Mathf.Max(normalMin, endlessNormalVehicleMax),
+                normalMin,
+                78);
+            var hardMin = Mathf.Clamp(
+                Mathf.Max(normalMax + 1, endlessHardVehicleMin),
+                normalMax + 1,
+                79);
+            var hardMax = Mathf.Clamp(
+                Mathf.Max(hardMin, endlessHardVehicleMax),
+                hardMin,
+                79);
+            var superHardMin = Mathf.Clamp(
+                Mathf.Max(hardMax + 1, endlessSuperHardVehicleMin),
+                hardMax + 1,
+                80);
+            var superHardMax = Mathf.Clamp(
+                Mathf.Max(superHardMin, endlessSuperHardVehicleMax),
+                superHardMin,
+                80);
+
+            switch (difficulty)
+            {
+                case LevelDifficulty.Hard:
+                    minVehicleCount = hardMin;
+                    maxVehicleCount = hardMax;
+                    break;
+                case LevelDifficulty.SuperHard:
+                    minVehicleCount = superHardMin;
+                    maxVehicleCount = superHardMax;
+                    break;
+                default:
+                    minVehicleCount = normalMin;
+                    maxVehicleCount = normalMax;
+                    break;
+            }
+        }
+
+        private List<StagePatternEntry> GetUsableEndlessPattern()
+        {
+            if (endlessStagePattern != null && endlessStagePattern.Count > 0)
+            {
+                return endlessStagePattern;
+            }
+
+            if (stagePattern != null && stagePattern.Count > 0)
+            {
+                return stagePattern;
+            }
+
+            return new List<StagePatternEntry>
+            {
+                StagePatternEntry.Create(LevelDifficulty.Normal, StageModifierFlags.None)
+            };
+        }
+
+        private List<int> GetUsableEndlessIntensityPattern()
+        {
+            if (endlessIntensityPattern != null && endlessIntensityPattern.Count > 0)
+            {
+                return endlessIntensityPattern;
+            }
+
+            return new List<int> { MinimumEndlessIntensity };
+        }
+
+        private int GetEndlessPatternIndex(int stageNumber, int patternLength)
+        {
+            patternLength = Mathf.Max(1, patternLength);
+            return (int)(GetZeroBasedEndlessStage(stageNumber) % patternLength);
+        }
+
+        private long GetZeroBasedEndlessStage(int stageNumber)
+        {
+            return Math.Max(0L, (long)stageNumber - GeneratedStageCount - 1L);
         }
 
         private int GetPost50MinSolutionCount(LevelDifficulty difficulty)

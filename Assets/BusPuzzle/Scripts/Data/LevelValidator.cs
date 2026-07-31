@@ -355,17 +355,56 @@ namespace BusPuzzle
                 profile,
                 layoutVariantIndex,
                 buses,
-                out var qualityFailureMessage))
+                out var qualityFailureMessage,
+                ShouldEnforceTemplateSilhouette(levelData.GenerationSignature)))
             {
                 report.Add(LevelValidationSeverity.Error, qualityFailureMessage);
             }
         }
 
+        private static bool ShouldEnforceTemplateSilhouette(string generationSignature)
+        {
+            return StageGenerationSignature.TryGetInt(
+                    generationSignature,
+                    "signature",
+                    out var signatureVersion) &&
+                signatureVersion >= StageGenerationSignature.CurrentVersion;
+        }
+
         private static bool UsesShapeLibraryLayout(LevelData levelData)
         {
-            return levelData != null &&
-                StageGenerationSignature.TryGetInt(levelData.GenerationSignature, "layoutVariant", out var layoutVariantIndex) &&
-                VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _);
+            if (levelData == null ||
+                !StageGenerationSignature.TryGetInt(
+                    levelData.GenerationSignature,
+                    "layoutVariant",
+                    out var layoutVariantIndex))
+            {
+                return false;
+            }
+
+            if (VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out _))
+            {
+                return true;
+            }
+
+            // Positive automatic ShapeHeart/ShowcaseHeart variants predate the template
+            // quality system. Only signatures created by the current generator opt in, so
+            // the locked release pack remains grandfathered and byte-for-byte untouched.
+            if (!ShouldEnforceTemplateSilhouette(levelData.GenerationSignature))
+            {
+                return false;
+            }
+
+            var profile = levelData.DifficultyProfile ??
+                LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            var targetVehicleCount = Mathf.Max(
+                profile.TargetVehicleCount,
+                levelData.Buses != null ? levelData.Buses.Count : 0);
+            return VehicleLayoutPatternEngine.TryCreateTemplateQualityShapeDefinition(
+                profile,
+                Mathf.Max(1, targetVehicleCount),
+                layoutVariantIndex,
+                out _);
         }
 
         private static bool AllowsTutorialPassengerRuns(LevelData levelData)

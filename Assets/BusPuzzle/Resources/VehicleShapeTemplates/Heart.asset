@@ -1,0 +1,108 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f10ab847271045b78d5acffb32e2241e, type: 3}
+  m_Name: Heart
+  m_EditorClassIdentifier: Assembly-CSharp::BusPuzzle.VehicleShapeTemplate
+  shapeId: heart
+  displayName: Heart
+  symmetry: 1
+  normalizedCenterOffset: {x: 0, y: -0.04}
+  normalizedScale: {x: 0.9, y: 0.94}
+  contours:
+  - operation: 0
+    points:
+    - {x: 0.5, y: 0.760672}
+    - {x: 0.501112, y: 0.772614}
+    - {x: 0.508669, y: 0.80606}
+    - {x: 0.528021, y: 0.854357}
+    - {x: 0.5625, y: 0.907909}
+    - {x: 0.612801, y: 0.956058}
+    - {x: 0.676777, y: 0.989102}
+    - {x: 0.749672, y: 1}
+    - {x: 0.82476, y: 0.985417}
+    - {x: 0.89429, y: 0.945937}
+    - {x: 0.950611, y: 0.885457}
+    - {x: 0.987277, y: 0.809971}
+    - {x: 1, y: 0.726096}
+    - {x: 0.987277, y: 0.639705}
+    - {x: 0.950611, y: 0.554989}
+    - {x: 0.89429, y: 0.474137}
+    - {x: 0.82476, y: 0.397624}
+    - {x: 0.749672, y: 0.324961}
+    - {x: 0.676777, y: 0.255634}
+    - {x: 0.612801, y: 0.189925}
+    - {x: 0.5625, y: 0.129372}
+    - {x: 0.528021, y: 0.076738}
+    - {x: 0.508669, y: 0.035511}
+    - {x: 0.501112, y: 0.009105}
+    - {x: 0.5, y: 0}
+    - {x: 0.498888, y: 0.009105}
+    - {x: 0.491331, y: 0.035511}
+    - {x: 0.471979, y: 0.076738}
+    - {x: 0.4375, y: 0.129372}
+    - {x: 0.387199, y: 0.189925}
+    - {x: 0.323223, y: 0.255634}
+    - {x: 0.250328, y: 0.324961}
+    - {x: 0.17524, y: 0.397624}
+    - {x: 0.10571, y: 0.474137}
+    - {x: 0.049389, y: 0.554989}
+    - {x: 0.012723, y: 0.639705}
+    - {x: 0, y: 0.726096}
+    - {x: 0.012723, y: 0.809971}
+    - {x: 0.049389, y: 0.885457}
+    - {x: 0.10571, y: 0.945937}
+    - {x: 0.17524, y: 0.985417}
+    - {x: 0.250328, y: 1}
+    - {x: 0.323223, y: 0.989102}
+    - {x: 0.387199, y: 0.956058}
+    - {x: 0.4375, y: 0.907909}
+    - {x: 0.471979, y: 0.854357}
+    - {x: 0.491331, y: 0.80606}
+    - {x: 0.498888, y: 0.772614}
+  keyFeatures:
+  - id: bottom_tip
+    normalizedPosition: {x: 0.5, y: 0.02}
+    radiusNormalized: 0.09
+    expectation: 2
+    requiredCoverage: 0.6
+  - id: top_notch
+    normalizedPosition: {x: 0.5, y: 0.77}
+    radiusNormalized: 0.055
+    expectation: 1
+    requiredCoverage: 0.6
+  - id: left_lobe
+    normalizedPosition: {x: 0.25, y: 0.99}
+    radiusNormalized: 0.08
+    expectation: 2
+    requiredCoverage: 0.6
+  - id: right_lobe
+    normalizedPosition: {x: 0.75, y: 0.99}
+    radiusNormalized: 0.08
+    expectation: 2
+    requiredCoverage: 0.6
+  constraints:
+    enableSilhouetteGate: 1
+    rasterPixelsPerCell: 4
+    perceptionPaddingCells: 0.12
+    perceptionClosingCells: 0.5
+    minimumIntersectionOverUnion: 0.65
+    minimumTargetCoverage: 0.73
+    maximumOutsideRatio: 0.18
+    maximumBoundaryErrorCells: 2.1
+    maximumSymmetryError: 0.18
+    requireTopologyMatch: 1
+    minimumTopologyHoleAreaCells: 1.5
+    maximumFilledHoleCount: 4
+    maximumFilledHoleAreaCells: 18
+    minimumFeaturePassRatio: 1
+    maximumMeanTangentErrorDegrees: 38
+    tangentProbeDistanceCells: 1.15

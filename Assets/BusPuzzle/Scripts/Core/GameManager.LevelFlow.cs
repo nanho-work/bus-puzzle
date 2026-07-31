@@ -103,6 +103,20 @@ namespace BusPuzzle
 
         private void LoadLevel(int levelIndex)
         {
+            if (levelSequence == null || levelSequence.Count <= 0)
+            {
+                Debug.LogError("Cannot load a stage because the level sequence is missing or empty.");
+                return;
+            }
+
+            var preparedLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
+            var preparedLevel = levelSequence.GetLevel(preparedLevelIndex);
+            if (preparedLevel == null)
+            {
+                Debug.LogError($"Stage {preparedLevelIndex + 1:000} could not be prepared. Keeping the current saved stage unchanged.");
+                return;
+            }
+
             StopNextLevelLoad();
             StopClearNextStagePreload();
             boardingFlowController.Reset();
@@ -115,10 +129,9 @@ namespace BusPuzzle
             activeDailyChallengeStepIndex = 0;
             activeDailyChallengeDateKey = string.Empty;
             BackgroundMusicPlayer.PlayDefault();
-            currentLevelIndex = Mathf.Clamp(levelIndex, 0, levelSequence.Count - 1);
+            currentLevelIndex = preparedLevelIndex;
             dailyChallengeReturnLevelIndex = currentLevelIndex;
-            UserProgress.SaveLastStageIndex(currentLevelIndex, levelSequence.Count);
-            currentLevel = levelSequence.GetLevel(currentLevelIndex);
+            currentLevel = preparedLevel;
             UpdateBannerAdState(false);
             var shouldValidateExitSequence = levelSequence == null ||
                 !levelSequence.UsesRuntimeGeneration &&
@@ -143,6 +156,11 @@ namespace BusPuzzle
             ClearPendingFailureRecoveryState();
 
             boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses, currentLevelIndex + 1);
+            if (!validationReport.HasErrors)
+            {
+                UserProgress.SavePreparedStageIndex(currentLevelIndex, levelSequence.Count);
+            }
+
             RevealReadyConcealedBuses();
             ReframeBoardCamera(true);
             UpdateCounters();
@@ -199,14 +217,28 @@ namespace BusPuzzle
             var hasNextLevel = levelSequence != null &&
                 nextLevelIndex >= 0 &&
                 nextLevelIndex < levelSequence.Count;
-            if (!hasNextLevel ||
-                !levelSequence.UsesRuntimeGeneration ||
-                levelSequence.IsLevelCached(nextLevelIndex))
+            if (!hasNextLevel)
             {
-                uiController?.SetClearNextPreparing(false, hasNextLevel);
+                uiController?.SetClearNextPreparing(false, false);
                 return;
             }
 
+            if (levelSequence.IsLevelCached(nextLevelIndex))
+            {
+                var prepared = CommitPreparedStageProgress(nextLevelIndex);
+                uiController?.SetClearNextPreparing(false, prepared);
+                return;
+            }
+
+            if (!levelSequence.UsesRuntimeGeneration)
+            {
+                uiController?.SetClearNextPreparing(false, false);
+                return;
+            }
+
+            // Let the clear overlay render before the bounded procedural work begins.
+            // Gold claims are already idempotent by stage number, while stage progress is
+            // committed only after the generated level has passed validation below.
             uiController?.SetClearNextPreparing(true, true);
             clearNextStagePreloadRoutine = StartCoroutine(PreloadClearNextStageRoutine(nextLevelIndex));
         }
@@ -253,8 +285,16 @@ namespace BusPuzzle
 
             if (!levelSequence.IsLevelCached(nextLevelIndex))
             {
-                levelSequence.PreloadLevel(nextLevelIndex);
+                var prepared = levelSequence.PreloadLevel(nextLevelIndex);
                 yield return null;
+                if (!prepared || !levelSequence.IsLevelCached(nextLevelIndex))
+                {
+                    Debug.LogError($"Stage {nextLevelIndex + 1:000} could not be prepared for loading.");
+                    nextLevelLoadRoutine = null;
+                    uiController?.HideStageTransitionLoading();
+                    uiController?.SetClearNextPreparing(false, true);
+                    yield break;
+                }
             }
 
             nextLevelLoadRoutine = null;
@@ -264,6 +304,7 @@ namespace BusPuzzle
         private IEnumerator PreloadClearNextStageRoutine(int nextLevelIndex)
         {
             var startedAt = Time.unscaledTime;
+            var prepared = false;
             yield return null;
             yield return new WaitForSecondsRealtime(ClearNextStagePreloadSettleSeconds);
 
@@ -275,7 +316,9 @@ namespace BusPuzzle
                 nextLevelIndex < levelSequence.Count &&
                 !levelSequence.IsLevelCached(nextLevelIndex))
             {
-                levelSequence.PreloadLevel(nextLevelIndex);
+                prepared = levelSequence.PreloadLevel(nextLevelIndex) &&
+                    levelSequence.IsLevelCached(nextLevelIndex) &&
+                    CommitPreparedStageProgress(nextLevelIndex);
             }
 
             var remainingSettleSeconds = ClearNextStageMinimumPreparingSeconds - (Time.unscaledTime - startedAt);
@@ -291,8 +334,30 @@ namespace BusPuzzle
                 nextLevelIndex == currentLevelIndex + 1 &&
                 nextLevelIndex < levelSequence.Count)
             {
-                uiController?.SetClearNextPreparing(false, true);
+                uiController?.SetClearNextPreparing(false, prepared);
             }
+        }
+
+        private bool CommitPreparedStageProgress(int levelIndex)
+        {
+            if (levelSequence == null ||
+                levelIndex < 0 ||
+                levelIndex >= levelSequence.Count ||
+                !levelSequence.IsLevelCached(levelIndex))
+            {
+                return false;
+            }
+
+            var preparedLevel = levelSequence.GetLevel(levelIndex);
+            var validationReport = LevelValidator.Validate(preparedLevel, false);
+            if (preparedLevel == null || validationReport.HasErrors)
+            {
+                Debug.LogError(
+                    $"Stage {levelIndex + 1:000} preload was not committed because the prepared level is invalid.");
+                return false;
+            }
+
+            return UserProgress.SavePreparedStageIndex(levelIndex, levelSequence.Count);
         }
     }
 }

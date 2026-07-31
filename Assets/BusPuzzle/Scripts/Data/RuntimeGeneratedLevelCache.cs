@@ -9,8 +9,8 @@ namespace BusPuzzle
 {
     public static class RuntimeGeneratedLevelCache
     {
-        private const int CacheVersion = 52;
-        private const int CacheValidationNodeVisitLimit = 2048;
+        private const int CacheVersion = 62;
+        private const int RetainedStageWindow = 16;
         private const string CacheDirectoryName = "generated-stage-cache";
 
         public static bool TryLoad(StageGenerationConfig config, StageGenerationRequest request, out LevelData level)
@@ -37,8 +37,9 @@ namespace BusPuzzle
                 }
 
                 level = payload.ToLevel(request);
-                if (!IsCachedLevelUsable(level))
+                if (!IsCachedLevelUsable(request, level))
                 {
+                    ReleaseCachedLevel(level);
                     level = null;
                     return false;
                 }
@@ -54,7 +55,10 @@ namespace BusPuzzle
 
         public static void Save(StageGenerationConfig config, StageGenerationRequest request, LevelData level)
         {
-            if (config == null || level == null)
+            if (config == null ||
+                level == null ||
+                !StageCandidateBuilder.ShouldCacheRuntimeStage(request, level) ||
+                !IsCachedLevelUsable(request, level))
             {
                 return;
             }
@@ -66,6 +70,7 @@ namespace BusPuzzle
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 var payload = CachedLevelPayload.FromLevel(signature, level);
                 File.WriteAllText(path, JsonUtility.ToJson(payload));
+                PruneOldCacheFiles(path, request.StageNumber);
             }
             catch (Exception exception)
             {
@@ -81,9 +86,78 @@ namespace BusPuzzle
                 $"stage_{stageNumber:000}_{CreateStableHash(signature):x16}.json");
         }
 
-        private static bool IsCachedLevelUsable(LevelData level)
+        private static void PruneOldCacheFiles(string retainedPath, int currentStageNumber)
+        {
+            var directory = Path.GetDirectoryName(retainedPath);
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            {
+                return;
+            }
+
+            var minimumRetainedStage = Mathf.Max(1, currentStageNumber - RetainedStageWindow + 1);
+            var paths = Directory.GetFiles(directory, "stage_*.json", SearchOption.TopDirectoryOnly);
+            for (var index = 0; index < paths.Length; index++)
+            {
+                var candidatePath = paths[index];
+                if (string.Equals(candidatePath, retainedPath, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!TryParseStageNumber(candidatePath, out var cachedStageNumber))
+                {
+                    continue;
+                }
+
+                if (cachedStageNumber < minimumRetainedStage ||
+                    cachedStageNumber == currentStageNumber)
+                {
+                    File.Delete(candidatePath);
+                }
+            }
+        }
+
+        private static bool TryParseStageNumber(string path, out int stageNumber)
+        {
+            stageNumber = 0;
+            var fileName = Path.GetFileNameWithoutExtension(path);
+            const string prefix = "stage_";
+            if (string.IsNullOrEmpty(fileName) || !fileName.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var separatorIndex = fileName.IndexOf('_', prefix.Length);
+            return separatorIndex > prefix.Length &&
+                int.TryParse(
+                    fileName.Substring(prefix.Length, separatorIndex - prefix.Length),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out stageNumber);
+        }
+
+        private static bool IsCachedLevelUsable(StageGenerationRequest request, LevelData level)
         {
             if (level == null)
+            {
+                return false;
+            }
+
+            if (!StageGenerationSignature.TryGetInt(
+                    level.GenerationSignature,
+                    "runtimeProcedural",
+                    out var runtimeProcedural) ||
+                runtimeProcedural != 1 ||
+                !StageGenerationSignature.TryGetInt(
+                    level.GenerationSignature,
+                    "stage",
+                    out var stageNumber) ||
+                stageNumber != request.StageNumber ||
+                !StageGenerationSignature.TryGetInt(
+                    level.GenerationSignature,
+                    "seed",
+                    out var seed) ||
+                seed != request.Seed)
             {
                 return false;
             }
@@ -93,7 +167,24 @@ namespace BusPuzzle
                 return false;
             }
 
-            return StageSolutionAnalyzer.Analyze(level.Buses, level.Garages, 1, CacheValidationNodeVisitLimit).IsSolvable;
+            return StageCandidateBuilder.AnalyzeRuntimeSolution(level).IsSolvable;
+        }
+
+        private static void ReleaseCachedLevel(LevelData level)
+        {
+            if (level == null)
+            {
+                return;
+            }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                UnityEngine.Object.DestroyImmediate(level);
+                return;
+            }
+#endif
+            UnityEngine.Object.Destroy(level);
         }
 
         private static string CreateSignature(StageGenerationConfig config, StageGenerationRequest request)
@@ -109,7 +200,9 @@ namespace BusPuzzle
             Append(builder, "rampStart", config.DifficultyRampStartStage);
             Append(builder, "rampReference", config.DifficultyRampReferenceStage);
             Append(builder, "rampMax", config.DifficultyRampMaxStage);
+            Append(builder, "postRampStart", config.Post50RampStartStage);
             Append(builder, "postRampMax", config.Post50RampMaxStage);
+            Append(builder, "endlessVersion", StageGenerationConfig.EndlessScheduleVersion);
             Append(builder, "baseSeed", config.BaseSeed);
             Append(builder, "candidateAttempts", config.CandidateAttemptsPerStage);
             Append(builder, "runtimeCandidateAttempts", config.RuntimeCandidateAttemptsPerStage);
@@ -198,6 +291,8 @@ namespace BusPuzzle
             [SerializeField] private PassengerFlowPlan passengerFlowPlan;
             [SerializeField] private List<BusDefinition> buses;
             [SerializeField] private List<GarageDefinition> garages;
+            [SerializeField] private string generationSignature;
+            [SerializeField] private int generationSolutionCount;
 
             public bool Matches(string expectedSignature)
             {
@@ -217,6 +312,7 @@ namespace BusPuzzle
                     roadPresetId,
                     passengerUnits,
                     garages);
+                level.SetGenerationMetadata(generationSignature, generationSolutionCount);
                 return level;
             }
 
@@ -233,7 +329,9 @@ namespace BusPuzzle
                     passengerUnits = new List<PuzzleColor>(level.PassengerUnits),
                     passengerFlowPlan = level.PassengerFlowPlan,
                     buses = new List<BusDefinition>(level.Buses),
-                    garages = new List<GarageDefinition>(level.Garages)
+                    garages = new List<GarageDefinition>(level.Garages),
+                    generationSignature = level.GenerationSignature,
+                    generationSolutionCount = level.GenerationSolutionCount
                 };
             }
         }

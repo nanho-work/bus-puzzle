@@ -63,6 +63,11 @@ namespace BusPuzzle
 
     public static class StageGenerationPlanner
     {
+        // The shipped 1-200 set was authored against eleven patterns x twenty variants.
+        // Keep that permutation width stable even as new patterns are added for endless
+        // runtime content, otherwise a generator update silently remaps every locked stage.
+        private const int LockedReleaseLayoutVariantPoolSize = 220;
+
         public const int StarSizeMixVariantSeed = 41;
 
         public static int HeartShapeLibraryIndex => (int)VehicleShapeLibraryId.Heart;
@@ -100,6 +105,9 @@ namespace BusPuzzle
         private const int ShapeLibraryPreviewFanVehicleCount = 12;
         private const int ShapeLibraryPreviewHardFanVehicleCount = 16;
         private const int ShapeLibraryPreviewSuperHardFanVehicleCount = 20;
+        // Keep the preview generation budget bounded. Perceptual raster closing joins the
+        // normal visual gaps between these non-overlapping vehicles; raising this into the
+        // 50s makes dense placement prohibitively expensive without improving gameplay.
         private const int ShapeLibraryPreviewHeartVehicleCount = 32;
         private const int ShapeLibraryPreviewHardHeartVehicleCount = 34;
         private const int ShapeLibraryPreviewSuperHardHeartVehicleCount = 38;
@@ -140,6 +148,25 @@ namespace BusPuzzle
             RotaryRoadPresetId.Large
         };
 
+        private static readonly RotaryRoadPresetId[] EndlessRoadPresetPool =
+        {
+            RotaryRoadPresetId.SmallCircleTest,
+            RotaryRoadPresetId.LargeCircleTest,
+            RotaryRoadPresetId.OvalTest,
+            RotaryRoadPresetId.RoundedSquareTest,
+            RotaryRoadPresetId.HeartTest,
+            RotaryRoadPresetId.DropTest,
+            RotaryRoadPresetId.CompactOval,
+            RotaryRoadPresetId.WideTerminal,
+            RotaryRoadPresetId.TallTerminal,
+            RotaryRoadPresetId.LeftHook,
+            RotaryRoadPresetId.RightHook,
+            RotaryRoadPresetId.Roundabout,
+            RotaryRoadPresetId.Small,
+            RotaryRoadPresetId.Medium,
+            RotaryRoadPresetId.Large
+        };
+
         public static StageGenerationRequest CreateRequest(StageGenerationConfig config, int stageNumber)
         {
             config = config != null ? config : ScriptableObject.CreateInstance<StageGenerationConfig>();
@@ -148,7 +175,7 @@ namespace BusPuzzle
             var difficulty = patternEntry.Difficulty;
             var progress = config.GetProgress(stageNumber);
             var post50Pressure = config.GetPost50Pressure(stageNumber);
-            var modifiers = config.GetPost50AdjustedModifiers(difficulty, patternEntry.Modifiers, post50Pressure);
+            var modifiers = config.GetModifiersForStage(stageNumber);
             var rule = config.GetRule(difficulty);
             var profile = config.ApplyLongRunVehicleGrowth(rule.CreateProfile(progress), stageNumber);
             var seed = config.BaseSeed + stageNumber * 1009;
@@ -169,6 +196,16 @@ namespace BusPuzzle
                 LevelGenerator.GetRotaryCapacity(difficulty),
                 post50Pressure);
             var mysteryVehicleProfile = config.GetMysteryVehicleProfile(modifiers, profile, post50Pressure);
+            var vehicleLayoutVariant = PickVehicleLayoutVariant(
+                stageNumber,
+                config.BaseSeed,
+                config.GeneratedStageCount);
+            if (stageNumber > config.GeneratedStageCount)
+            {
+                vehicleLayoutVariant = VehicleLayoutPatternEngine.GetEndlessCompatibleLayoutVariantIndex(
+                    profile,
+                    vehicleLayoutVariant);
+            }
 
             return new StageGenerationRequest(
                 stageNumber,
@@ -178,9 +215,9 @@ namespace BusPuzzle
                 profile,
                 progress,
                 post50Pressure,
-                PickRoadPreset(stageNumber, config.BaseSeed),
-                PickVehicleLayoutVariant(stageNumber, config.BaseSeed),
-                VehicleLayoutPatternEngine.UniqueLayoutVariantCount,
+                PickRoadPreset(stageNumber, config.BaseSeed, config.GeneratedStageCount),
+                vehicleLayoutVariant,
+                GetVehicleLayoutVariantPoolSize(stageNumber, config.GeneratedStageCount),
                 garageCount,
                 minGarageQueue,
                 maxGarageQueue,
@@ -259,6 +296,36 @@ namespace BusPuzzle
             return UsesStarShapeLibraryTemplate(request) &&
                 VehicleLayoutPatternEngine.TryGetShapeLibraryVariantSeed(request.VehicleLayoutVariantIndex, out var variantSeed) &&
                 variantSeed == StarSizeMixVariantSeed;
+        }
+
+        public static bool IsAutomaticTemplateBackedHeartRequest(
+            StageGenerationRequest request,
+            out bool fillInterior)
+        {
+            fillInterior = false;
+            if (request.VehicleLayoutVariantIndex < 0 ||
+                VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(
+                    request.VehicleLayoutVariantIndex,
+                    out _))
+            {
+                return false;
+            }
+
+            var profile = request.Profile ??
+                LevelDifficultyProfile.DefaultFor(request.Difficulty);
+            if (!VehicleLayoutPatternEngine.TryCreateTemplateQualityShapeDefinition(
+                    profile,
+                    Mathf.Max(1, profile.TargetVehicleCount),
+                    request.VehicleLayoutVariantIndex,
+                    out var definition) ||
+                (definition.LibraryId != VehicleShapeLibraryId.Heart &&
+                 definition.LibraryId != VehicleShapeLibraryId.HeartArrow))
+            {
+                return false;
+            }
+
+            fillInterior = definition.FillInterior;
+            return true;
         }
 
         private static LevelDifficultyProfile CreateShapeLibraryPreviewProfile(
@@ -482,16 +549,41 @@ namespace BusPuzzle
             }
         }
 
-        private static RotaryRoadPresetId PickRoadPreset(int stageNumber, int baseSeed)
+        private static RotaryRoadPresetId PickRoadPreset(
+            int stageNumber,
+            int baseSeed,
+            int generatedStageCount)
         {
+            if (stageNumber > generatedStageCount)
+            {
+                var zeroBasedEndlessStage = Mathf.Max(0, stageNumber - generatedStageCount - 1);
+                var cycle = zeroBasedEndlessStage / EndlessRoadPresetPool.Length;
+                var indexInCycle = zeroBasedEndlessStage % EndlessRoadPresetPool.Length;
+                var previousCycleLastIndex = cycle > 0
+                    ? PickShuffledPoolIndex(
+                        EndlessRoadPresetPool.Length - 1,
+                        EndlessRoadPresetPool.Length,
+                        baseSeed + (cycle - 1) * 32452843)
+                    : -1;
+                var shuffledIndex = PickShuffledPoolIndex(
+                    indexInCycle,
+                    EndlessRoadPresetPool.Length,
+                    baseSeed + cycle * 32452843,
+                    previousCycleLastIndex);
+                return EndlessRoadPresetPool[shuffledIndex];
+            }
+
             var seedOffset = Mathf.Abs(baseSeed) % RoadPresetPattern.Length;
             var index = Mathf.Abs(stageNumber - 1 + seedOffset) % RoadPresetPattern.Length;
             return RoadPresetPattern[index];
         }
 
-        private static int PickVehicleLayoutVariant(int stageNumber, int baseSeed)
+        private static int PickVehicleLayoutVariant(
+            int stageNumber,
+            int baseSeed,
+            int generatedStageCount)
         {
-            var poolSize = VehicleLayoutPatternEngine.UniqueLayoutVariantCount;
+            var poolSize = GetVehicleLayoutVariantPoolSize(stageNumber, generatedStageCount);
             if (poolSize <= 1)
             {
                 return 0;
@@ -500,10 +592,45 @@ namespace BusPuzzle
             var zeroBasedStage = Mathf.Max(0, stageNumber - 1);
             var cycle = zeroBasedStage / poolSize;
             var indexInCycle = zeroBasedStage % poolSize;
-            return PickShuffledPoolIndex(indexInCycle, poolSize, baseSeed + cycle * 15485863);
+            if (stageNumber <= generatedStageCount)
+            {
+                // This is the exact release-era mapping. Keep stages 1-200 byte-for-byte
+                // reproducible; the boundary de-duplication below belongs only to endless
+                // runtime content.
+                return PickShuffledPoolIndex(
+                    indexInCycle,
+                    poolSize,
+                    baseSeed + cycle * 15485863);
+            }
+
+            var previousCycleLastIndex = cycle > 0
+                ? PickShuffledPoolIndex(
+                    poolSize - 1,
+                    poolSize,
+                    baseSeed + (cycle - 1) * 15485863)
+                : -1;
+            return PickShuffledPoolIndex(
+                indexInCycle,
+                poolSize,
+                baseSeed + cycle * 15485863,
+                previousCycleLastIndex);
         }
 
-        private static int PickShuffledPoolIndex(int indexInCycle, int poolSize, int seed)
+        private static int GetVehicleLayoutVariantPoolSize(
+            int stageNumber,
+            int generatedStageCount)
+        {
+            var availablePoolSize = Mathf.Max(1, VehicleLayoutPatternEngine.UniqueLayoutVariantCount);
+            return stageNumber <= generatedStageCount
+                ? Mathf.Min(LockedReleaseLayoutVariantPoolSize, availablePoolSize)
+                : availablePoolSize;
+        }
+
+        private static int PickShuffledPoolIndex(
+            int indexInCycle,
+            int poolSize,
+            int seed,
+            int forbiddenFirstValue = -1)
         {
             var values = new int[poolSize];
             for (var index = 0; index < values.Length; index++)
@@ -518,6 +645,13 @@ namespace BusPuzzle
                 var value = values[index];
                 values[index] = values[swapIndex];
                 values[swapIndex] = value;
+            }
+
+            if (values.Length > 1 && values[0] == forbiddenFirstValue)
+            {
+                var value = values[0];
+                values[0] = values[1];
+                values[1] = value;
             }
 
             return values[Mathf.Clamp(indexInCycle, 0, values.Length - 1)];

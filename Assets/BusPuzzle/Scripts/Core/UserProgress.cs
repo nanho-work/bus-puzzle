@@ -27,12 +27,28 @@ namespace BusPuzzle
             }
 
             var clampedStageIndex = Mathf.Clamp(stageIndex, 0, stageCount - 1);
-            if (PlayerPrefs.GetInt(LastStageIndexKey, -1) == clampedStageIndex)
+            SaveStageIndex(clampedStageIndex);
+        }
+
+        public static bool SavePreparedStageIndex(int stageIndex, int stageCount)
+        {
+            if (stageCount <= 0 || stageIndex < 0 || stageIndex >= stageCount)
+            {
+                return false;
+            }
+
+            SaveStageIndex(stageIndex);
+            return true;
+        }
+
+        private static void SaveStageIndex(int stageIndex)
+        {
+            if (PlayerPrefs.GetInt(LastStageIndexKey, -1) == stageIndex)
             {
                 return;
             }
 
-            PlayerPrefs.SetInt(LastStageIndexKey, clampedStageIndex);
+            PlayerPrefs.SetInt(LastStageIndexKey, stageIndex);
             PlayerPrefs.Save();
         }
 

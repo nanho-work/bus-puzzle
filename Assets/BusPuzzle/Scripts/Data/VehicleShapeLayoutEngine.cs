@@ -190,7 +190,7 @@ namespace BusPuzzle
                 scale = Mathf.Lerp(0.96f, 1.04f, scaleStep / 4f);
             }
 
-            definition = new VehicleShapeLayoutDefinition(
+            var primitiveDefinition = new VehicleShapeLayoutDefinition(
                 kind,
                 GetDefaultLibraryId(kind),
                 thickness,
@@ -198,6 +198,24 @@ namespace BusPuzzle
                 scale,
                 variant % 2 == 0,
                 variant);
+            if (primitiveDefinition.LibraryId != VehicleShapeLibraryId.None &&
+                VehicleShapeTemplateCatalog.TryGetQualityTemplate(
+                    primitiveDefinition,
+                    out _) &&
+                TryCreateLibraryDefinition(
+                    (int)primitiveDefinition.LibraryId,
+                    profile,
+                    targetVehicleCount,
+                    0,
+                    out definition))
+            {
+                // A named quality template is an authored visual contract. Positive
+                // automatic variants use its canonical seed; the stage variant still
+                // controls placement randomness and colors, but not the named contour.
+                return true;
+            }
+
+            definition = primitiveDefinition;
             return true;
         }
 
@@ -527,6 +545,16 @@ namespace BusPuzzle
             int targetVehicleCount)
         {
             var cells = BuildOrderedCells(definition);
+            if (targetVehicleCount > 0 &&
+                (definition.LibraryId == VehicleShapeLibraryId.Heart ||
+                 definition.LibraryId == VehicleShapeLibraryId.HeartArrow))
+            {
+                // Heart ordering is also a safety invariant: it removes authored
+                // background features and emits adjacent mirror pairs. Do not bypass it
+                // merely because a late-game vehicle budget exceeds the contour cell count.
+                return BuildHeartBudgetedCells(definition, cells, targetVehicleCount);
+            }
+
             if (definition.LibraryId == VehicleShapeLibraryId.None ||
                 targetVehicleCount <= 0 ||
                 targetVehicleCount >= cells.Count)
@@ -544,12 +572,6 @@ namespace BusPuzzle
                 return BuildStarBudgetedCells(definition, cells, targetVehicleCount);
             }
 
-            if (definition.LibraryId == VehicleShapeLibraryId.Heart ||
-                definition.LibraryId == VehicleShapeLibraryId.HeartArrow)
-            {
-                return BuildHeartBudgetedCells(definition, cells, targetVehicleCount);
-            }
-
             return BuildMixedRoleBudgetedCells(definition, cells, targetVehicleCount);
         }
 
@@ -558,6 +580,7 @@ namespace BusPuzzle
             List<VehicleShapeCell> cells,
             int targetVehicleCount)
         {
+            cells = ExcludeBackgroundFeatureCells(definition, cells, 1.15f);
             var feature = CollectFeatureCells(definition, cells);
             var featureKeys = BuildCellKeySet(feature);
             var outline = CollectRoleCells(cells, VehicleShapeCellRole.Outline, featureKeys);
@@ -567,32 +590,202 @@ namespace BusPuzzle
             SortHeartPathCells(accent);
             SortHeartFillCells(fill);
 
-            var selectedFeature = TakeFirst(
-                feature,
-                Mathf.Min(feature.Count, Mathf.Max(9, Mathf.RoundToInt(targetVehicleCount * 0.22f))));
+            var featureTarget = ClampEvenCount(
+                Mathf.Max(8, Mathf.RoundToInt(targetVehicleCount * 0.22f)),
+                feature.Count);
+            var selectedFeature = TakeFirst(OrderMirrorXPairs(feature), featureTarget);
             var remaining = Mathf.Max(0, targetVehicleCount - selectedFeature.Count);
-            var fillTarget = targetVehicleCount >= 38
-                ? Mathf.Max(8, Mathf.RoundToInt(targetVehicleCount * 0.24f))
-                : Mathf.Max(4, Mathf.RoundToInt(targetVehicleCount * 0.16f));
-            var reservedFillCount = Mathf.Min(fill.Count, Mathf.Min(remaining, fillTarget));
+            var fillTarget = definition.FillInterior
+                ? Mathf.Max(14, Mathf.RoundToInt(targetVehicleCount * 0.46f))
+                : targetVehicleCount >= 38
+                    ? Mathf.Max(8, Mathf.RoundToInt(targetVehicleCount * 0.24f))
+                    : Mathf.Max(4, Mathf.RoundToInt(targetVehicleCount * 0.16f));
+            var reservedFillCount = ClampEvenCount(fillTarget, Mathf.Min(fill.Count, remaining));
             var outlineTarget = Mathf.Max(0, remaining - reservedFillCount);
-            var selectedOutline = outline.Count <= outlineTarget
-                ? TakeFirst(outline, outline.Count)
-                : SelectEvenly(outline, outlineTarget);
+            var selectedOutline = SelectEvenMirrorXPairs(outline, outlineTarget);
             remaining = Mathf.Max(0, remaining - selectedOutline.Count);
-            var selectedAccent = TakeFirst(accent, Mathf.Min(accent.Count, Mathf.Max(0, remaining - reservedFillCount)));
+            var selectedAccent = TakeFirst(
+                OrderMirrorXPairs(accent),
+                ClampEvenCount(Mathf.Max(0, remaining - reservedFillCount), accent.Count));
             remaining = Mathf.Max(0, remaining - selectedAccent.Count);
-            var selectedFill = fill.Count <= remaining
-                ? TakeFirst(fill, fill.Count)
-                : SelectEvenly(fill, remaining);
+            var selectedFill = TakeFirst(
+                OrderMirrorXPairs(fill),
+                ClampEvenCount(remaining, fill.Count));
 
             var ordered = new List<VehicleShapeCell>(cells.Count);
             ordered.AddRange(selectedFeature);
             ordered.AddRange(selectedOutline);
             ordered.AddRange(selectedAccent);
             ordered.AddRange(selectedFill);
-            AppendRemainingCells(ordered, cells);
+            AppendRemainingMirrorXPairs(ordered, cells);
             return ordered;
+        }
+
+        private static int ClampEvenCount(int requested, int maximum)
+        {
+            var count = Mathf.Clamp(requested, 0, maximum);
+            return count - count % 2;
+        }
+
+        private static List<VehicleShapeCell> SelectEvenMirrorXPairs(
+            List<VehicleShapeCell> source,
+            int count)
+        {
+            var paired = OrderMirrorXPairs(source);
+            var pairCount = ClampEvenCount(count, paired.Count) / 2;
+            var availablePairCount = paired.Count / 2;
+            if (pairCount >= availablePairCount)
+            {
+                return paired;
+            }
+
+            var selected = new List<VehicleShapeCell>(pairCount * 2);
+            if (pairCount == 0)
+            {
+                return selected;
+            }
+
+            for (var index = 0; index < pairCount; index++)
+            {
+                var pairIndex = pairCount == 1
+                    ? 0
+                    : Mathf.RoundToInt(index * (availablePairCount - 1f) / (pairCount - 1f));
+                selected.Add(paired[pairIndex * 2]);
+                selected.Add(paired[pairIndex * 2 + 1]);
+            }
+
+            return selected;
+        }
+
+        private static List<VehicleShapeCell> OrderMirrorXPairs(List<VehicleShapeCell> source)
+        {
+            var ordered = new List<VehicleShapeCell>(source != null ? source.Count : 0);
+            if (source == null || source.Count == 0)
+            {
+                return ordered;
+            }
+
+            var byKey = new Dictionary<int, VehicleShapeCell>();
+            for (var index = 0; index < source.Count; index++)
+            {
+                byKey[GetCellKey(source[index].Cell)] = source[index];
+            }
+
+            var used = new HashSet<int>();
+            for (var index = 0; index < source.Count; index++)
+            {
+                var cell = source[index];
+                var key = GetCellKey(cell.Cell);
+                if (used.Contains(key))
+                {
+                    continue;
+                }
+
+                var mirroredPosition = new Vector2Int(
+                    Mathf.RoundToInt(CenterX * 2f - cell.Cell.x),
+                    cell.Cell.y);
+                var mirroredKey = GetCellKey(mirroredPosition);
+                if (mirroredKey == key ||
+                    !byKey.TryGetValue(mirroredKey, out var mirrored) ||
+                    mirrored.Role != cell.Role)
+                {
+                    continue;
+                }
+
+                used.Add(key);
+                used.Add(mirroredKey);
+                if (cell.Cell.x <= mirrored.Cell.x)
+                {
+                    ordered.Add(cell);
+                    ordered.Add(mirrored);
+                }
+                else
+                {
+                    ordered.Add(mirrored);
+                    ordered.Add(cell);
+                }
+            }
+
+            return ordered;
+        }
+
+        private static void AppendRemainingMirrorXPairs(
+            List<VehicleShapeCell> ordered,
+            List<VehicleShapeCell> source)
+        {
+            var used = BuildCellKeySet(ordered);
+            var paired = OrderMirrorXPairs(source);
+            for (var index = 0; index + 1 < paired.Count; index += 2)
+            {
+                var first = paired[index];
+                var second = paired[index + 1];
+                var firstKey = GetCellKey(first.Cell);
+                var secondKey = GetCellKey(second.Cell);
+                if (used.Contains(firstKey) || used.Contains(secondKey))
+                {
+                    continue;
+                }
+
+                ordered.Add(first);
+                ordered.Add(second);
+                used.Add(firstKey);
+                used.Add(secondKey);
+            }
+
+            for (var index = 0; index < source.Count; index++)
+            {
+                if (used.Add(GetCellKey(source[index].Cell)))
+                {
+                    ordered.Add(source[index]);
+                }
+            }
+        }
+
+        private static List<VehicleShapeCell> ExcludeBackgroundFeatureCells(
+            VehicleShapeLayoutDefinition definition,
+            List<VehicleShapeCell> source,
+            float vehicleClearanceCells)
+        {
+            if (!VehicleShapeTemplateCatalog.TryGetTemplate(definition, out var template) ||
+                template.KeyFeatures == null ||
+                template.KeyFeatures.Count == 0)
+            {
+                return source;
+            }
+
+            var halfExtents = template.GetProjectionHalfExtentsCells(definition.Scale);
+            var filtered = new List<VehicleShapeCell>(source.Count);
+            for (var cellIndex = 0; cellIndex < source.Count; cellIndex++)
+            {
+                var cellCenter = new Vector2(source[cellIndex].Cell.x, source[cellIndex].Cell.y);
+                var blocked = false;
+                for (var featureIndex = 0; featureIndex < template.KeyFeatures.Count; featureIndex++)
+                {
+                    var feature = template.KeyFeatures[featureIndex];
+                    if (feature == null ||
+                        feature.Expectation != VehicleShapeFeatureExpectation.Background)
+                    {
+                        continue;
+                    }
+
+                    var featureCenter = template.NormalizedToBoard(feature.NormalizedPosition, definition.Scale);
+                    var featureRadiusCells = feature.RadiusNormalized *
+                        Mathf.Min(halfExtents.x, halfExtents.y) * 2f;
+                    if (Vector2.Distance(cellCenter, featureCenter) <=
+                        featureRadiusCells + Mathf.Max(0f, vehicleClearanceCells))
+                    {
+                        blocked = true;
+                        break;
+                    }
+                }
+
+                if (!blocked)
+                {
+                    filtered.Add(source[cellIndex]);
+                }
+            }
+
+            return filtered;
         }
 
         private static List<VehicleShapeCell> BuildStarBudgetedCells(
@@ -1200,6 +1393,16 @@ namespace BusPuzzle
             int y,
             out VehicleShapeCellRole role)
         {
+            if (TryClassifyTemplateCell(definition, x, y, out role, out var hasTemplate))
+            {
+                return true;
+            }
+
+            if (hasTemplate)
+            {
+                return false;
+            }
+
             if (definition.LibraryId != VehicleShapeLibraryId.None &&
                 TryClassifyLibraryCell(definition, x, y, out role))
             {
@@ -1232,6 +1435,39 @@ namespace BusPuzzle
                     role = VehicleShapeCellRole.Fill;
                     return false;
             }
+        }
+
+        private static bool TryClassifyTemplateCell(
+            VehicleShapeLayoutDefinition definition,
+            int x,
+            int y,
+            out VehicleShapeCellRole role,
+            out bool hasTemplate)
+        {
+            role = VehicleShapeCellRole.Fill;
+            hasTemplate = VehicleShapeTemplateCatalog.TryGetQualityTemplate(definition, out var template);
+            if (!hasTemplate)
+            {
+                return false;
+            }
+
+            var point = new Vector2(x, y);
+            var inside = template.ContainsBoardPoint(point, definition.Scale);
+            var outlineHalfWidth = 0.60f + (definition.Thickness - 1) * 0.45f;
+            if (template.TryGetNearestBoundary(
+                    point,
+                    definition.Scale,
+                    out _,
+                    out _,
+                    out var boundaryDistance) &&
+                boundaryDistance <= outlineHalfWidth &&
+                (inside || !definition.FillInterior))
+            {
+                role = VehicleShapeCellRole.Outline;
+                return true;
+            }
+
+            return inside && definition.FillInterior;
         }
 
         private static bool TryClassifyLibraryCell(
@@ -2084,6 +2320,15 @@ namespace BusPuzzle
 
         private static bool IsInsideHeart(VehicleShapeLayoutDefinition definition, int x, int y)
         {
+            // All Heart variants share the same normalized contour. Keeping this lookup at
+            // the primitive classification point means filled, outline, and double-outline
+            // styles differ only in how that contour is sampled, never in the silhouette.
+            if (VehicleShapeTemplateCatalog.TryGetTemplate(definition, out var template))
+            {
+                return template.ContainsBoardPoint(new Vector2(x, y), definition.Scale);
+            }
+
+            // Safe fallback for malformed/missing Resources in development builds.
             var scale = definition.Scale;
             var point = new Vector2(x, y);
             var leftLobeCenter = new Vector2(CenterX - 2.30f, 9.40f);
@@ -2439,7 +2684,18 @@ namespace BusPuzzle
             }
 
             Vector2 vector;
-            if (definition.LibraryId != VehicleShapeLibraryId.None &&
+            if (cell.Role == VehicleShapeCellRole.Outline &&
+                VehicleShapeTemplateCatalog.TryGetQualityTemplate(definition, out var template) &&
+                template.TryGetNearestBoundary(
+                    new Vector2(cell.Cell.x, cell.Cell.y),
+                    definition.Scale,
+                    out _,
+                    out var templateTangent,
+                    out _))
+            {
+                vector = definition.Clockwise ? templateTangent : -templateTangent;
+            }
+            else if (definition.LibraryId != VehicleShapeLibraryId.None &&
                 TryGetLibraryDirection(definition, cell, fromCenter, out vector))
             {
                 // Library-specific direction selected below.
@@ -2772,8 +3028,7 @@ namespace BusPuzzle
             {
                 case VehicleShapeLibraryId.Heart:
                 case VehicleShapeLibraryId.HeartArrow:
-                    return (y <= 2 && absX <= 1.7f) ||
-                        (y >= 9 && absX <= 1.4f) ||
+                    return (y <= 4 && absX <= 2.1f) ||
                         (y >= 8 && Mathf.Abs(absX - 2.5f) <= 0.9f) ||
                         (absX >= 4.2f && y >= 5 && y <= 8);
                 case VehicleShapeLibraryId.Circle:
@@ -2842,17 +3097,22 @@ namespace BusPuzzle
                         return 0;
                     }
 
-                    if (y >= 9 && absX <= 1.4f)
+                    if (y <= 4 && absX <= 2.1f)
                     {
-                        return 1;
+                        // Preserve a pair immediately above the tip. Without this
+                        // bridge a bounded Heart budget can leave the tip as a separate
+                        // visual island even though both lobes are well sampled.
+                        return 10 +
+                            Mathf.RoundToInt(absX * 10f) +
+                            Mathf.Abs(y - 3) * 20;
                     }
 
                     if (y >= 8)
                     {
-                        return 2;
+                        return 100;
                     }
 
-                    return 3;
+                    return 200;
                 case VehicleShapeLibraryId.Flower:
                 case VehicleShapeLibraryId.Sunburst:
                 case VehicleShapeLibraryId.Crown:

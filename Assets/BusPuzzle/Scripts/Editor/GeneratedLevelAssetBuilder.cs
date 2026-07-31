@@ -10,6 +10,16 @@ namespace BusPuzzle.EditorTools
     {
         private const string LevelDirectory = "Assets/BusPuzzle/Resources/Levels";
         private const string GeneratedLevelDirectory = LevelDirectory + "/Generated";
+        private const string ReleaseStagingLevelDirectory =
+            "Assets/BusPuzzle/ReleaseStaging/Levels";
+        private const string GeneratedPreviewDirectory = "Assets/BusPuzzle/GeneratedPreview";
+        private const string GeneratedPreviewLevelDirectory = GeneratedPreviewDirectory + "/Levels";
+        private const string GeneratedPreviewSequencePath = GeneratedPreviewDirectory + "/PreviewSequence.asset";
+        private const string GeneratedPreviewSignaturePrefix = "previewOnly=generated;";
+        private const string ShapePreviewDirectory = "Assets/BusPuzzle/ShapePreview";
+        private const string ShapePreviewLevelDirectory = ShapePreviewDirectory + "/Levels";
+        private const string ShapePreviewSequencePath = ShapePreviewDirectory + "/PreviewSequence.asset";
+        internal const string ShapePreviewSignaturePrefix = "previewOnly=shape;";
         private const string ShapeTemplateDirectory = "Assets/BusPuzzle/Resources/ShapeTemplates";
         private const string StarShapeTemplateDirectory = ShapeTemplateDirectory + "/Star";
         private const string StarBasicShapeTemplatePath = StarShapeTemplateDirectory + "/Star_Basic_01.asset";
@@ -447,6 +457,11 @@ namespace BusPuzzle.EditorTools
             RebuildSingleShapeLibraryPreviewStage(ReadCommandLineStageNumber(ShapeTemplatePreviewStageNumber));
         }
 
+        public static void RestoreReleaseGeneratedSequencesFromExistingLevelsFromCommandLine()
+        {
+            RestoreReleaseGeneratedSequencesFromExistingLevels();
+        }
+
         [MenuItem("Bus Puzzle/Levels/Build Next Generated Stage Batch")]
         public static void BuildNextGeneratedStageBatch()
         {
@@ -456,22 +471,38 @@ namespace BusPuzzle.EditorTools
         [MenuItem("Bus Puzzle/Levels/Refresh Generated Stage Sequence From Existing Levels")]
         public static void RefreshGeneratedStageSequenceFromExistingLevels()
         {
+            RestoreReleaseGeneratedSequencesFromExistingLevels();
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Restore Release Sequences From Existing Generated Levels")]
+        public static void RestoreReleaseGeneratedSequencesFromExistingLevels()
+        {
             var config = LoadConfig();
-            Directory.CreateDirectory(GeneratedLevelDirectory);
-            var savedLevels = new LevelData[config.GeneratedStageCount];
-            var completedStageCount = LoadExistingGeneratedPrefix(config, savedLevels);
+            var savedLevels = LoadCompleteReleaseGeneratedSet(config);
+            if (savedLevels == null)
+            {
+                return;
+            }
 
             SaveCompletedGeneratedSequence(
                 savedLevels,
-                completedStageCount,
-                $"Refreshed generated stage sequences from {completedStageCount}/{config.GeneratedStageCount} existing levels.",
+                savedLevels.Length,
+                $"Restored both release sequences from all {savedLevels.Length} existing generated levels.",
                 true);
         }
 
         private static void BuildGeneratedStageSet(GeneratedStageBuildMode mode)
         {
             var config = LoadConfig();
-            Directory.CreateDirectory(GeneratedLevelDirectory);
+            var isShapePreview = mode == GeneratedStageBuildMode.ShapeLibraryPreview;
+            var isGeneratedPreview = mode == GeneratedStageBuildMode.PreviewFirst100;
+            var isPreview = isShapePreview || isGeneratedPreview;
+            EnsureAssetDirectory(
+                isShapePreview
+                    ? ShapePreviewLevelDirectory
+                    : isGeneratedPreview
+                        ? GeneratedPreviewLevelDirectory
+                        : ReleaseStagingLevelDirectory);
             var savedLevels = new LevelData[config.GeneratedStageCount];
             var completedStageCount = mode == GeneratedStageBuildMode.NextBatch
                 ? LoadExistingGeneratedPrefix(config, savedLevels)
@@ -490,7 +521,8 @@ namespace BusPuzzle.EditorTools
 
             if (startStage > config.GeneratedStageCount)
             {
-                SaveCompletedGeneratedSequence(
+                SaveCompletedStageSequence(
+                    mode,
                     savedLevels,
                     config.GeneratedStageCount,
                     $"Generated Bus Pop stage set is already complete: {config.GeneratedStageCount}/{config.GeneratedStageCount}.",
@@ -504,16 +536,22 @@ namespace BusPuzzle.EditorTools
                 {
                     if (mode == GeneratedStageBuildMode.ShapeLibraryPreview &&
                         stageNumber == 1 &&
-                        TryLoadExistingLevel("Level_001", out var tutorialLevel))
+                        TryLoadExistingReleaseLevelReadOnly("Level_001", out var tutorialLevel))
                     {
-                        savedLevels[stageNumber - 1] = tutorialLevel;
+                        var previewTutorial = SaveLevelAssetCopy(
+                            tutorialLevel,
+                            GetShapePreviewLevelPath(stageNumber),
+                            GetShapePreviewAssetName(stageNumber),
+                            tutorialLevel.LevelName);
+                        MarkAsShapePreview(previewTutorial);
+                        savedLevels[stageNumber - 1] = previewTutorial;
                         completedStageCount = stageNumber;
-                        Debug.Log($"Kept existing tutorial stage {stageNumber:000}/{displayStageCount:000}.");
+                        Debug.Log($"Copied tutorial stage into isolated shape preview {stageNumber:000}/{displayStageCount:000}.");
                         continue;
                     }
 
                     var request = CreateRequest(config, mode, stageNumber);
-                    if (TryReuseExistingLevel(config, request, out var existingLevel))
+                    if (!isPreview && TryReuseExistingLevel(config, request, out var existingLevel))
                     {
                         savedLevels[stageNumber - 1] = existingLevel;
                         completedStageCount = stageNumber;
@@ -547,7 +585,8 @@ namespace BusPuzzle.EditorTools
                     {
                         if (cancelled)
                         {
-                            SaveCompletedGeneratedSequence(
+                            SaveCompletedStageSequence(
+                                mode,
                                 savedLevels,
                                 completedStageCount,
                                 $"Saved partial generated stage sequence after cancellation at stage {stageNumber:000}.",
@@ -558,7 +597,8 @@ namespace BusPuzzle.EditorTools
 
                         if (timedOut)
                         {
-                            SaveCompletedGeneratedSequence(
+                            SaveCompletedStageSequence(
+                                mode,
                                 savedLevels,
                                 completedStageCount,
                                 $"Saved partial generated stage sequence after timeout at stage {stageNumber:000}.",
@@ -569,7 +609,8 @@ namespace BusPuzzle.EditorTools
                             return;
                         }
 
-                        SaveCompletedGeneratedSequence(
+                        SaveCompletedStageSequence(
+                            mode,
                             savedLevels,
                             completedStageCount,
                             $"Saved partial generated stage sequence after generation failed at stage {stageNumber:000}.",
@@ -582,14 +623,23 @@ namespace BusPuzzle.EditorTools
                         return;
                     }
 
+                    var generationSignature = StageGenerationSignature.Create(config, request);
                     generatedLevel.SetGenerationMetadata(
-                        StageGenerationSignature.Create(config, request),
+                        isShapePreview
+                            ? CreateShapePreviewSignature(generationSignature)
+                            : isGeneratedPreview
+                                ? CreateGeneratedPreviewSignature(generationSignature)
+                                : generationSignature,
                         analysis.SolutionCount);
-                    savedLevels[stageNumber - 1] = SaveLevel($"Level_{stageNumber:000}", generatedLevel);
+                    savedLevels[stageNumber - 1] = isShapePreview
+                        ? SaveShapePreviewLevel(stageNumber, generatedLevel)
+                        : isGeneratedPreview
+                            ? SaveGeneratedPreviewLevel(stageNumber, generatedLevel)
+                            : SaveStagedReleaseLevel(stageNumber, generatedLevel);
                     completedStageCount = stageNumber;
-                    if (stageNumber % 5 == 0)
+                    if (stageNumber % 5 == 0 && stageNumber < targetStage)
                     {
-                        SaveCompletedGeneratedSequence(savedLevels, completedStageCount, null, false);
+                        SaveCompletedStageSequence(mode, savedLevels, completedStageCount, null, false);
                         AssetDatabase.SaveAssets();
                     }
 
@@ -600,13 +650,13 @@ namespace BusPuzzle.EditorTools
 
                 EditorUtility.DisplayProgressBar(GetProgressTitle(mode), "Saving generated level sequence...", 1f);
                 var completedMessage = mode == GeneratedStageBuildMode.PreviewFirst100
-                    ? $"Generated Bus Pop preview stage set rebuilt: {completedStageCount}/{config.GeneratedStageCount} verified levels saved under {GeneratedLevelDirectory}."
+                    ? $"Generated Bus Pop preview stage set rebuilt: {completedStageCount}/{config.GeneratedStageCount} isolated levels saved under {GeneratedPreviewLevelDirectory}."
                     : mode == GeneratedStageBuildMode.ShapeLibraryPreview
-                    ? $"Generated Bus Pop shape library preview rebuilt: {completedStageCount}/{config.GeneratedStageCount} verified levels saved under {GeneratedLevelDirectory}."
+                    ? $"Generated Bus Pop shape library preview rebuilt: {completedStageCount}/{displayStageCount} isolated levels saved under {ShapePreviewLevelDirectory}."
                     : completedStageCount >= config.GeneratedStageCount
                     ? $"Generated Bus Pop stage set rebuilt: {completedStageCount}/{config.GeneratedStageCount} verified levels saved under {GeneratedLevelDirectory}."
                     : $"Generated Bus Pop stage batch saved: {completedStageCount}/{config.GeneratedStageCount} verified levels are now available.";
-                SaveCompletedGeneratedSequence(savedLevels, completedStageCount, completedMessage, true);
+                SaveCompletedStageSequence(mode, savedLevels, completedStageCount, completedMessage, true);
             }
             finally
             {
@@ -688,7 +738,7 @@ namespace BusPuzzle.EditorTools
             }
 
             var config = LoadConfig();
-            Directory.CreateDirectory(GeneratedLevelDirectory);
+            EnsureAssetDirectory(ShapePreviewLevelDirectory);
             var request = shapeLibraryIndexOverride >= 0
                 ? StageGenerationPlanner.CreateShapeLibraryPreviewRequestForLibrary(
                     config,
@@ -809,14 +859,16 @@ namespace BusPuzzle.EditorTools
                     return;
                 }
 
-                generatedLevel.SetGenerationMetadata(generationSignature, 1);
-                SaveLevel($"Level_{stageNumber:000}", generatedLevel);
+                generatedLevel.SetGenerationMetadata(CreateShapePreviewSignature(generationSignature), 1);
+                SaveShapePreviewLevel(stageNumber, generatedLevel);
+                RefreshShapePreviewSequenceFromExistingLevels();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
                 Debug.Log(
-                    $"Rebuilt visual shape library preview stage {stageNumber:000}: " +
+                    $"Rebuilt isolated visual shape library preview stage {stageNumber:000}: " +
                     $"{request.Difficulty}, vehicles {generatedLevel.Buses.Count}, " +
-                    $"opening moves {openingMoveCount}, road {request.RoadPresetId}.");
+                    $"opening moves {openingMoveCount}, road {request.RoadPresetId}, " +
+                    $"asset {GetShapePreviewLevelPath(stageNumber)}.");
             }
             finally
             {
@@ -834,13 +886,16 @@ namespace BusPuzzle.EditorTools
 
             var vehicles = level.Buses;
             var openingMoveCount = LevelGenerator.CountOpeningMoves(level.Buses);
-            SaveLevel($"Level_{ShapeTemplatePreviewStageNumber:000}", level);
+            MarkAsShapePreview(level);
+            SaveShapePreviewLevel(ShapeTemplatePreviewStageNumber, level);
+            RefreshShapePreviewSequenceFromExistingLevels();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log(
-                $"Rebuilt manual heart {GetManualHeartVariantLogName(variantMode)} preview stage {ShapeTemplatePreviewStageNumber:000}: " +
+                $"Rebuilt isolated manual heart {GetManualHeartVariantLogName(variantMode)} preview stage {ShapeTemplatePreviewStageNumber:000}: " +
                 $"vehicles {vehicles.Count}, opening moves {openingMoveCount}, " +
-                $"solutions {level.GenerationSolutionCount}, road {level.RoadPresetId}.");
+                $"solutions {level.GenerationSolutionCount}, road {level.RoadPresetId}, " +
+                $"asset {GetShapePreviewLevelPath(ShapeTemplatePreviewStageNumber)}.");
         }
 
         private static void SaveManualHeartReferenceTemplate()
@@ -2305,8 +2360,8 @@ namespace BusPuzzle.EditorTools
             string templatePath,
             string templateDisplayName)
         {
-            var previewAssetName = $"Level_{previewStageNumber:000}";
-            var previewPath = GetLevelPath(previewAssetName);
+            var previewAssetName = GetShapePreviewAssetName(previewStageNumber);
+            var previewPath = GetShapePreviewLevelPath(previewStageNumber);
             var previewLevel = AssetDatabase.LoadAssetAtPath<LevelData>(previewPath);
             if (previewLevel == null)
             {
@@ -2320,11 +2375,15 @@ namespace BusPuzzle.EditorTools
                 templatePath,
                 Path.GetFileNameWithoutExtension(templatePath),
                 templateDisplayName);
+            template.SetGenerationMetadata(
+                RemoveShapePreviewSignature(template.GenerationSignature),
+                template.GenerationSolutionCount);
+            EditorUtility.SetDirty(template);
             ValidateLevelForAssetOperation(template, templateDisplayName);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log(
-                $"Saved shape template {templateDisplayName} from preview stage {previewStageNumber:000}: " +
+                $"Saved shape template {templateDisplayName} from isolated preview stage {previewStageNumber:000}: " +
                 $"{templatePath}. {CreateLevelSummary(template)}.");
         }
 
@@ -2341,14 +2400,20 @@ namespace BusPuzzle.EditorTools
             }
 
             ValidateLevelForAssetOperation(template, templateDisplayName);
-            var previewAssetName = $"Level_{previewStageNumber:000}";
-            var previewPath = GetLevelPath(previewAssetName);
-            var preview = SaveLevelAssetCopy(template, previewPath, previewAssetName, previewAssetName);
+            var previewAssetName = GetShapePreviewAssetName(previewStageNumber);
+            var previewPath = GetShapePreviewLevelPath(previewStageNumber);
+            var preview = SaveLevelAssetCopy(
+                template,
+                previewPath,
+                previewAssetName,
+                $"Shape Preview {previewStageNumber:000}");
+            MarkAsShapePreview(preview);
             ValidateLevelForAssetOperation(preview, $"preview stage {previewStageNumber:000}");
+            RefreshShapePreviewSequenceFromExistingLevels();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log(
-                $"Loaded shape template {templateDisplayName} into preview stage {previewStageNumber:000}: " +
+                $"Loaded shape template {templateDisplayName} into isolated preview stage {previewStageNumber:000}: " +
                 $"{previewPath}. {CreateLevelSummary(preview)}.");
         }
 
@@ -2685,9 +2750,38 @@ namespace BusPuzzle.EditorTools
             }
         }
 
-        private static LevelData SaveLevel(string assetName, LevelData generatedLevel)
+        private static LevelData SaveStagedReleaseLevel(int stageNumber, LevelData generatedLevel)
         {
-            var path = GetLevelPath(assetName);
+            var assetName = $"Level_{stageNumber:000}";
+            return SaveLevelAtPath(
+                $"{ReleaseStagingLevelDirectory}/{assetName}.asset",
+                assetName,
+                generatedLevel);
+        }
+
+        private static LevelData SaveShapePreviewLevel(int stageNumber, LevelData generatedLevel)
+        {
+            MarkAsShapePreview(generatedLevel);
+            return SaveLevelAtPath(
+                GetShapePreviewLevelPath(stageNumber),
+                GetShapePreviewAssetName(stageNumber),
+                generatedLevel);
+        }
+
+        private static LevelData SaveGeneratedPreviewLevel(int stageNumber, LevelData generatedLevel)
+        {
+            generatedLevel.SetGenerationMetadata(
+                CreateGeneratedPreviewSignature(generatedLevel.GenerationSignature),
+                generatedLevel.GenerationSolutionCount);
+            return SaveLevelAtPath(
+                GetGeneratedPreviewLevelPath(stageNumber),
+                GetGeneratedPreviewAssetName(stageNumber),
+                generatedLevel);
+        }
+
+        private static LevelData SaveLevelAtPath(string path, string assetName, LevelData generatedLevel)
+        {
+            EnsureAssetDirectory(Path.GetDirectoryName(path)?.Replace('\\', '/'));
             var existing = AssetDatabase.LoadAssetAtPath<LevelData>(path);
             generatedLevel.hideFlags = HideFlags.None;
             EnsureLevelAssetName(generatedLevel, assetName);
@@ -2757,6 +2851,69 @@ namespace BusPuzzle.EditorTools
             return $"{GeneratedLevelDirectory}/{assetName}.asset";
         }
 
+        private static string GetShapePreviewAssetName(int stageNumber)
+        {
+            return $"ShapePreview_{stageNumber:000}";
+        }
+
+        private static string GetShapePreviewLevelPath(int stageNumber)
+        {
+            return $"{ShapePreviewLevelDirectory}/{GetShapePreviewAssetName(stageNumber)}.asset";
+        }
+
+        private static string GetGeneratedPreviewAssetName(int stageNumber)
+        {
+            return $"GeneratedPreview_{stageNumber:000}";
+        }
+
+        private static string GetGeneratedPreviewLevelPath(int stageNumber)
+        {
+            return $"{GeneratedPreviewLevelDirectory}/{GetGeneratedPreviewAssetName(stageNumber)}.asset";
+        }
+
+        private static string CreateGeneratedPreviewSignature(string generationSignature)
+        {
+            generationSignature = generationSignature ?? string.Empty;
+            return generationSignature.StartsWith(GeneratedPreviewSignaturePrefix, System.StringComparison.Ordinal)
+                ? generationSignature
+                : GeneratedPreviewSignaturePrefix + generationSignature;
+        }
+
+        private static string CreateShapePreviewSignature(string generationSignature)
+        {
+            generationSignature = generationSignature ?? string.Empty;
+            return generationSignature.StartsWith(ShapePreviewSignaturePrefix, System.StringComparison.Ordinal)
+                ? generationSignature
+                : ShapePreviewSignaturePrefix + generationSignature;
+        }
+
+        private static string RemoveShapePreviewSignature(string generationSignature)
+        {
+            generationSignature = generationSignature ?? string.Empty;
+            return generationSignature.StartsWith(ShapePreviewSignaturePrefix, System.StringComparison.Ordinal)
+                ? generationSignature.Substring(ShapePreviewSignaturePrefix.Length)
+                : generationSignature;
+        }
+
+        private static void MarkAsShapePreview(LevelData level)
+        {
+            if (level == null)
+            {
+                return;
+            }
+
+            level.SetGenerationMetadata(
+                CreateShapePreviewSignature(level.GenerationSignature),
+                level.GenerationSolutionCount);
+            EditorUtility.SetDirty(level);
+        }
+
+        private static bool TryLoadExistingReleaseLevelReadOnly(string assetName, out LevelData level)
+        {
+            level = AssetDatabase.LoadAssetAtPath<LevelData>(GetLevelPath(assetName));
+            return level != null;
+        }
+
         private static bool TryLoadExistingLevel(string assetName, out LevelData level)
         {
             level = AssetDatabase.LoadAssetAtPath<LevelData>(GetLevelPath(assetName));
@@ -2775,16 +2932,57 @@ namespace BusPuzzle.EditorTools
         {
             for (var stageNumber = 1; stageNumber <= config.GeneratedStageCount; stageNumber++)
             {
-                var request = StageGenerationPlanner.CreateRequest(config, stageNumber);
-                if (!TryLoadExistingLevelWithMatchingSignature(config, request, out var level))
+                var level = AssetDatabase.LoadAssetAtPath<LevelData>(
+                    GetLevelPath($"Level_{stageNumber:000}"));
+                if (!ReleaseContentBuildValidator.TryValidateReleaseLevelReference(
+                        level,
+                        stageNumber,
+                        config,
+                        out _) ||
+                    LevelValidator.Validate(level, false).HasErrors)
                 {
                     return stageNumber - 1;
+                }
+
+                level.hideFlags = HideFlags.None;
+                EnsureLevelAssetName(level, $"Level_{stageNumber:000}");
+                levels[stageNumber - 1] = level;
+            }
+
+            return config.GeneratedStageCount;
+        }
+
+        private static LevelData[] LoadCompleteReleaseGeneratedSet(StageGenerationConfig config)
+        {
+            var levels = new LevelData[config.GeneratedStageCount];
+            for (var stageNumber = 1; stageNumber <= config.GeneratedStageCount; stageNumber++)
+            {
+                var path = GetLevelPath($"Level_{stageNumber:000}");
+                var level = AssetDatabase.LoadAssetAtPath<LevelData>(path);
+                if (!ReleaseContentBuildValidator.TryValidateReleaseLevelReference(
+                    level,
+                    stageNumber,
+                    config,
+                    out var referenceFailure))
+                {
+                    FailAssetOperation(
+                        $"Release sequence restore aborted before changing either sequence. {referenceFailure}");
+                    return null;
+                }
+
+                var report = LevelValidator.Validate(level, true);
+                if (report.HasErrors)
+                {
+                    FailAssetOperation(
+                        $"Release sequence restore aborted before changing either sequence. " +
+                        report.ToConsoleMessage($"Stage {stageNumber:000}"));
+                    return null;
                 }
 
                 levels[stageNumber - 1] = level;
             }
 
-            return config.GeneratedStageCount;
+            return levels;
         }
 
         private static bool TryLoadExistingLevelWithMatchingSignature(
@@ -2824,14 +3022,56 @@ namespace BusPuzzle.EditorTools
             bool refresh)
         {
             var completedLevels = CollectCompletedLevels(levels, completedStageCount);
-            if (completedLevels.Length == 0)
+            if (completedLevels.Length != ReleaseContentBuildValidator.RequiredReleaseStageCount)
             {
-                return;
+                throw new System.InvalidOperationException(
+                    $"Release sequence promotion requires exactly " +
+                    $"{ReleaseContentBuildValidator.RequiredReleaseStageCount} validated levels; got " +
+                    $"{completedLevels.Length}. Both release sequences were left unchanged.");
             }
 
-            SaveVerifiedGeneratedSequence(completedLevels, GeneratedLevelSequencePath);
-            SaveVerifiedGeneratedSequence(completedLevels, ActiveLevelSequencePath);
-            AssetDatabase.SaveAssets();
+            var config = LoadConfig();
+            for (var stageNumber = 1; stageNumber <= completedLevels.Length; stageNumber++)
+            {
+                if (!ReleaseContentBuildValidator.TryValidateReleaseLevelReference(
+                        completedLevels[stageNumber - 1],
+                        stageNumber,
+                        config,
+                        out var failure))
+                {
+                    throw new System.InvalidOperationException(
+                        $"Release sequence promotion failed before either sequence changed. {failure}");
+                }
+            }
+
+            var generatedSequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(GeneratedLevelSequencePath);
+            var activeSequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(ActiveLevelSequencePath);
+            if (generatedSequence == null || activeSequence == null)
+            {
+                throw new System.InvalidOperationException(
+                    "Both existing release sequence assets are required for atomic promotion; neither was changed.");
+            }
+
+            var generatedSnapshot = new List<LevelData>(generatedSequence.StaticLevels);
+            var activeSnapshot = new List<LevelData>(activeSequence.StaticLevels);
+            var generatedWasVerified = generatedSequence.IsVerifiedGeneratedSet;
+            var activeWasVerified = activeSequence.IsVerifiedGeneratedSet;
+            try
+            {
+                generatedSequence.ConfigureVerifiedGeneratedSet(completedLevels);
+                activeSequence.ConfigureVerifiedGeneratedSet(completedLevels);
+                EditorUtility.SetDirty(generatedSequence);
+                EditorUtility.SetDirty(activeSequence);
+                AssetDatabase.SaveAssets();
+            }
+            catch
+            {
+                RestoreSequenceSnapshot(generatedSequence, generatedSnapshot, generatedWasVerified);
+                RestoreSequenceSnapshot(activeSequence, activeSnapshot, activeWasVerified);
+                AssetDatabase.SaveAssets();
+                throw;
+            }
+
             if (refresh)
             {
                 AssetDatabase.Refresh();
@@ -2841,6 +3081,329 @@ namespace BusPuzzle.EditorTools
             {
                 Debug.Log($"{logMessage} The active sequence now points to {ActiveLevelSequencePath}.");
             }
+        }
+
+        private static void RestoreSequenceSnapshot(
+            LevelSequence sequence,
+            IReadOnlyList<LevelData> levels,
+            bool wasVerified)
+        {
+            if (wasVerified)
+            {
+                sequence.ConfigureVerifiedGeneratedSet(levels);
+            }
+            else
+            {
+                sequence.Configure(levels);
+            }
+
+            EditorUtility.SetDirty(sequence);
+        }
+
+        private static void SaveCompletedStageSequence(
+            GeneratedStageBuildMode mode,
+            LevelData[] levels,
+            int completedStageCount,
+            string logMessage,
+            bool refresh)
+        {
+            if (mode == GeneratedStageBuildMode.FullSet || mode == GeneratedStageBuildMode.NextBatch)
+            {
+                if (completedStageCount != ReleaseContentBuildValidator.RequiredReleaseStageCount)
+                {
+                    if (!string.IsNullOrEmpty(logMessage))
+                    {
+                        Debug.LogWarning(
+                            $"{logMessage} Release sequences were left unchanged because only " +
+                            $"{completedStageCount}/{ReleaseContentBuildValidator.RequiredReleaseStageCount} " +
+                            "stages are complete.");
+                    }
+
+                    return;
+                }
+
+                PromoteStagedReleaseSetAtomically(
+                    levels,
+                    completedStageCount,
+                    logMessage,
+                    refresh);
+                return;
+            }
+
+            var completedLevels = CollectCompletedLevels(levels, completedStageCount);
+            if (completedLevels.Length == 0)
+            {
+                return;
+            }
+
+            if (mode == GeneratedStageBuildMode.ShapeLibraryPreview)
+            {
+                SaveShapePreviewSequence(completedLevels);
+            }
+            else
+            {
+                SaveGeneratedPreviewSequence(completedLevels);
+            }
+            AssetDatabase.SaveAssets();
+            if (refresh)
+            {
+                AssetDatabase.Refresh();
+            }
+
+            if (!string.IsNullOrEmpty(logMessage))
+            {
+                var previewSequencePath = mode == GeneratedStageBuildMode.ShapeLibraryPreview
+                    ? ShapePreviewSequencePath
+                    : GeneratedPreviewSequencePath;
+                Debug.Log($"{logMessage} Preview sequence updated at {previewSequencePath}; release sequences were not changed.");
+            }
+        }
+
+        private static void PromoteStagedReleaseSetAtomically(
+            LevelData[] levels,
+            int completedStageCount,
+            string logMessage,
+            bool refresh)
+        {
+            var limit = Mathf.Clamp(completedStageCount, 0, levels != null ? levels.Length : 0);
+            if (levels == null ||
+                levels.Length != ReleaseContentBuildValidator.RequiredReleaseStageCount ||
+                limit != ReleaseContentBuildValidator.RequiredReleaseStageCount)
+            {
+                throw new System.InvalidOperationException(
+                    "Atomic release promotion requires one complete 200-stage array. Live assets were not changed.");
+            }
+
+            for (var index = 0; index < limit; index++)
+            {
+                var level = levels[index];
+                var stageNumber = index + 1;
+                var expectedReleasePath = GetLevelPath($"Level_{stageNumber:000}");
+                var sourcePath = level != null ? AssetDatabase.GetAssetPath(level) : string.Empty;
+
+                if (level == null ||
+                    string.IsNullOrEmpty(sourcePath) ||
+                    (!string.Equals(sourcePath, expectedReleasePath, System.StringComparison.Ordinal) &&
+                     !sourcePath.StartsWith(
+                         ReleaseStagingLevelDirectory + "/",
+                         System.StringComparison.Ordinal)) ||
+                    !StageGenerationSignature.TryGetInt(level.GenerationSignature, "stage", out var signatureStage) ||
+                    signatureStage != stageNumber ||
+                    !StageGenerationSignature.TryGetInt(level.GenerationSignature, "stageCount", out var stageCount) ||
+                    stageCount != ReleaseContentBuildValidator.RequiredReleaseStageCount ||
+                    !StageGenerationSignature.TryGetInt(
+                        level.GenerationSignature,
+                        "layoutVariant",
+                        out var layoutVariantIndex) ||
+                    layoutVariantIndex < 0 ||
+                    level.GenerationSignature.StartsWith(
+                        ShapePreviewSignaturePrefix,
+                        System.StringComparison.Ordinal) ||
+                    level.GenerationSignature.StartsWith(
+                        GeneratedPreviewSignaturePrefix,
+                        System.StringComparison.Ordinal) ||
+                    level.GenerationSignature.IndexOf(
+                        "manualShape=",
+                        System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    throw new System.InvalidOperationException(
+                        $"Staged release level {stageNumber:000} is missing or invalid. Live release assets were not promoted.");
+                }
+
+                var report = LevelValidator.Validate(level, true);
+                if (report.HasErrors)
+                {
+                    throw new System.InvalidOperationException(
+                        report.ToConsoleMessage($"Staged release level {stageNumber:000}"));
+                }
+            }
+
+            var generatedSequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(GeneratedLevelSequencePath);
+            var activeSequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(ActiveLevelSequencePath);
+            if (generatedSequence == null || activeSequence == null)
+            {
+                throw new System.InvalidOperationException(
+                    "Both existing release sequence assets are required for atomic promotion; no live asset was changed.");
+            }
+
+            var liveLevels = new LevelData[limit];
+            var levelSnapshots = new LevelData[limit];
+            try
+            {
+                for (var index = 0; index < limit; index++)
+                {
+                    var assetName = $"Level_{index + 1:000}";
+                    liveLevels[index] = AssetDatabase.LoadAssetAtPath<LevelData>(GetLevelPath(assetName));
+                    if (liveLevels[index] == null)
+                    {
+                        throw new System.InvalidOperationException(
+                            $"Existing live release asset {assetName} is missing; no promotion was attempted.");
+                    }
+
+                    levelSnapshots[index] = UnityEngine.Object.Instantiate(liveLevels[index]);
+                    levelSnapshots[index].hideFlags = HideFlags.HideAndDontSave;
+                }
+            }
+            catch
+            {
+                for (var index = 0; index < levelSnapshots.Length; index++)
+                {
+                    if (levelSnapshots[index] != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(levelSnapshots[index]);
+                    }
+                }
+
+                throw;
+            }
+
+            var generatedSnapshot = new List<LevelData>(generatedSequence.StaticLevels);
+            var activeSnapshot = new List<LevelData>(activeSequence.StaticLevels);
+            var generatedWasVerified = generatedSequence.IsVerifiedGeneratedSet;
+            var activeWasVerified = activeSequence.IsVerifiedGeneratedSet;
+            var isEditingAssets = false;
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+                isEditingAssets = true;
+                for (var index = 0; index < limit; index++)
+                {
+                    var stageNumber = index + 1;
+                    var source = levels[index];
+                    var liveLevel = liveLevels[index];
+                    var assetName = $"Level_{stageNumber:000}";
+                    if (!ReferenceEquals(source, liveLevel))
+                    {
+                        EditorUtility.CopySerialized(source, liveLevel);
+                        liveLevel.hideFlags = HideFlags.None;
+                        EnsureLevelAssetName(liveLevel, assetName);
+                        SetSerializedLevelName(liveLevel, source.LevelName);
+                        EditorUtility.SetDirty(liveLevel);
+                    }
+
+                    levels[index] = liveLevel;
+                }
+
+                generatedSequence.ConfigureVerifiedGeneratedSet(liveLevels);
+                activeSequence.ConfigureVerifiedGeneratedSet(liveLevels);
+                EditorUtility.SetDirty(generatedSequence);
+                EditorUtility.SetDirty(activeSequence);
+                AssetDatabase.StopAssetEditing();
+                isEditingAssets = false;
+                AssetDatabase.SaveAssets();
+                if (refresh)
+                {
+                    AssetDatabase.Refresh();
+                }
+
+                if (!string.IsNullOrEmpty(logMessage))
+                {
+                    Debug.Log(
+                        $"{logMessage} All live LevelData and both release sequences were promoted atomically.");
+                }
+            }
+            catch (System.Exception promotionFailure)
+            {
+                if (isEditingAssets)
+                {
+                    AssetDatabase.StopAssetEditing();
+                    isEditingAssets = false;
+                }
+
+                System.Exception rollbackFailure = null;
+                try
+                {
+                    AssetDatabase.StartAssetEditing();
+                    isEditingAssets = true;
+                    for (var index = 0; index < limit; index++)
+                    {
+                        EditorUtility.CopySerialized(levelSnapshots[index], liveLevels[index]);
+                        liveLevels[index].hideFlags = HideFlags.None;
+                        EditorUtility.SetDirty(liveLevels[index]);
+                    }
+
+                    RestoreSequenceSnapshot(generatedSequence, generatedSnapshot, generatedWasVerified);
+                    RestoreSequenceSnapshot(activeSequence, activeSnapshot, activeWasVerified);
+                    AssetDatabase.StopAssetEditing();
+                    isEditingAssets = false;
+                    AssetDatabase.SaveAssets();
+                }
+                catch (System.Exception exception)
+                {
+                    rollbackFailure = exception;
+                }
+
+                if (rollbackFailure != null)
+                {
+                    throw new System.AggregateException(
+                        "Release promotion failed and rollback also failed.",
+                        promotionFailure,
+                        rollbackFailure);
+                }
+
+                throw;
+            }
+            finally
+            {
+                if (isEditingAssets)
+                {
+                    AssetDatabase.StopAssetEditing();
+                }
+
+                for (var index = 0; index < levelSnapshots.Length; index++)
+                {
+                    if (levelSnapshots[index] != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(levelSnapshots[index]);
+                    }
+                }
+            }
+        }
+
+        private static void RefreshShapePreviewSequenceFromExistingLevels()
+        {
+            var levels = new List<LevelData>();
+            for (var stageNumber = 1; stageNumber <= ShapeLibraryPreviewStageCount; stageNumber++)
+            {
+                var level = AssetDatabase.LoadAssetAtPath<LevelData>(GetShapePreviewLevelPath(stageNumber));
+                if (level != null)
+                {
+                    levels.Add(level);
+                }
+            }
+
+            if (levels.Count > 0)
+            {
+                SaveShapePreviewSequence(levels.ToArray());
+            }
+        }
+
+        private static void SaveShapePreviewSequence(LevelData[] levels)
+        {
+            EnsureAssetDirectory(ShapePreviewDirectory);
+            var sequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(ShapePreviewSequencePath);
+            if (sequence == null)
+            {
+                sequence = ScriptableObject.CreateInstance<LevelSequence>();
+                AssetDatabase.CreateAsset(sequence, ShapePreviewSequencePath);
+            }
+
+            sequence.Configure(levels);
+            EditorUtility.SetDirty(sequence);
+        }
+
+        private static void SaveGeneratedPreviewSequence(LevelData[] levels)
+        {
+            EnsureAssetDirectory(GeneratedPreviewDirectory);
+            var sequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(GeneratedPreviewSequencePath);
+            if (sequence == null)
+            {
+                sequence = ScriptableObject.CreateInstance<LevelSequence>();
+                AssetDatabase.CreateAsset(sequence, GeneratedPreviewSequencePath);
+            }
+
+            sequence.Configure(levels);
+            EditorUtility.SetDirty(sequence);
         }
 
         private static LevelData[] CollectCompletedLevels(LevelData[] levels, int completedStageCount)
@@ -2861,29 +3424,24 @@ namespace BusPuzzle.EditorTools
             return completedLevels.ToArray();
         }
 
-        private static void SaveVerifiedGeneratedSequence(LevelData[] levels, string path)
-        {
-            var sequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(path);
-            if (sequence == null)
-            {
-                sequence = ScriptableObject.CreateInstance<LevelSequence>();
-                AssetDatabase.CreateAsset(sequence, path);
-            }
-
-            sequence.ConfigureVerifiedGeneratedSet(levels);
-            EditorUtility.SetDirty(sequence);
-        }
-
         private static StageGenerationConfig LoadConfig()
         {
             var config = AssetDatabase.LoadAssetAtPath<StageGenerationConfig>(StageGenerationConfigPath);
             if (config != null)
             {
+                if (config.GeneratedStageCount != ReleaseContentBuildValidator.RequiredReleaseStageCount)
+                {
+                    throw new System.InvalidOperationException(
+                        $"Stage generation config declares {config.GeneratedStageCount} stages, but this " +
+                        $"release pipeline is locked to {ReleaseContentBuildValidator.RequiredReleaseStageCount}. " +
+                        "No release or preview assets were changed.");
+                }
+
                 return config;
             }
 
-            Debug.LogWarning($"Stage generation config not found at {StageGenerationConfigPath}; using runtime defaults.");
-            return ScriptableObject.CreateInstance<StageGenerationConfig>();
+            throw new System.InvalidOperationException(
+                $"Stage generation config is required at {StageGenerationConfigPath}; no release or preview assets were changed.");
         }
 
         private static string CreateReportMessage(LevelData level, LevelValidationReport report)

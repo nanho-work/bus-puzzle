@@ -1067,10 +1067,6 @@ namespace BusPuzzle
 
             var clearedStageNumber = currentLevelIndex + 1;
             LeaderboardService.RecordStageClear(clearedStageNumber);
-            if (clearedStageNumber < levelSequence.Count)
-            {
-                UserProgress.SaveLastStageIndex(clearedStageNumber, levelSequence.Count);
-            }
 
             var goldReward = UserEconomy.TryGrantStageClearGold(clearedStageNumber, StageClearGoldReward)
                 ? StageClearGoldReward

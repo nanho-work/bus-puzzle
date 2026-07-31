@@ -6,7 +6,8 @@ namespace BusPuzzle
 {
     public static class StageGenerationSignature
     {
-        private const int SignatureVersion = 96;
+        private const int SignatureVersion = 97;
+        public const int CurrentVersion = SignatureVersion;
 
         public static string Create(StageGenerationConfig config, StageGenerationRequest request)
         {
@@ -58,10 +59,20 @@ namespace BusPuzzle
                 Append(builder, "rampStart", config.DifficultyRampStartStage);
                 Append(builder, "rampReference", config.DifficultyRampReferenceStage);
                 Append(builder, "rampMax", config.DifficultyRampMaxStage);
+                Append(builder, "postRampStart", config.Post50RampStartStage);
                 Append(builder, "postRampMax", config.Post50RampMaxStage);
                 Append(builder, "baseSeed", config.BaseSeed);
                 Append(builder, "releaseVehicleAttempts", config.ReleaseVehicleGenerationAttempts);
                 Append(builder, "solutionLimit", config.SolutionCountLimit);
+                if (request.StageNumber > config.GeneratedStageCount)
+                {
+                    Append(builder, "endlessVersion", StageGenerationConfig.EndlessScheduleVersion);
+                    Append(builder, "endlessBeat", config.GetEndlessBeat(request.StageNumber));
+                    Append(builder, "endlessEpoch", config.GetEndlessEpoch(request.StageNumber));
+                    Append(builder, "endlessIntensity", config.GetEndlessIntensity(request.StageNumber));
+                    Append(builder, "endlessMastery", config.GetEndlessMasteryPressure(request.StageNumber));
+                    Append(builder, "endlessChallenge", config.GetEndlessChallengeProgress(request.StageNumber));
+                }
             }
 
             return builder.ToString();

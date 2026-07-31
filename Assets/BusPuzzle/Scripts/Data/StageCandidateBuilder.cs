@@ -5,12 +5,14 @@ namespace BusPuzzle
 {
     public static class StageCandidateBuilder
     {
-        private const int MinimumRuntimeCandidateAttempts = 8;
         private const int MinimumReleaseCandidateProbeCount = 6;
-        private const int MinimumRuntimeFallbackVehicleCount = 24;
+        private const int RuntimeProceduralGeneratorVersion = 3;
+        private const int MaximumRuntimeCandidateAttempts = 4;
+        private const int MaximumRuntimeVehicleGenerationAttempts = 6;
         private const int EmergencyVehicleCount = 4;
+        private const int RuntimeSolutionCountLimit = 1;
         private const int RuntimeSolutionNodeVisitLimit = 2048;
-        private static readonly float[] RelaxedRuntimeVehicleScales = { 0.90f, 0.78f, 0.66f };
+        private const float MinimumRuntimeVehicleTargetRatio = 0.75f;
 
         public static bool TryBuildVerifiedStageCandidate(
             StageGenerationConfig config,
@@ -178,72 +180,201 @@ namespace BusPuzzle
 
         public static LevelData BuildRuntimeStageCandidate(StageGenerationConfig config, StageGenerationRequest request)
         {
+            return TryBuildRuntimeStageCandidate(
+                config,
+                request,
+                out var level,
+                out _,
+                out _,
+                out _)
+                ? level
+                : null;
+        }
+
+        public static bool TryBuildRuntimeStageCandidate(
+            StageGenerationConfig config,
+            StageGenerationRequest request,
+            out LevelData level,
+            out LevelValidationReport report,
+            out StageSolutionAnalysis analysis,
+            out int selectedCandidateIndex)
+        {
             config = config != null ? config : UnityEngine.ScriptableObject.CreateInstance<StageGenerationConfig>();
 
-            LevelData bestLevel = null;
-            var bestScore = int.MaxValue;
-            var attempts = UnityEngine.Mathf.Min(
-                UnityEngine.Mathf.Max(config.RuntimeCandidateAttemptsPerStage, MinimumRuntimeCandidateAttempts),
-                config.CandidateAttemptsPerStage);
+            var attempts = UnityEngine.Mathf.Clamp(
+                config.RuntimeCandidateAttemptsPerStage,
+                1,
+                MaximumRuntimeCandidateAttempts);
+            var vehicleGenerationAttempts = UnityEngine.Mathf.Clamp(
+                config.RuntimeVehicleGenerationAttempts,
+                1,
+                MaximumRuntimeVehicleGenerationAttempts);
+            var solutionCountLimit = RuntimeSolutionCountLimit;
+
+            level = null;
+            report = null;
+            analysis = default;
+            selectedCandidateIndex = -1;
+            var nullCandidateCount = 0;
+            var shapeCoverageRejectionCount = 0;
+            var vehicleCountRejectionCount = 0;
+            var validationRejectionCount = 0;
+            var solutionRejectionCount = 0;
+            var maximumGeneratedVehicleCount = 0;
 
             for (var candidate = 0; candidate < attempts; candidate++)
             {
-                var level = LevelGenerator.CreateRuntimeStage(
+                var candidateLevel = LevelGenerator.CreateRuntimeStage(
                     request,
                     config.SuperHardGarageRule,
                     candidate,
-                    config.RuntimeVehicleGenerationAttempts,
+                    vehicleGenerationAttempts,
                     false);
-                if (!HasRequiredShapeLibraryVehicleCoverage(request, level))
+                if (candidateLevel == null)
                 {
+                    nullCandidateCount++;
                     continue;
                 }
 
-                if (!TryScoreRuntimeCandidate(config, request, level, out var score))
+                candidateLevel.SetGenerationMetadata(
+                    CreateRuntimeProceduralSignature(
+                        config,
+                        request,
+                        candidate,
+                        vehicleGenerationAttempts,
+                        candidateLevel.AllVehicles != null ? candidateLevel.AllVehicles.Count : 0,
+                        solutionCountLimit),
+                    0);
+                maximumGeneratedVehicleCount = Mathf.Max(
+                    maximumGeneratedVehicleCount,
+                    candidateLevel.AllVehicles != null ? candidateLevel.AllVehicles.Count : 0);
+
+                if (!HasRequiredShapeLibraryVehicleCoverage(request, candidateLevel))
                 {
+                    shapeCoverageRejectionCount++;
+                    ReleaseRuntimeCandidate(candidateLevel);
                     continue;
                 }
 
-                if (score < bestScore)
+                var requestedProfile = request.Profile ??
+                    LevelDifficultyProfile.DefaultFor(request.Difficulty);
+                var minimumVehicleCount = Mathf.CeilToInt(
+                    requestedProfile.TargetVehicleCount * MinimumRuntimeVehicleTargetRatio);
+                if (candidateLevel.AllVehicles == null ||
+                    candidateLevel.AllVehicles.Count < minimumVehicleCount)
                 {
-                    bestScore = score;
-                    bestLevel = level;
+                    vehicleCountRejectionCount++;
+                    ReleaseRuntimeCandidate(candidateLevel);
+                    continue;
                 }
 
-                if (score == 0)
+                // LevelValidator owns every structural/content invariant. The bounded
+                // analyzer below owns playability, avoiding the same solver traversal
+                // being paid twice on the main thread.
+                var candidateReport = LevelValidator.Validate(candidateLevel, false);
+                var candidateAnalysis = AnalyzeRuntimeSolution(candidateLevel);
+                if (candidateReport.HasErrors || !candidateAnalysis.IsSolvable)
                 {
-                    return level;
+                    if (candidateReport.HasErrors)
+                    {
+                        validationRejectionCount++;
+                    }
+
+                    if (!candidateAnalysis.IsSolvable)
+                    {
+                        solutionRejectionCount++;
+                    }
+
+                    report = candidateReport;
+                    analysis = candidateAnalysis;
+                    ReleaseRuntimeCandidate(candidateLevel);
+                    continue;
                 }
-            }
 
-            if (bestLevel != null)
-            {
-                return bestLevel;
-            }
+                candidateLevel.SetGenerationMetadata(
+                    CreateRuntimeProceduralSignature(
+                        config,
+                        request,
+                        candidate,
+                        vehicleGenerationAttempts,
+                        candidateLevel.AllVehicles != null ? candidateLevel.AllVehicles.Count : 0,
+                        solutionCountLimit),
+                    candidateAnalysis.SolutionCount);
 
-            if (TryBuildVerifiedStageCandidate(config, request, out var verifiedLevel, out _, out _))
-            {
-                UnityEngine.Debug.LogWarning(
-                    $"Runtime stage {request.StageNumber:000} required full verification fallback.");
-                return verifiedLevel;
-            }
-
-            var relaxedLevel = BuildRelaxedRuntimeStageCandidate(config, request);
-            if (relaxedLevel != null)
-            {
-                return relaxedLevel;
+                // The stage seed, layout variant and candidate order are stable. Taking
+                // the first fully valid candidate keeps the result identical on fast and
+                // slow devices instead of making wall-clock timing part of generation.
+                level = candidateLevel;
+                report = candidateReport;
+                analysis = candidateAnalysis;
+                selectedCandidateIndex = candidate;
+                return true;
             }
 
             UnityEngine.Debug.LogWarning(
-                $"Failed to build a fast verified runtime candidate for stage {request.StageNumber}. Using emergency solvable stage.");
-            return CreateEmergencySolvableStage(request);
+                $"All {attempts} bounded procedural probes failed for runtime stage " +
+                $"{request.StageNumber:000}. Rejections: null={nullCandidateCount}, " +
+                $"shape={shapeCoverageRejectionCount}, vehicles={vehicleCountRejectionCount}, " +
+                $"validation={validationRejectionCount}, solution={solutionRejectionCount}; " +
+                $"best vehicle count={maximumGeneratedVehicleCount}/" +
+                $"{(request.Profile != null ? request.Profile.TargetVehicleCount : 0)}.");
+            return false;
         }
 
         public static bool ShouldCacheRuntimeStage(StageGenerationRequest request, LevelData level)
         {
             return level != null &&
                 level.AllVehicles != null &&
-                level.AllVehicles.Count > EmergencyVehicleCount;
+                level.AllVehicles.Count > EmergencyVehicleCount &&
+                StageGenerationSignature.TryGetInt(
+                    level.GenerationSignature,
+                    "runtimeProcedural",
+                    out var runtimeProcedural) &&
+                runtimeProcedural == 1 &&
+                StageGenerationSignature.TryGetInt(
+                    level.GenerationSignature,
+                    "stage",
+                    out var stageNumber) &&
+                stageNumber == request.StageNumber;
+        }
+
+        internal static StageSolutionAnalysis AnalyzeRuntimeSolution(LevelData level)
+        {
+            if (level == null)
+            {
+                return new StageSolutionAnalysis(false, 0, false);
+            }
+
+            // The vehicle builder already constructs a complete deterministic exit order
+            // for boards without garages. Replaying that linear proof avoids an exponential
+            // DFS rejecting a valid dense board merely because it explored a different
+            // branch first. Garage queues still require the bounded full-state analyzer.
+            if ((level.Garages == null || level.Garages.Count == 0) &&
+                level.Buses != null &&
+                LevelVehicleExitPlanner.TryFindExitOrder(level.Buses, out var exitOrder, out _) &&
+                exitOrder.Count == level.Buses.Count)
+            {
+                return new StageSolutionAnalysis(true, 1, false);
+            }
+
+            return StageSolutionAnalyzer.Analyze(
+                level.Buses,
+                level.Garages,
+                RuntimeSolutionCountLimit,
+                RuntimeSolutionNodeVisitLimit);
+        }
+
+        public static LevelData BuildEmergencyRuntimeStage(StageGenerationRequest request)
+        {
+            var level = CreateEmergencySolvableStage(request);
+            if (level != null)
+            {
+                level.SetGenerationMetadata(
+                    $"runtimeEmergency=1;stage={request.StageNumber};seed={request.Seed};",
+                    1);
+            }
+
+            return level;
         }
 
         public static LevelData BuildBestStageCandidate(StageGenerationConfig config, StageGenerationRequest request)
@@ -262,128 +393,37 @@ namespace BusPuzzle
             return solutionDistance == 0 || IsAcceptableReleaseFallback(solutionDistance);
         }
 
-        private static bool TryScoreRuntimeCandidate(
+        private static string CreateRuntimeProceduralSignature(
             StageGenerationConfig config,
             StageGenerationRequest request,
-            LevelData level,
-            out int score)
+            int candidateIndex,
+            int vehicleGenerationAttempts,
+            int actualVehicleCount,
+            int solutionCountLimit)
         {
-            score = int.MaxValue;
-            if (level == null)
-            {
-                return false;
-            }
-
-            var report = LevelValidator.Validate(level, false);
-            if (report.HasErrors)
-            {
-                return false;
-            }
-
-            if (!HasRequiredShapeLibraryVehicleCoverage(request, level))
-            {
-                return false;
-            }
-
-            var analysis = AnalyzeCandidateSolution(config, request, level);
-            if (!analysis.IsSolvable)
-            {
-                return false;
-            }
-
-            score = ScoreRuntimeCandidate(request, level);
-            return true;
+            return
+                $"runtimeProcedural=1;runtimeGenerator={RuntimeProceduralGeneratorVersion};" +
+                $"candidate={candidateIndex};vehicleAttempts={vehicleGenerationAttempts};" +
+                $"actualVehicles={actualVehicleCount};solutionNodeLimit={RuntimeSolutionNodeVisitLimit};" +
+                $"solutionCountLimit={solutionCountLimit};" +
+                StageGenerationSignature.Create(config, request);
         }
 
-        private static LevelData BuildRelaxedRuntimeStageCandidate(StageGenerationConfig config, StageGenerationRequest request)
+        private static void ReleaseRuntimeCandidate(LevelData candidate)
         {
-            var sourceProfile = request.Profile ?? LevelDifficultyProfile.DefaultFor(request.Difficulty);
-            for (var pass = 0; pass < RelaxedRuntimeVehicleScales.Length; pass++)
+            if (candidate == null)
             {
-                var relaxedRequest = CreateRelaxedRuntimeRequest(request, pass);
-                if (!TryBuildVerifiedStageCandidate(config, relaxedRequest, out var level, out _, out _))
-                {
-                    continue;
-                }
-
-                UnityEngine.Debug.LogWarning(
-                    $"Runtime stage {request.StageNumber:000} is using relaxed fallback pass {pass + 1}: " +
-                    $"{level.AllVehicles.Count}/{sourceProfile.TargetVehicleCount} vehicles.");
-                return level;
+                return;
             }
 
-            return null;
-        }
-
-        private static StageGenerationRequest CreateRelaxedRuntimeRequest(StageGenerationRequest request, int pass)
-        {
-            var sourceProfile = request.Profile ?? LevelDifficultyProfile.DefaultFor(request.Difficulty);
-            var scaleIndex = UnityEngine.Mathf.Clamp(pass, 0, RelaxedRuntimeVehicleScales.Length - 1);
-            var vehicleScale = RelaxedRuntimeVehicleScales[scaleIndex];
-            var minimumVehicleCount = UnityEngine.Mathf.Min(
-                sourceProfile.TargetVehicleCount,
-                GetMinimumRuntimeFallbackVehicleCount(request.Difficulty));
-            var targetVehicleCount = UnityEngine.Mathf.Clamp(
-                UnityEngine.Mathf.RoundToInt(sourceProfile.TargetVehicleCount * vehicleScale),
-                minimumVehicleCount,
-                sourceProfile.TargetVehicleCount);
-            var targetColorCount = UnityEngine.Mathf.Clamp(
-                sourceProfile.TargetColorCount - pass - 1,
-                4,
-                sourceProfile.TargetColorCount);
-            var relaxation = (pass + 1f) / RelaxedRuntimeVehicleScales.Length;
-            var parkingTension = UnityEngine.Mathf.Lerp(
-                sourceProfile.ParkingTension,
-                UnityEngine.Mathf.Min(sourceProfile.ParkingTension, 0.46f),
-                relaxation);
-            var stationPressure = UnityEngine.Mathf.Lerp(
-                sourceProfile.StationPressure,
-                UnityEngine.Mathf.Min(sourceProfile.StationPressure, 0.46f),
-                relaxation);
-            var relaxedProfile = LevelDifficultyProfile.CreateCustom(
-                sourceProfile.Difficulty,
-                sourceProfile.PassengerFlowRule,
-                targetVehicleCount,
-                targetColorCount,
-                parkingTension,
-                stationPressure,
-                sourceProfile.RequireSolutionRoute);
-            var layoutPoolSize = UnityEngine.Mathf.Max(1, request.VehicleLayoutVariantPoolSize);
-            var layoutVariantIndex = UnityEngine.Mathf.Abs(
-                request.VehicleLayoutVariantIndex + (pass + 1) * 31) % layoutPoolSize;
-            var maxSolutionCount = UnityEngine.Mathf.Max(request.MaxSolutionCount, targetVehicleCount * 4);
-
-            return new StageGenerationRequest(
-                request.StageNumber,
-                request.Seed + (pass + 1) * 104729,
-                request.Difficulty,
-                StageModifierFlags.None,
-                relaxedProfile,
-                request.Progress,
-                request.Post50Pressure,
-                RotaryRoadPresetId.LargeCircleTest,
-                layoutVariantIndex,
-                layoutPoolSize,
-                0,
-                1,
-                1,
-                request.RotaryCapacity,
-                MysteryVehicleGenerationProfile.Disabled,
-                1,
-                maxSolutionCount);
-        }
-
-        private static int GetMinimumRuntimeFallbackVehicleCount(LevelDifficulty difficulty)
-        {
-            switch (difficulty)
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
             {
-                case LevelDifficulty.SuperHard:
-                    return 32;
-                case LevelDifficulty.Hard:
-                    return 28;
-                default:
-                    return MinimumRuntimeFallbackVehicleCount;
+                UnityEngine.Object.DestroyImmediate(candidate);
+                return;
             }
+#endif
+            UnityEngine.Object.Destroy(candidate);
         }
 
         private static int ScoreRuntimeCandidate(StageGenerationRequest request, LevelData level)

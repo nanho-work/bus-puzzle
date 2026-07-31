@@ -19,6 +19,7 @@ namespace BusPuzzle.EditorTools
         [MenuItem("Bus Puzzle/Levels/Validate Release Generated Level Sequence")]
         public static void ValidateReleaseGeneratedLevelSequence()
         {
+            ReleaseContentBuildValidator.ValidateReleaseContentOrThrow();
             var sequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(GeneratedLevelSequencePath);
             if (sequence == null || sequence.StaticLevels.Count == 0)
             {

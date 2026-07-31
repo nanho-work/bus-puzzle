@@ -67,19 +67,38 @@ namespace BusPuzzle
             }
 
             var count = 0;
-            for (var index = 0; index < state.Buses.Count; index++)
+            // Garage fronts unlock queued vehicles and eventually remove a large static
+            // obstacle. Exploring them before ordinary cars avoids spending the bounded
+            // node budget on equivalent permutations of unrelated exits.
+            for (var garagePriorityPass = 0; garagePriorityPass < 2; garagePriorityPass++)
             {
-                if (!state.Active[index] || !LevelVehicleExitPlanner.IsPathClear(index, state.Buses, state.Active, state.ActiveGarageObstacles, out _))
+                var requireGarageVehicle = garagePriorityPass == 0;
+                for (var index = 0; index < state.Buses.Count; index++)
                 {
-                    continue;
-                }
+                    if (state.IsGarageVehicle(index) != requireGarageVehicle ||
+                        !state.Active[index] ||
+                        !LevelVehicleExitPlanner.IsPathClear(
+                            index,
+                            state.Buses,
+                            state.Active,
+                            state.ActiveGarageObstacles,
+                            out _))
+                    {
+                        continue;
+                    }
 
-                var nextState = state.Clone();
-                nextState.RemoveVehicle(index);
-                count += CountSolutions(nextState, remainingLimit - count, nodeVisitLimit, ref visitedNodes, ref hitNodeLimit);
-                if (count >= remainingLimit)
-                {
-                    return remainingLimit;
+                    var nextState = state.Clone();
+                    nextState.RemoveVehicle(index);
+                    count += CountSolutions(
+                        nextState,
+                        remainingLimit - count,
+                        nodeVisitLimit,
+                        ref visitedNodes,
+                        ref hitNodeLimit);
+                    if (count >= remainingLimit)
+                    {
+                        return remainingLimit;
+                    }
                 }
             }
 
@@ -170,6 +189,13 @@ namespace BusPuzzle
                 }
 
                 return clone;
+            }
+
+            public bool IsGarageVehicle(int busIndex)
+            {
+                return busIndex >= 0 &&
+                    busIndex < garageIndexByBus.Length &&
+                    garageIndexByBus[busIndex] >= 0;
             }
 
             public void RemoveVehicle(int busIndex)

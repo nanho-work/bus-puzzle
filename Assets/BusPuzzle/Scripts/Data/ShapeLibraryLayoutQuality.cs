@@ -14,6 +14,7 @@ namespace BusPuzzle
         public readonly int OutwardFacingCount;
         public readonly int OpeningExitCount;
         public readonly int ShapeFidelityScore;
+        public readonly VehicleShapeSilhouetteMetrics SilhouetteMetrics;
 
         public ShapeLibraryLayoutMetrics(
             int vehicleCount,
@@ -24,7 +25,8 @@ namespace BusPuzzle
             int largeCount,
             int outwardFacingCount,
             int openingExitCount,
-            int shapeFidelityScore)
+            int shapeFidelityScore,
+            VehicleShapeSilhouetteMetrics silhouetteMetrics)
         {
             VehicleCount = vehicleCount;
             ShapeMatchedCount = shapeMatchedCount;
@@ -35,6 +37,7 @@ namespace BusPuzzle
             OutwardFacingCount = outwardFacingCount;
             OpeningExitCount = openingExitCount;
             ShapeFidelityScore = shapeFidelityScore;
+            SilhouetteMetrics = silhouetteMetrics;
         }
 
         public int MediumLargeCount => MediumCount + LargeCount;
@@ -55,26 +58,65 @@ namespace BusPuzzle
         public static bool IsSatisfied(
             LevelDifficultyProfile profile,
             int layoutVariantIndex,
-            IReadOnlyList<BusDefinition> vehicles)
+            IReadOnlyList<BusDefinition> vehicles,
+            bool enforceOpeningMoves = true)
         {
-            return !TryGetFailureMessage(profile, layoutVariantIndex, vehicles, out _);
+            return !TryGetFailureMessage(
+                profile,
+                layoutVariantIndex,
+                vehicles,
+                out _,
+                true,
+                enforceOpeningMoves);
         }
 
         public static bool TryGetFailureMessage(
             LevelDifficultyProfile profile,
             int layoutVariantIndex,
             IReadOnlyList<BusDefinition> vehicles,
-            out string message)
+            out string message,
+            bool enforceTemplateSilhouette = true,
+            bool enforceOpeningMoves = true)
         {
             message = string.Empty;
-            if (!VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex))
+            profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            var vehicleCount = vehicles != null ? vehicles.Count : 0;
+            if (!TryResolveQualityLibraryId(
+                    profile,
+                    Mathf.Max(vehicleCount, profile.TargetVehicleCount),
+                    layoutVariantIndex,
+                    out var libraryId))
             {
                 return false;
             }
 
-            profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
-            var libraryId = (VehicleShapeLibraryId)libraryIndex;
+            var targetVehicleCount = Mathf.Max(vehicleCount, profile.TargetVehicleCount);
+            VehicleShapeTemplate qualityTemplate = null;
+            var hasTemplateDefinition =
+                VehicleLayoutPatternEngine.TryCreateShapeDefinition(
+                    profile,
+                    targetVehicleCount,
+                    layoutVariantIndex,
+                    out var templateDefinition);
+            var hasUsableQualityTemplate =
+                hasTemplateDefinition &&
+                VehicleShapeTemplateCatalog.TryGetQualityTemplate(
+                    templateDefinition,
+                    out qualityTemplate);
+            var hasEnabledQualityTemplate =
+                hasUsableQualityTemplate && qualityTemplate.Constraints.EnableSilhouetteGate;
+            if (enforceTemplateSilhouette &&
+                libraryId == VehicleShapeLibraryId.Heart &&
+                !hasEnabledQualityTemplate)
+            {
+                message =
+                    "Required Heart quality template Resources/VehicleShapeTemplates/Heart.asset " +
+                    "is missing, unusable, or has its silhouette gate disabled.";
+                return true;
+            }
+
             var metrics = CalculateMetrics(profile, layoutVariantIndex, vehicles);
+            var hasTemplateQualityProfile = enforceTemplateSilhouette && hasEnabledQualityTemplate;
             var usesLockedTemplateQualityProfile = UsesLockedTemplateQualityProfile(libraryId);
             var minimumCoverage = ShapeLibraryVehicleCoverage.GetMinimumVehicleCount(profile, layoutVariantIndex);
             if (metrics.VehicleCount < minimumCoverage)
@@ -125,22 +167,33 @@ namespace BusPuzzle
                 }
             }
 
-            var minimumOpening = ShapeLibraryVehicleCoverage.GetMinimumOpeningExitCount(metrics.VehicleCount, layoutVariantIndex);
-            if (metrics.OpeningExitCount < minimumOpening)
+            if (enforceOpeningMoves)
             {
-                message = $"Shape library opening exits {metrics.OpeningExitCount}/{metrics.VehicleCount} are below required minimum {minimumOpening}.";
-                return true;
+                var minimumOpening = ShapeLibraryVehicleCoverage.GetMinimumOpeningExitCount(
+                    metrics.VehicleCount,
+                    libraryId);
+                if (metrics.OpeningExitCount < minimumOpening)
+                {
+                    message = $"Shape library opening exits {metrics.OpeningExitCount}/{metrics.VehicleCount} are below required minimum {minimumOpening}.";
+                    return true;
+                }
+
+                var maximumOpening = GetMaximumOpeningExitCount(profile, libraryId, metrics.VehicleCount);
+                if (metrics.OpeningExitCount > maximumOpening)
+                {
+                    message = $"Shape library opening exits {metrics.OpeningExitCount}/{metrics.VehicleCount} exceed maximum {maximumOpening}.";
+                    return true;
+                }
             }
 
-            var maximumOpening = GetMaximumOpeningExitCount(profile, libraryId, metrics.VehicleCount);
-            if (metrics.OpeningExitCount > maximumOpening)
+            if (!IsRelaxedCircularLibrary(libraryId) && !hasTemplateQualityProfile)
             {
-                message = $"Shape library opening exits {metrics.OpeningExitCount}/{metrics.VehicleCount} exceed maximum {maximumOpening}.";
-                return true;
-            }
-
-            if (!IsRelaxedCircularLibrary(libraryId))
-            {
+                // The legacy fidelity score grades root-cell positions and authored
+                // directions. A template-backed silhouette is graded from the vehicles'
+                // actual rendered footprints instead, including boundary distance,
+                // symmetry, topology, key features and tangent alignment. Applying both
+                // rejects valid geometry-preserving opening rotations, so the stronger
+                // visual contract supersedes the legacy score for opted-in templates.
                 var maximumFidelityScore = GetMaximumShapeFidelityScore(
                     profile,
                     libraryId,
@@ -150,6 +203,25 @@ namespace BusPuzzle
                 if (metrics.ShapeFidelityScore > maximumFidelityScore)
                 {
                     message = $"Shape library fidelity score {metrics.ShapeFidelityScore} exceeds maximum {maximumFidelityScore}.";
+                    return true;
+                }
+            }
+
+            // Root-cell fidelity alone can approve a recognizable-but-ugly silhouette.
+            // Template-backed libraries therefore get a second, visual-footprint gate.
+            if (hasTemplateQualityProfile)
+            {
+                if (!metrics.SilhouetteMetrics.WasEvaluated)
+                {
+                    message = $"Shape template {qualityTemplate.DisplayName} silhouette could not be evaluated.";
+                    return true;
+                }
+
+                if (VehicleShapeSilhouetteQuality.TryGetFailureMessage(
+                        qualityTemplate,
+                        metrics.SilhouetteMetrics,
+                        out message))
+                {
                     return true;
                 }
             }
@@ -214,6 +286,8 @@ namespace BusPuzzle
                 targetVehicleCount,
                 layoutVariantIndex,
                 vehicles);
+            var silhouetteMetrics = default(VehicleShapeSilhouetteMetrics);
+            VehicleShapeSilhouetteQuality.TryEvaluate(definition, vehicles, out silhouetteMetrics);
 
             return new ShapeLibraryLayoutMetrics(
                 vehicleCount,
@@ -224,7 +298,35 @@ namespace BusPuzzle
                 largeCount,
                 outwardFacingCount,
                 openingExitCount,
-                shapeFidelityScore);
+                shapeFidelityScore,
+                silhouetteMetrics);
+        }
+
+        private static bool TryResolveQualityLibraryId(
+            LevelDifficultyProfile profile,
+            int targetVehicleCount,
+            int layoutVariantIndex,
+            out VehicleShapeLibraryId libraryId)
+        {
+            if (VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex))
+            {
+                libraryId = (VehicleShapeLibraryId)libraryIndex;
+                return true;
+            }
+
+            if (VehicleLayoutPatternEngine.TryCreateTemplateQualityShapeDefinition(
+                    profile,
+                    targetVehicleCount,
+                    layoutVariantIndex,
+                    out var definition) &&
+                definition.LibraryId != VehicleShapeLibraryId.None)
+            {
+                libraryId = definition.LibraryId;
+                return true;
+            }
+
+            libraryId = VehicleShapeLibraryId.None;
+            return false;
         }
 
         private static bool TryGetShapeMatchedCell(

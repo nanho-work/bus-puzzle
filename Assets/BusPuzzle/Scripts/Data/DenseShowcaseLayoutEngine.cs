@@ -41,35 +41,77 @@ namespace BusPuzzle
             int layoutVariantIndex,
             IReadOnlyList<PuzzleColor> colors,
             out List<BusDefinition> vehicles,
-            bool useVisualPreviewQuality = false)
+            bool useVisualPreviewQuality = false,
+            int placementProbeIndex = 0)
         {
             vehicles = new List<BusDefinition>();
-            if (!VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex))
+            profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
+            targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 80);
+            if (!TryResolveDenseLibraryId(
+                    profile,
+                    targetVehicleCount,
+                    layoutVariantIndex,
+                    out var libraryId))
             {
                 return false;
             }
 
-            profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             random = random ?? new System.Random(0);
-            targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 80);
-            var libraryId = (VehicleShapeLibraryId)libraryIndex;
+            var useTemplateVisualPlacementQuality =
+                useVisualPreviewQuality ||
+                libraryId == VehicleShapeLibraryId.Heart ||
+                libraryId == VehicleShapeLibraryId.HeartArrow;
+            var placementLayoutVariantIndex =
+                libraryId == VehicleShapeLibraryId.Heart
+                    ? VehicleLayoutPatternEngine.GetShapeLibraryVariantIndex(
+                        (int)VehicleShapeLibraryId.Heart,
+                        0)
+                    : layoutVariantIndex;
+            var poseLayoutVariantIndex =
+                libraryId == VehicleShapeLibraryId.Heart
+                    ? VehicleLayoutPatternEngine.GetShapeLibraryVariantIndex(
+                        (int)VehicleShapeLibraryId.Heart,
+                        Mathf.Max(0, placementProbeIndex))
+                    : layoutVariantIndex;
 
-            var slots = VehicleLayoutPatternEngine.CreateSlots(profile, random, targetVehicleCount, layoutVariantIndex);
+            var slots = VehicleLayoutPatternEngine.CreateSlots(
+                profile,
+                random,
+                targetVehicleCount,
+                placementLayoutVariantIndex);
             if (slots.Count == 0)
             {
                 return false;
             }
 
+            VehicleLayoutPatternEngine.TryCreateShapeDefinition(
+                profile,
+                targetVehicleCount,
+                placementLayoutVariantIndex,
+                out var placementShapeDefinition);
+            VehicleShapeTemplateCatalog.TryGetQualityTemplate(
+                placementShapeDefinition,
+                out var placementQualityTemplate);
+
             var minimumDenseVehicleCount = ShapeLibraryVehicleCoverage.GetMinimumVehicleCount(profile, layoutVariantIndex);
+            var denseTargetVehicleCount =
+                libraryId == VehicleShapeLibraryId.Heart ||
+                libraryId == VehicleShapeLibraryId.HeartArrow
+                    ? Mathf.Min(
+                        targetVehicleCount,
+                        ShapeLibraryVehicleCoverage.HeartSilhouetteVehicleCapacity)
+                    : targetVehicleCount;
             vehicles = BuildVehiclePass(
                 slots,
                 libraryId,
                 profile,
-                layoutVariantIndex,
+                poseLayoutVariantIndex,
                 colors,
-                targetVehicleCount,
+                denseTargetVehicleCount,
                 minimumDenseVehicleCount,
-                useVisualPreviewQuality,
+                placementShapeDefinition,
+                placementQualityTemplate,
+                useTemplateVisualPlacementQuality,
                 false,
                 false);
             if (IsAcceptableDenseSet(profile, vehicles, targetVehicleCount, layoutVariantIndex, libraryId, useVisualPreviewQuality))
@@ -81,11 +123,13 @@ namespace BusPuzzle
                 slots,
                 libraryId,
                 profile,
-                layoutVariantIndex,
+                poseLayoutVariantIndex,
                 colors,
-                targetVehicleCount,
+                denseTargetVehicleCount,
                 minimumDenseVehicleCount,
-                useVisualPreviewQuality,
+                placementShapeDefinition,
+                placementQualityTemplate,
+                useTemplateVisualPlacementQuality,
                 true,
                 false);
             if (IsAcceptableDenseSet(profile, vehicles, targetVehicleCount, layoutVariantIndex, libraryId, useVisualPreviewQuality))
@@ -97,11 +141,13 @@ namespace BusPuzzle
                 slots,
                 libraryId,
                 profile,
-                layoutVariantIndex,
+                poseLayoutVariantIndex,
                 colors,
-                targetVehicleCount,
+                denseTargetVehicleCount,
                 minimumDenseVehicleCount,
-                useVisualPreviewQuality,
+                placementShapeDefinition,
+                placementQualityTemplate,
+                useTemplateVisualPlacementQuality,
                 true,
                 true);
             if (IsAcceptableDenseSet(profile, vehicles, targetVehicleCount, layoutVariantIndex, libraryId, useVisualPreviewQuality))
@@ -113,6 +159,33 @@ namespace BusPuzzle
             return false;
         }
 
+        private static bool TryResolveDenseLibraryId(
+            LevelDifficultyProfile profile,
+            int targetVehicleCount,
+            int layoutVariantIndex,
+            out VehicleShapeLibraryId libraryId)
+        {
+            if (VehicleLayoutPatternEngine.TryGetShapeLibraryIndex(layoutVariantIndex, out var libraryIndex))
+            {
+                libraryId = (VehicleShapeLibraryId)libraryIndex;
+                return true;
+            }
+
+            if (VehicleLayoutPatternEngine.TryCreateTemplateQualityShapeDefinition(
+                    profile,
+                    targetVehicleCount,
+                    layoutVariantIndex,
+                    out var definition) &&
+                definition.LibraryId != VehicleShapeLibraryId.None)
+            {
+                libraryId = definition.LibraryId;
+                return true;
+            }
+
+            libraryId = VehicleShapeLibraryId.None;
+            return false;
+        }
+
         private static bool IsAcceptableDenseSet(
             LevelDifficultyProfile profile,
             IReadOnlyList<BusDefinition> vehicles,
@@ -121,12 +194,23 @@ namespace BusPuzzle
             VehicleShapeLibraryId libraryId,
             bool useVisualPreviewQuality)
         {
-            if (useVisualPreviewQuality)
+            if (useVisualPreviewQuality ||
+                libraryId == VehicleShapeLibraryId.Heart ||
+                libraryId == VehicleShapeLibraryId.HeartArrow)
             {
+                // Heart candidates are intentionally dense at this stage. LevelGenerator
+                // applies the mirror-pair opening pass before enforcing the final
+                // silhouette and full exit-order gates. Running those gates here would
+                // judge the unfinished candidate and force a generic-layout fallback.
                 return HasMinimumDenseVehicleCount(profile, vehicles, layoutVariantIndex);
             }
 
-            if (!IsQualityDenseSet(profile, vehicles, targetVehicleCount, layoutVariantIndex))
+            if (!IsQualityDenseSet(
+                    profile,
+                    vehicles,
+                    targetVehicleCount,
+                    layoutVariantIndex,
+                    libraryId))
             {
                 return false;
             }
@@ -151,7 +235,12 @@ namespace BusPuzzle
 
         private static bool RequiresBuildTimeGreedyExitProof(VehicleShapeLibraryId libraryId)
         {
-            return libraryId != VehicleShapeLibraryId.Star;
+            // Star and Heart layouts need a geometry-preserving opening pass after the
+            // dense silhouette exists. Heart openings are applied atomically to mirror
+            // pairs by LevelGenerator before the normal playable-order check.
+            return libraryId != VehicleShapeLibraryId.Star &&
+                libraryId != VehicleShapeLibraryId.Heart &&
+                libraryId != VehicleShapeLibraryId.HeartArrow;
         }
 
         private static List<BusDefinition> BuildVehiclePass(
@@ -162,6 +251,8 @@ namespace BusPuzzle
             IReadOnlyList<PuzzleColor> colors,
             int targetVehicleCount,
             int minimumDenseVehicleCount,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            VehicleShapeTemplate qualityTemplate,
             bool useVisualPreviewQuality,
             bool forceEscapeLanes,
             bool forceRadialEscapes)
@@ -172,6 +263,44 @@ namespace BusPuzzle
             for (var slotIndex = 0; slotIndex < slots.Count && vehicles.Count < targetVehicleCount; slotIndex++)
             {
                 var slot = slots[slotIndex];
+                var preservesHeartMirrorPairs =
+                    libraryId == VehicleShapeLibraryId.Heart ||
+                    libraryId == VehicleShapeLibraryId.HeartArrow;
+                if (preservesHeartMirrorPairs)
+                {
+                    if (slotIndex + 1 < slots.Count &&
+                        AreMirrorXPairSlots(slot, slots[slotIndex + 1]))
+                    {
+                        if (vehicles.Count + 1 < targetVehicleCount)
+                        {
+                            TryPlaceMirroredHeartPair(
+                                slot,
+                                slots[slotIndex + 1],
+                                libraryId,
+                                profile,
+                                layoutVariantIndex,
+                                colors,
+                                targetVehicleCount,
+                                minimumDenseVehicleCount,
+                                shapeDefinition,
+                                qualityTemplate,
+                                useVisualPreviewQuality,
+                                forceEscapeLanes,
+                                forceRadialEscapes,
+                                slotIndex,
+                                vehicles,
+                                poseCandidates,
+                                sizeCandidates);
+                        }
+
+                        slotIndex++;
+                    }
+
+                    // Heart silhouettes are authored and opened as mirror pairs. Never
+                    // use an unpaired filler slot merely to satisfy an odd vehicle budget.
+                    continue;
+                }
+
                 var color = PickDenseColor(colors, slot, vehicles.Count, layoutVariantIndex);
                 BuildPoseCandidates(
                     slot,
@@ -206,7 +335,12 @@ namespace BusPuzzle
                             slot.GridPosition,
                             pose.AngleOffsetDegrees,
                             pose.PositionOffsetCells);
-                        if (!IsDensePlaceable(candidate, vehicles, useVisualPreviewQuality))
+                        if (!IsDensePlaceable(
+                                candidate,
+                                vehicles,
+                                shapeDefinition,
+                                qualityTemplate,
+                                useVisualPreviewQuality))
                         {
                             continue;
                         }
@@ -221,11 +355,123 @@ namespace BusPuzzle
             return vehicles;
         }
 
+        private static bool TryPlaceMirroredHeartPair(
+            VehicleLayoutSlot leftSlot,
+            VehicleLayoutSlot rightSlot,
+            VehicleShapeLibraryId libraryId,
+            LevelDifficultyProfile profile,
+            int layoutVariantIndex,
+            IReadOnlyList<PuzzleColor> colors,
+            int targetVehicleCount,
+            int minimumDenseVehicleCount,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            VehicleShapeTemplate qualityTemplate,
+            bool useVisualPreviewQuality,
+            bool forceEscapeLanes,
+            bool forceRadialEscapes,
+            int slotIndex,
+            List<BusDefinition> vehicles,
+            List<DensePoseCandidate> poseCandidates,
+            List<BusSize> sizeCandidates)
+        {
+            BuildPoseCandidates(
+                leftSlot,
+                libraryId,
+                slotIndex,
+                layoutVariantIndex,
+                forceEscapeLanes,
+                forceRadialEscapes,
+                poseCandidates);
+            BuildSizeCandidates(
+                leftSlot,
+                libraryId,
+                profile,
+                slotIndex,
+                vehicles.Count,
+                // A high stage budget must add more vehicles, not make the early
+                // silhouette vehicles longer. Letting the normal >=34/42 size
+                // pressure run here causes a 42-car Heart to collapse to roughly
+                // twenty oversized buses and spill well outside the contour.
+                // Heart pairs stay small until the requested silhouette density is
+                // secured; later pairs may still use the normal visual size mix.
+                vehicles.Count < minimumDenseVehicleCount
+                    ? Mathf.Min(targetVehicleCount, 33)
+                    : targetVehicleCount,
+                minimumDenseVehicleCount,
+                layoutVariantIndex,
+                useVisualPreviewQuality,
+                sizeCandidates);
+
+            var leftColor = PickDenseColor(colors, leftSlot, vehicles.Count, layoutVariantIndex);
+            var rightColor = PickDenseColor(colors, rightSlot, vehicles.Count + 1, layoutVariantIndex);
+            for (var sizeIndex = 0; sizeIndex < sizeCandidates.Count; sizeIndex++)
+            {
+                var size = sizeCandidates[sizeIndex];
+                for (var poseIndex = 0; poseIndex < poseCandidates.Count; poseIndex++)
+                {
+                    var leftPose = poseCandidates[poseIndex];
+                    var left = new BusDefinition(
+                        leftColor,
+                        size,
+                        leftPose.Direction,
+                        leftSlot.GridPosition,
+                        leftPose.AngleOffsetDegrees,
+                        leftPose.PositionOffsetCells);
+                    if (!IsDensePlaceable(
+                            left,
+                            vehicles,
+                            shapeDefinition,
+                            qualityTemplate,
+                            useVisualPreviewQuality))
+                    {
+                        continue;
+                    }
+
+                    var leftYaw = DirectionToYaw(leftPose.Direction) + leftPose.AngleOffsetDegrees;
+                    var rightYaw = NormalizeYaw(-leftYaw);
+                    var rightDirection = DirectionFromYaw(rightYaw);
+                    var rightAngleOffset = Mathf.DeltaAngle(DirectionToYaw(rightDirection), rightYaw);
+                    var right = new BusDefinition(
+                        rightColor,
+                        size,
+                        rightDirection,
+                        rightSlot.GridPosition,
+                        rightAngleOffset,
+                        new Vector2(-leftPose.PositionOffsetCells.x, leftPose.PositionOffsetCells.y));
+
+                    vehicles.Add(left);
+                    if (IsDensePlaceable(
+                            right,
+                            vehicles,
+                            shapeDefinition,
+                            qualityTemplate,
+                            useVisualPreviewQuality))
+                    {
+                        vehicles.Add(right);
+                        return true;
+                    }
+
+                    vehicles.RemoveAt(vehicles.Count - 1);
+                }
+            }
+
+            return false;
+        }
+
+        private static bool AreMirrorXPairSlots(VehicleLayoutSlot left, VehicleLayoutSlot right)
+        {
+            return left.GridPosition.y == right.GridPosition.y &&
+                left.GridPosition.x + right.GridPosition.x == BoardLayoutConfig.GridColumns - 1 &&
+                left.ShapeKind == right.ShapeKind &&
+                left.ShapeRole == right.ShapeRole;
+        }
+
         private static bool IsQualityDenseSet(
             LevelDifficultyProfile profile,
             IReadOnlyList<BusDefinition> vehicles,
             int targetVehicleCount,
-            int layoutVariantIndex)
+            int layoutVariantIndex,
+            VehicleShapeLibraryId libraryId)
         {
             profile = profile ?? LevelDifficultyProfile.CreateCustom(
                 LevelDifficulty.Normal,
@@ -242,7 +488,14 @@ namespace BusPuzzle
                 return false;
             }
 
-            if (!ShapeLibraryLayoutQuality.IsSatisfied(profile, layoutVariantIndex, vehicles))
+            var usesPairAwareOpeningPass =
+                libraryId == VehicleShapeLibraryId.Heart ||
+                libraryId == VehicleShapeLibraryId.HeartArrow;
+            if (!ShapeLibraryLayoutQuality.IsSatisfied(
+                    profile,
+                    layoutVariantIndex,
+                    vehicles,
+                    !usesPairAwareOpeningPass))
             {
                 return false;
             }
@@ -291,6 +544,55 @@ namespace BusPuzzle
             var outwardDirection = GetOutwardDirection(slot.GridPosition);
             var outwardYaw = DirectionToYaw(outwardDirection);
             var slotYaw = NormalizeYaw(DirectionToYaw(slot.Direction) + slot.AngleOffsetDegrees);
+            if (IsHeartLowerSpineSlot(libraryId, slot))
+            {
+                // The tip and its bridge are a short vertical chain. Authoring both
+                // rows with vertical poses and opposite subcell separation keeps the
+                // pointed bottom while leaving a collision-safe connection to the body.
+                AddYaw(yawCandidates, DirectionToYaw(GridDirection.Down));
+                AddYaw(yawCandidates, DirectionToYaw(GridDirection.Up));
+                BuildOffsetCandidates(
+                    slot,
+                    libraryId,
+                    slotIndex,
+                    layoutVariantIndex,
+                    forceEscapeLanes,
+                    offsetCandidates);
+                for (var yawIndex = 0; yawIndex < yawCandidates.Count; yawIndex++)
+                {
+                    for (var offsetIndex = 0; offsetIndex < offsetCandidates.Count; offsetIndex++)
+                    {
+                        AddPoseFromYaw(candidates, yawCandidates[yawIndex], offsetCandidates[offsetIndex]);
+                    }
+                }
+
+                return;
+            }
+
+            if (IsHeartNotchGuardSlot(libraryId, slot))
+            {
+                // Keep the two inner shoulders vertical and shifted away from center.
+                // A diagonal vehicle here visually bridges the authored background notch.
+                AddYaw(yawCandidates, DirectionToYaw(GridDirection.Up));
+                AddYaw(yawCandidates, DirectionToYaw(GridDirection.Down));
+                BuildOffsetCandidates(
+                    slot,
+                    libraryId,
+                    slotIndex,
+                    layoutVariantIndex,
+                    forceEscapeLanes,
+                    offsetCandidates);
+                for (var yawIndex = 0; yawIndex < yawCandidates.Count; yawIndex++)
+                {
+                    for (var offsetIndex = 0; offsetIndex < offsetCandidates.Count; offsetIndex++)
+                    {
+                        AddPoseFromYaw(candidates, yawCandidates[yawIndex], offsetCandidates[offsetIndex]);
+                    }
+                }
+
+                return;
+            }
+
             if (ShouldPreserveStarLinePose(libraryId, slot))
             {
                 AddYaw(yawCandidates, slotYaw);
@@ -494,6 +796,35 @@ namespace BusPuzzle
             List<Vector2> offsets)
         {
             offsets.Clear();
+            if (IsHeartBottomTipSlot(libraryId, slot))
+            {
+                // Author the final downward opening into the dense pose itself. This
+                // leaves enough room for the first central bridge pair one row above;
+                // otherwise that pair collides during dense placement and the later
+                // opening pass cannot recover the disconnected tip.
+                AddOffset(offsets, new Vector2(0f, -0.22f), MaxDenseOffsetComponentCells);
+                AddOffset(offsets, new Vector2(0f, -0.34f), MaxDenseOffsetComponentCells);
+                AddOffset(offsets, Vector2.zero, MaxDenseOffsetComponentCells);
+                return;
+            }
+
+            if (IsHeartLowerBridgeSlot(libraryId, slot))
+            {
+                AddOffset(offsets, new Vector2(0f, 0.34f), MaxDenseOffsetComponentCells);
+                AddOffset(offsets, new Vector2(0f, 0.22f), MaxDenseOffsetComponentCells);
+                AddOffset(offsets, Vector2.zero, MaxDenseOffsetComponentCells);
+                return;
+            }
+
+            if (IsHeartNotchGuardSlot(libraryId, slot))
+            {
+                var outwardX = slot.GridPosition.x < CenterX ? -1f : 1f;
+                AddOffset(offsets, new Vector2(outwardX * 0.34f, 0f), MaxDenseOffsetComponentCells);
+                AddOffset(offsets, new Vector2(outwardX * 0.22f, 0f), MaxDenseOffsetComponentCells);
+                AddOffset(offsets, Vector2.zero, MaxDenseOffsetComponentCells);
+                return;
+            }
+
             var maxOffsetComponentCells = GetMaxOffsetComponentCells(slot, libraryId);
             var locksShapeLine = ShouldLockShapeYaw(libraryId, slot);
             if (ShouldPreserveStarLinePose(libraryId, slot))
@@ -714,6 +1045,18 @@ namespace BusPuzzle
             List<BusSize> sizes)
         {
             sizes.Clear();
+            if (useVisualPreviewQuality &&
+                (libraryId == VehicleShapeLibraryId.Heart ||
+                 libraryId == VehicleShapeLibraryId.HeartArrow) &&
+                (slot.ShapeRole != VehicleShapeCellRole.Fill ||
+                 IsFeatureSlot(libraryId, slot)))
+            {
+                // Keep the notch, tip, and lobe contour crisp. Medium/large vehicles are
+                // reserved for the deep fill where their longer OBB cannot blur features.
+                AddSizeCandidate(sizes, BusSize.Small);
+                return;
+            }
+
             var preferred = PickDenseSize(slot, libraryId, profile, slotIndex, vehicleIndex, targetVehicleCount);
             if (useVisualPreviewQuality)
             {
@@ -1173,7 +1516,7 @@ namespace BusPuzzle
             {
                 case VehicleShapeLibraryId.Heart:
                 case VehicleShapeLibraryId.HeartArrow:
-                    return (y <= 2 && absX <= 1.7f) ||
+                    return (y <= 3 && absX <= 1.7f) ||
                         (y >= 9 && absX <= 1.4f) ||
                         (y >= 8 && Mathf.Abs(absX - 2.5f) <= 0.9f) ||
                         (absX >= 4.2f && y >= 5 && y <= 8);
@@ -1225,6 +1568,48 @@ namespace BusPuzzle
                 default:
                     return false;
             }
+        }
+
+        private static bool IsHeartNotchGuardSlot(
+            VehicleShapeLibraryId libraryId,
+            VehicleLayoutSlot slot)
+        {
+            if (libraryId != VehicleShapeLibraryId.Heart &&
+                libraryId != VehicleShapeLibraryId.HeartArrow)
+            {
+                return false;
+            }
+
+            return slot.GridPosition.y >= 9 &&
+                Mathf.Abs(slot.GridPosition.x - CenterX) <= 1.7f;
+        }
+
+        private static bool IsHeartBottomTipSlot(
+            VehicleShapeLibraryId libraryId,
+            VehicleLayoutSlot slot)
+        {
+            return (libraryId == VehicleShapeLibraryId.Heart ||
+                    libraryId == VehicleShapeLibraryId.HeartArrow) &&
+                slot.GridPosition.y <= 2 &&
+                Mathf.Abs(slot.GridPosition.x - CenterX) <= 1.7f;
+        }
+
+        private static bool IsHeartLowerBridgeSlot(
+            VehicleShapeLibraryId libraryId,
+            VehicleLayoutSlot slot)
+        {
+            return (libraryId == VehicleShapeLibraryId.Heart ||
+                    libraryId == VehicleShapeLibraryId.HeartArrow) &&
+                slot.GridPosition.y == 3 &&
+                Mathf.Abs(slot.GridPosition.x - CenterX) <= 1.7f;
+        }
+
+        private static bool IsHeartLowerSpineSlot(
+            VehicleShapeLibraryId libraryId,
+            VehicleLayoutSlot slot)
+        {
+            return IsHeartBottomTipSlot(libraryId, slot) ||
+                IsHeartLowerBridgeSlot(libraryId, slot);
         }
 
         private static void AddYawArray(List<float> yawCandidates, IReadOnlyList<float> yaws)
@@ -1497,9 +1882,16 @@ namespace BusPuzzle
         private static bool IsDensePlaceable(
             BusDefinition candidate,
             IReadOnlyList<BusDefinition> placedVehicles,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            VehicleShapeTemplate qualityTemplate,
             bool useVisualPreviewQuality)
         {
-            if (!BoardLayoutConfig.IsInsideGrid(candidate.GridPosition) || IsOutsideDenseBounds(candidate))
+            if (!BoardLayoutConfig.IsInsideGrid(candidate.GridPosition) ||
+                IsOutsideDenseBounds(candidate) ||
+                !PreservesTemplateBackgroundFeatures(
+                    candidate,
+                    shapeDefinition,
+                    qualityTemplate))
             {
                 return false;
             }
@@ -1524,6 +1916,57 @@ namespace BusPuzzle
             }
 
             return true;
+        }
+
+        private static bool PreservesTemplateBackgroundFeatures(
+            BusDefinition candidate,
+            VehicleShapeLayoutDefinition shapeDefinition,
+            VehicleShapeTemplate template)
+        {
+            if (template == null || template.KeyFeatures == null)
+            {
+                return true;
+            }
+
+            var footprint = BoardLayoutConfig.GetVehicleVisualFootprintCells(candidate);
+            var halfExtents = template.GetProjectionHalfExtentsCells(shapeDefinition.Scale);
+            for (var featureIndex = 0; featureIndex < template.KeyFeatures.Count; featureIndex++)
+            {
+                var feature = template.KeyFeatures[featureIndex];
+                if (feature == null ||
+                    feature.Expectation != VehicleShapeFeatureExpectation.Background)
+                {
+                    continue;
+                }
+
+                var featureCenter = template.NormalizedToBoard(
+                    feature.NormalizedPosition,
+                    shapeDefinition.Scale);
+                var featureRadius = Mathf.Max(
+                    0.05f,
+                    feature.RadiusNormalized * Mathf.Min(halfExtents.x, halfExtents.y) * 2f);
+                var requiredClearance =
+                    template.Constraints.PerceptionPaddingCells +
+                    featureRadius * feature.RequiredCoverage;
+                if (DistanceToFootprint(featureCenter, footprint) < requiredClearance)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static float DistanceToFootprint(Vector2 point, VehicleFootprint footprint)
+        {
+            var delta = point - footprint.Center;
+            var outsideRight = Mathf.Max(
+                0f,
+                Mathf.Abs(Vector2.Dot(delta, footprint.Right)) - footprint.HalfWidth);
+            var outsideForward = Mathf.Max(
+                0f,
+                Mathf.Abs(Vector2.Dot(delta, footprint.Forward)) - footprint.HalfLength);
+            return Mathf.Sqrt(outsideRight * outsideRight + outsideForward * outsideForward);
         }
 
         private static VehicleFootprint GetDensePlacementFootprint(BusDefinition bus, bool useVisualPreviewQuality)

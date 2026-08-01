@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 namespace BusPuzzle
@@ -31,14 +32,52 @@ namespace BusPuzzle
             IReadOnlyList<BusDefinition> buses,
             IReadOnlyList<GarageDefinition> garages,
             int solutionCountLimit,
+            CancellationToken cancellationToken)
+        {
+            return Analyze(
+                buses,
+                garages,
+                solutionCountLimit,
+                int.MaxValue,
+                cancellationToken);
+        }
+
+        public static StageSolutionAnalysis Analyze(
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<GarageDefinition> garages,
+            int solutionCountLimit,
             int nodeVisitLimit)
         {
+            return Analyze(
+                buses,
+                garages,
+                solutionCountLimit,
+                nodeVisitLimit,
+                CancellationToken.None);
+        }
+
+        public static StageSolutionAnalysis Analyze(
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<GarageDefinition> garages,
+            int solutionCountLimit,
+            int nodeVisitLimit,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             solutionCountLimit = Mathf.Max(1, solutionCountLimit);
             nodeVisitLimit = Mathf.Max(1, nodeVisitLimit);
             var state = StageSolutionState.Create(buses, garages);
+            cancellationToken.ThrowIfCancellationRequested();
             var visitedNodes = 0;
             var hitNodeLimit = false;
-            var count = CountSolutions(state, solutionCountLimit, nodeVisitLimit, ref visitedNodes, ref hitNodeLimit);
+            var count = CountSolutions(
+                state,
+                solutionCountLimit,
+                nodeVisitLimit,
+                ref visitedNodes,
+                ref hitNodeLimit,
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             return new StageSolutionAnalysis(count > 0, count, count >= solutionCountLimit || hitNodeLimit);
         }
 
@@ -47,8 +86,10 @@ namespace BusPuzzle
             int remainingLimit,
             int nodeVisitLimit,
             ref int visitedNodes,
-            ref bool hitNodeLimit)
+            ref bool hitNodeLimit,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (remainingLimit <= 0)
             {
                 return 0;
@@ -72,9 +113,11 @@ namespace BusPuzzle
             // node budget on equivalent permutations of unrelated exits.
             for (var garagePriorityPass = 0; garagePriorityPass < 2; garagePriorityPass++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var requireGarageVehicle = garagePriorityPass == 0;
                 for (var index = 0; index < state.Buses.Count; index++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (state.IsGarageVehicle(index) != requireGarageVehicle ||
                         !state.Active[index] ||
                         !LevelVehicleExitPlanner.IsPathClear(
@@ -82,26 +125,32 @@ namespace BusPuzzle
                             state.Buses,
                             state.Active,
                             state.ActiveGarageObstacles,
-                            out _))
+                            out _,
+                            cancellationToken))
                     {
                         continue;
                     }
 
+                    cancellationToken.ThrowIfCancellationRequested();
                     var nextState = state.Clone();
+                    cancellationToken.ThrowIfCancellationRequested();
                     nextState.RemoveVehicle(index);
                     count += CountSolutions(
                         nextState,
                         remainingLimit - count,
                         nodeVisitLimit,
                         ref visitedNodes,
-                        ref hitNodeLimit);
+                        ref hitNodeLimit,
+                        cancellationToken);
                     if (count >= remainingLimit)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         return remainingLimit;
                     }
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return count;
         }
 

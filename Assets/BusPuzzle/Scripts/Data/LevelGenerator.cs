@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 namespace BusPuzzle
@@ -71,13 +72,36 @@ namespace BusPuzzle
             bool useSolutionAnalyzer = true,
             bool useVisualPreviewFlow = false)
         {
-            var level = ScriptableObject.CreateInstance<LevelData>();
-            level.hideFlags = HideFlags.DontSave;
+            var data = BuildRuntimeStageData(
+                request,
+                garageRule != null && garageRule.Enabled,
+                candidateOffset,
+                vehicleGenerationAttempts,
+                useSolutionAnalyzer,
+                useVisualPreviewFlow,
+                CancellationToken.None);
+            return data?.Materialize();
+        }
 
+        internal static RuntimeStageData BuildRuntimeStageData(
+            StageGenerationRequest request,
+            bool garageGenerationEnabled,
+            int candidateOffset,
+            int vehicleGenerationAttempts,
+            bool useSolutionAnalyzer,
+            bool useVisualPreviewFlow,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             var seed = request.Seed + candidateOffset * 7919;
             var random = new System.Random(seed);
             var colors = PickColorSet(request.Profile.TargetColorCount);
-            var garages = BuildGarages(request, garageRule, random, colors);
+            var garages = BuildGarages(
+                request,
+                garageGenerationEnabled,
+                random,
+                colors,
+                cancellationToken);
             var garageVehicleCount = CountGarageVehicles(garages);
             var regularVehicleTarget = Mathf.Max(4, request.Profile.TargetVehicleCount - garageVehicleCount);
             var buses = BuildVehicles(
@@ -88,7 +112,9 @@ namespace BusPuzzle
                 vehicleGenerationAttempts,
                 useSolutionAnalyzer,
                 request.VehicleLayoutVariantIndex,
-                useVisualPreviewFlow);
+                useVisualPreviewFlow,
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             buses = ApplyMysteryVehicleModifiers(buses, request.MysteryVehicleProfile, seed + 1699);
             if (useVisualPreviewFlow &&
                 ShapeLibraryVehicleCoverage.RequiresCoverage(
@@ -114,17 +140,15 @@ namespace BusPuzzle
                 ? BuildPassengerFlowPlanFromVehicleOrder(request.Profile, buses, seed)
                 : BuildPassengerFlowPlan(request.Profile, buses, garages, seed);
 
-            level.ConfigureWithPassengerFlowPlan(
+            cancellationToken.ThrowIfCancellationRequested();
+            return new RuntimeStageData(
                 $"Stage {request.StageNumber:000} {request.Difficulty}",
                 request.Profile,
                 flowPlan,
                 buses,
                 request.RotaryCapacity,
                 request.RoadPresetId,
-                null,
                 garages);
-
-            return level;
         }
 
         public static List<BusDefinition> BuildVehicles(LevelDifficultyProfile profile, int seed)
@@ -160,7 +184,8 @@ namespace BusPuzzle
             int maxGenerationAttempts,
             bool useSolutionAnalyzer,
             int layoutVariantIndex = -1,
-            bool useVisualPreviewQuality = false)
+            bool useVisualPreviewQuality = false,
+            CancellationToken cancellationToken = default)
         {
             profile = profile != null ? profile : LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
 
@@ -172,6 +197,7 @@ namespace BusPuzzle
 
             for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var random = new System.Random(seed + attempt * 9973);
                 var effectiveLayoutVariantIndex = VehicleLayoutPatternEngine.GetProbeLayoutVariantIndex(
                     profile,
@@ -184,7 +210,9 @@ namespace BusPuzzle
                     garages,
                     effectiveLayoutVariantIndex,
                     useVisualPreviewQuality,
-                    attempt);
+                    attempt,
+                    cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (CanAcceptShapeLibraryVisualProbe(
                         vehicles,
                         profile,
@@ -201,7 +229,8 @@ namespace BusPuzzle
                     profile,
                     effectiveLayoutVariantIndex,
                     useSolutionAnalyzer,
-                    out var exitOrder))
+                    out var exitOrder,
+                    cancellationToken))
                 {
                     if (ShapeLibraryVehicleCoverage.IsSatisfied(profile, effectiveLayoutVariantIndex, vehicles.Count))
                     {
@@ -257,8 +286,10 @@ namespace BusPuzzle
             LevelDifficultyProfile profile,
             int layoutVariantIndex,
             bool useSolutionAnalyzer,
-            out List<int> exitOrder)
+            out List<int> exitOrder,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             exitOrder = new List<int>();
             if (!useSolutionAnalyzer)
             {
@@ -275,15 +306,28 @@ namespace BusPuzzle
                         return false;
                     }
 
-                    return LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out exitOrder, out _) &&
+                    return LevelVehicleExitPlanner.TryFindExitOrder(
+                            vehicles,
+                            out exitOrder,
+                            out _,
+                            cancellationToken) &&
                         exitOrder.Count == vehicles.Count;
                 }
 
-                LevelVehicleExitPlanner.TryFindExitOrder(vehicles, out exitOrder, out _);
+                LevelVehicleExitPlanner.TryFindExitOrder(
+                    vehicles,
+                    out exitOrder,
+                    out _,
+                    cancellationToken);
                 return exitOrder.Count == vehicles.Count;
             }
 
-            return StageSolutionAnalyzer.Analyze(vehicles, garages, 2, VehicleBuildSolutionNodeVisitLimit).IsSolvable;
+            return StageSolutionAnalyzer.Analyze(
+                vehicles,
+                garages,
+                2,
+                VehicleBuildSolutionNodeVisitLimit,
+                cancellationToken).IsSolvable;
         }
 
         private static List<BusDefinition> ApplyMysteryVehicleModifiers(
@@ -446,8 +490,10 @@ namespace BusPuzzle
             IReadOnlyList<GarageDefinition> garages,
             int layoutVariantIndex,
             bool useVisualPreviewQuality = false,
-            int placementProbeIndex = 0)
+            int placementProbeIndex = 0,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var vehicles = new List<BusDefinition>();
             var colors = PickColorSet(profile.TargetColorCount);
             if ((garages == null || garages.Count == 0) &&
@@ -459,8 +505,10 @@ namespace BusPuzzle
                     colors,
                     out var denseShowcaseVehicles,
                     useVisualPreviewQuality,
-                    placementProbeIndex))
+                    placementProbeIndex,
+                    cancellationToken))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (IsTemplateBackedHeartLayout(
                         profile,
                         layoutVariantIndex,
@@ -473,6 +521,7 @@ namespace BusPuzzle
                     // left/right symmetry and is rechecked by the final silhouette gate.
                     for (var openingPass = 0; openingPass < 3; openingPass++)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (openingPass > 0 && HasGreedyExitOrder(denseShowcaseVehicles))
                         {
                             break;
@@ -492,11 +541,28 @@ namespace BusPuzzle
                     colors);
             }
 
-            TryPlacePatternVehicles(profile, random, targetVehicleCount, garages, colors, vehicles, layoutVariantIndex);
+            TryPlacePatternVehicles(
+                profile,
+                random,
+                targetVehicleCount,
+                garages,
+                colors,
+                vehicles,
+                layoutVariantIndex,
+                cancellationToken);
 
             for (var vehicleIndex = vehicles.Count; vehicleIndex < targetVehicleCount; vehicleIndex++)
             {
-                if (!TryPlaceVehicle(profile, random, vehicles, colors, garages, vehicleIndex, out var vehicle))
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!TryPlaceVehicle(
+                        profile,
+                        random,
+                        vehicles,
+                        colors,
+                        garages,
+                        vehicleIndex,
+                        out var vehicle,
+                        cancellationToken))
                 {
                     continue;
                 }
@@ -514,11 +580,14 @@ namespace BusPuzzle
             IReadOnlyList<GarageDefinition> garages,
             IReadOnlyList<PuzzleColor> colors,
             List<BusDefinition> vehicles,
-            int layoutVariantIndex)
+            int layoutVariantIndex,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var slots = VehicleLayoutPatternEngine.CreateSlots(profile, random, targetVehicleCount, layoutVariantIndex);
             for (var slotIndex = 0; slotIndex < slots.Count && vehicles.Count < targetVehicleCount; slotIndex++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var slot = slots[slotIndex];
                 var vehicleIndex = vehicles.Count;
                 var preferredSize = PickPatternSize(profile, random, slot, layoutVariantIndex);
@@ -1835,10 +1904,16 @@ namespace BusPuzzle
             IReadOnlyList<PuzzleColor> colors,
             IReadOnlyList<GarageDefinition> garages,
             int vehicleIndex,
-            out BusDefinition vehicle)
+            out BusDefinition vehicle,
+            CancellationToken cancellationToken = default)
         {
             for (var attempt = 0; attempt < MaxPlacementAttemptsPerVehicle; attempt++)
             {
+                if ((attempt & 15) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
                 var size = PickSize(profile.Difficulty, random);
                 var direction = PickDirection(random);
                 var color = colors[vehicleIndex % colors.Count];
@@ -2170,12 +2245,13 @@ namespace BusPuzzle
 
         private static List<GarageDefinition> BuildGarages(
             StageGenerationRequest request,
-            GarageGenerationRule garageRule,
+            bool garageGenerationEnabled,
             System.Random random,
-            IReadOnlyList<PuzzleColor> colors)
+            IReadOnlyList<PuzzleColor> colors,
+            CancellationToken cancellationToken = default)
         {
             var garages = new List<GarageDefinition>();
-            if (request.GarageCount <= 0 || garageRule == null || !garageRule.Enabled)
+            if (request.GarageCount <= 0 || !garageGenerationEnabled)
             {
                 return garages;
             }
@@ -2183,7 +2259,15 @@ namespace BusPuzzle
             var vehicleCursor = 0;
             for (var garageIndex = 0; garageIndex < request.GarageCount; garageIndex++)
             {
-                if (!TryPlaceGarage(request, random, colors, garages, ref vehicleCursor, out var garage))
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!TryPlaceGarage(
+                        request,
+                        random,
+                        colors,
+                        garages,
+                        ref vehicleCursor,
+                        out var garage,
+                        cancellationToken))
                 {
                     continue;
                 }
@@ -2200,10 +2284,16 @@ namespace BusPuzzle
             IReadOnlyList<PuzzleColor> colors,
             IReadOnlyList<GarageDefinition> placedGarages,
             ref int vehicleCursor,
-            out GarageDefinition garage)
+            out GarageDefinition garage,
+            CancellationToken cancellationToken = default)
         {
             for (var attempt = 0; attempt < MaxPlacementAttemptsPerVehicle; attempt++)
             {
+                if ((attempt & 15) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
                 var localVehicleCursor = vehicleCursor;
                 var exitDirection = PickDirection(random);
                 var garageCell = PickGarageGridPosition(exitDirection, random);

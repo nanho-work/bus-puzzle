@@ -39,6 +39,7 @@ namespace BusPuzzle
 
             var meshFilter = flatObject.AddComponent<MeshFilter>();
             meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(flatObject, mesh);
 
             var renderer = flatObject.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
@@ -292,6 +293,7 @@ namespace BusPuzzle
 
             var meshFilter = meshObject.AddComponent<MeshFilter>();
             meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(meshObject, mesh);
 
             var renderer = meshObject.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
@@ -314,6 +316,80 @@ namespace BusPuzzle
             }
 
             mesh.normals = normals;
+        }
+    }
+
+    internal sealed class RuntimeOwnedMesh : MonoBehaviour
+    {
+        private static int liveCount;
+        [SerializeField] private Mesh ownedMesh;
+        private bool released;
+
+        public static int LiveCount => liveCount;
+
+        public static void Attach(GameObject owner, Mesh mesh)
+        {
+            if (owner == null || mesh == null)
+            {
+                return;
+            }
+
+            var ownership = owner.AddComponent<RuntimeOwnedMesh>();
+            ownership.ownedMesh = mesh;
+            liveCount++;
+        }
+
+        public static void ReleaseInHierarchy(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var ownerships =
+                root.GetComponentsInChildren<RuntimeOwnedMesh>(true);
+            for (var index = 0; index < ownerships.Length; index++)
+            {
+                ownerships[index]?.Release();
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod(
+            RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetLiveCount()
+        {
+            liveCount = 0;
+        }
+
+        private void OnDestroy()
+        {
+            Release();
+        }
+
+        private void Release()
+        {
+            if (released)
+            {
+                return;
+            }
+
+            released = true;
+            liveCount = Mathf.Max(0, liveCount - 1);
+            if (ownedMesh == null)
+            {
+                return;
+            }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                DestroyImmediate(ownedMesh);
+                ownedMesh = null;
+                return;
+            }
+#endif
+            Destroy(ownedMesh);
+            ownedMesh = null;
         }
     }
 }

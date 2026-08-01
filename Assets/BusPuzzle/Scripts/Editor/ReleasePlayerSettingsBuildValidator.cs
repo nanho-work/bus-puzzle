@@ -40,6 +40,14 @@ namespace BusPuzzle
             UnityEngine.Debug.Log("Bus Pop release player settings passed validation.");
         }
 
+        public static void ValidateCurrentSettingsFromCommandLine()
+        {
+            ValidateReleaseSettings(BuildTarget.Android);
+            ValidateReleaseSettings(BuildTarget.iOS);
+            UnityEngine.Debug.Log(
+                "Bus Pop Android and iOS release player settings passed validation.");
+        }
+
         private static void ValidateReleaseSettings(BuildTarget target)
         {
             var settings = ReadRequiredFile(ProjectSettingsPath);
@@ -47,7 +55,7 @@ namespace BusPuzzle
             RequireContains(settings, $"companyName: {CompanyName}", "Player Settings companyName must be Koofy Lab.");
             RequireContains(settings, $"Android: {BundleIdentifier}", "Android bundle identifier must be com.koofylab.buspop.");
             RequireContains(settings, $"iPhone: {BundleIdentifier}", "iOS bundle identifier must be com.koofylab.buspop.");
-            RequireContains(settings, "bundleVersion: 1.0.2", "Release version should be 1.0.2 for this update.");
+            RequireContains(settings, "bundleVersion: 1.1.0", "Release version should be 1.1.0 for this update.");
             RequireContains(settings, AppIconGuid, "App icon is not assigned in Player Settings.");
             RequireContains(settings, "defaultScreenOrientation: 5", "Default orientation must be Auto Rotation so Android can preserve the current portrait direction at launch.");
             RequireContains(settings, "allowedAutorotateToPortrait: 1", "Portrait orientation must be allowed.");
@@ -77,9 +85,10 @@ namespace BusPuzzle
                 }
 
                 var versionCodeText = ReadYamlField(settings, "AndroidBundleVersionCode");
-                if (!int.TryParse(versionCodeText, out var versionCode) || versionCode < 3)
+                if (!int.TryParse(versionCodeText, out var versionCode) || versionCode < 18)
                 {
-                    throw new BuildFailedException("Android versionCode must be 3 or higher because versionCode 2 was already uploaded to Google Play.");
+                    throw new BuildFailedException(
+                        "Android versionCode must be 18 or higher for the 1.1.0 release baseline.");
                 }
 
                 var remoteConfigService = ReadRequiredFile(RemoteConfigServicePath);
@@ -99,9 +108,10 @@ namespace BusPuzzle
             if (target == BuildTarget.iOS)
             {
                 var iosBuildNumberText = ReadYamlNestedField(settings, "buildNumber", "iPhone");
-                if (!int.TryParse(iosBuildNumberText, out var iosBuildNumber) || iosBuildNumber < 3)
+                if (!int.TryParse(iosBuildNumberText, out var iosBuildNumber) || iosBuildNumber < 18)
                 {
-                    throw new BuildFailedException("iOS build number must be 3 or higher because build 2 was already reviewed by App Store Connect.");
+                    throw new BuildFailedException(
+                        "iOS build number must be 18 or higher for the 1.1.0 release baseline.");
                 }
 
                 var remoteConfigService = ReadRequiredFile(RemoteConfigServicePath);

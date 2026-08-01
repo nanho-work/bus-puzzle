@@ -74,7 +74,9 @@ namespace BusPuzzle
             layer.transform.localPosition = new Vector3(0f, localHeight, 0f);
 
             var meshFilter = layer.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = CreateArrowMesh(width, length, shaftWidth);
+            var mesh = CreateArrowMesh(width, length, shaftWidth);
+            meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(layer, mesh);
 
             var meshRenderer = layer.AddComponent<MeshRenderer>();
             meshRenderer.sharedMaterial = material;

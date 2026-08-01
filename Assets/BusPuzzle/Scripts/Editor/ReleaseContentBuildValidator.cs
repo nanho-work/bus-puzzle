@@ -104,6 +104,10 @@ namespace BusPuzzle
             EditorTools.VehicleShapeTemplateAudit.ValidateAutomaticPositiveHeartStageFromCommandLine();
             EditorTools.VehicleShapeTemplateAudit.ValidateBadHeartBaselineIsRejectedFromCommandLine();
             EditorTools.RuntimeStageRegressionValidator.ValidateRuntimeStageContinuity();
+            EditorTools.RuntimeBackgroundGenerationValidator
+                .ValidateFromCommandLine();
+            EditorTools.RuntimeStageRegressionValidator
+                .ValidateBoardRenderResourceLifetimeFromCommandLine();
             Debug.Log(
                 $"Release content validation passed: {RequiredReleaseStageCount} locked pre-shape levels, " +
                 "both release sequences match, and all content hashes are unchanged.");

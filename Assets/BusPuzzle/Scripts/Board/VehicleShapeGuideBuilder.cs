@@ -123,7 +123,9 @@ namespace BusPuzzle
             var material = PuzzlePalette.CreateTransparentMaterial(name, color);
             if (material != null)
             {
-                material.renderQueue += renderQueueOffset;
+                material.renderQueue =
+                    (int)UnityEngine.Rendering.RenderQueue.Transparent +
+                    renderQueueOffset;
             }
 
             return material;

@@ -91,7 +91,7 @@ namespace BusPuzzle
             }
 
             var targetVehicleCount = Mathf.Max(vehicleCount, profile.TargetVehicleCount);
-            VehicleShapeTemplate qualityTemplate = null;
+            IVehicleShapeTemplate qualityTemplate = null;
             var hasTemplateDefinition =
                 VehicleLayoutPatternEngine.TryCreateShapeDefinition(
                     profile,

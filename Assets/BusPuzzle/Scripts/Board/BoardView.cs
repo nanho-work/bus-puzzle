@@ -55,6 +55,13 @@ namespace BusPuzzle
         public Quaternion ActiveStationRotation => GetActiveStationRotation();
 
         public Color CameraBackgroundColor => BoardThemePalette.GetStyle(activeTheme).Floor;
+        public static int RuntimeOwnedMeshCount =>
+            RuntimeOwnedMesh.LiveCount;
+
+        public void ReleaseRuntimeRenderResources()
+        {
+            RuntimeOwnedMesh.ReleaseInHierarchy(transform);
+        }
 
         public Bounds GetCameraContentBounds()
         {
@@ -378,9 +385,11 @@ namespace BusPuzzle
             }
 
             StopTutorialStationHighlight();
+            RuntimeOwnedMesh.ReleaseInHierarchy(stationRoot);
             for (var index = stationRoot.childCount - 1; index >= 0; index--)
             {
-                Destroy(stationRoot.GetChild(index).gameObject);
+                DestroyRuntimeGameObject(
+                    stationRoot.GetChild(index).gameObject);
             }
 
             tutorialStationHighlight = null;
@@ -390,12 +399,37 @@ namespace BusPuzzle
         private void ClearBoard()
         {
             StopTutorialStationHighlight();
+            ReleaseRuntimeRenderResources();
             for (var index = transform.childCount - 1; index >= 0; index--)
             {
-                Destroy(transform.GetChild(index).gameObject);
+                DestroyRuntimeGameObject(
+                    transform.GetChild(index).gameObject);
             }
 
             tutorialStationHighlight = null;
+        }
+
+        private void OnDestroy()
+        {
+            ReleaseRuntimeRenderResources();
+        }
+
+        private static void DestroyRuntimeGameObject(
+            GameObject gameObject)
+        {
+            if (gameObject == null)
+            {
+                return;
+            }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                DestroyImmediate(gameObject);
+                return;
+            }
+#endif
+            Destroy(gameObject);
         }
 
         private void ShowTutorialStationHighlight(Vector3 position, float duration)
@@ -546,14 +580,9 @@ namespace BusPuzzle
 
         private static int GetRotaryUnitCapacityForStage(LevelData levelData, RoadPresetDefinition roadPreset)
         {
-            var capacity = levelData.RotaryStartCapacity;
-            var shapeMinimumCapacity = GetShapeTestMinimumCapacityUnits(roadPreset.Id);
-            if (shapeMinimumCapacity > 0)
-            {
-                capacity = Mathf.Max(capacity, shapeMinimumCapacity);
-            }
-
-            return Mathf.Clamp(capacity, LevelData.MinRotaryUnitCapacity, roadPreset.MaxCapacityUnits);
+            return RotaryCapacityPolicy.Resolve(
+                levelData,
+                roadPreset);
         }
 
         private static float GetRotaryUnitSpacingForStage(
@@ -574,33 +603,6 @@ namespace BusPuzzle
         {
             var pressure = GetRotarySizePressure(levelData, rotaryUnitCapacity, stageNumber);
             return GetShapeTestRoadScale(roadPreset.Id, pressure);
-        }
-
-        private static int GetShapeTestMinimumCapacityUnits(RotaryRoadPresetId presetId)
-        {
-            switch (presetId)
-            {
-                case RotaryRoadPresetId.SmallCircleTest:
-                    return 24;
-                case RotaryRoadPresetId.DropTest:
-                    return 26;
-                case RotaryRoadPresetId.RoundedSquareTest:
-                case RotaryRoadPresetId.OvalTest:
-                    return 28;
-                case RotaryRoadPresetId.ArrowTest:
-                    return 30;
-                case RotaryRoadPresetId.LargeCircleTest:
-                    return 32;
-                case RotaryRoadPresetId.HeartTest:
-                case RotaryRoadPresetId.CloverTest:
-                case RotaryRoadPresetId.CloudTest:
-                case RotaryRoadPresetId.LoopTest:
-                case RotaryRoadPresetId.RibbonTest:
-                case RotaryRoadPresetId.SnakeTest:
-                    return 36;
-                default:
-                    return 0;
-            }
         }
 
         private static int GetShapeTestVisibleUnits(RotaryRoadPresetId presetId)
@@ -937,5 +939,86 @@ namespace BusPuzzle
             return Mathf.Clamp(passengerUnitCount, 0, maxVisibleUnits);
         }
 
+    }
+
+    public static class RotaryCapacityPolicy
+    {
+        public static int Resolve(
+            LevelData levelData,
+            RoadPresetDefinition roadPreset)
+        {
+            if (levelData == null)
+            {
+                return LevelData.MinRotaryUnitCapacity;
+            }
+
+            var capacity = levelData.RotaryStartCapacity;
+            if (!UsesExactRuntimeCapacity(levelData))
+            {
+                var shapeMinimumCapacity =
+                    GetShapeTestMinimumCapacityUnits(roadPreset.Id);
+                if (shapeMinimumCapacity > 0)
+                {
+                    capacity = Mathf.Max(
+                        capacity,
+                        shapeMinimumCapacity);
+                }
+            }
+
+            return Mathf.Clamp(
+                capacity,
+                LevelData.MinRotaryUnitCapacity,
+                roadPreset.MaxCapacityUnits);
+        }
+
+        public static bool UsesExactRuntimeCapacity(
+            LevelData levelData)
+        {
+            if (levelData == null)
+            {
+                return false;
+            }
+
+            var signature = levelData.GenerationSignature;
+            return
+                StageGenerationSignature.TryGetInt(
+                    signature,
+                    "runtimeSafeCatalog",
+                    out var safeCatalogFlag) &&
+                safeCatalogFlag == 1 ||
+                StageGenerationSignature.TryGetInt(
+                    signature,
+                    "runtimeEmergency",
+                    out var emergencyFlag) &&
+                emergencyFlag == 1;
+        }
+
+        private static int GetShapeTestMinimumCapacityUnits(
+            RotaryRoadPresetId presetId)
+        {
+            switch (presetId)
+            {
+                case RotaryRoadPresetId.SmallCircleTest:
+                    return 24;
+                case RotaryRoadPresetId.DropTest:
+                    return 26;
+                case RotaryRoadPresetId.RoundedSquareTest:
+                case RotaryRoadPresetId.OvalTest:
+                    return 28;
+                case RotaryRoadPresetId.ArrowTest:
+                    return 30;
+                case RotaryRoadPresetId.LargeCircleTest:
+                    return 32;
+                case RotaryRoadPresetId.HeartTest:
+                case RotaryRoadPresetId.CloverTest:
+                case RotaryRoadPresetId.CloudTest:
+                case RotaryRoadPresetId.LoopTest:
+                case RotaryRoadPresetId.RibbonTest:
+                case RotaryRoadPresetId.SnakeTest:
+                    return 36;
+                default:
+                    return 0;
+            }
+        }
     }
 }

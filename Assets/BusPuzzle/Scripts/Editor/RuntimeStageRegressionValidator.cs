@@ -24,8 +24,16 @@ namespace BusPuzzle.EditorTools
         private const long MaximumSequenceSetupMilliseconds = 500;
         private const long MaximumStageResolveMilliseconds = 5000;
         private const long MaximumIndependentValidationMilliseconds = 500;
+        private const long MaximumGameplaySafeResolveMilliseconds = 50;
+        private const int MinimumGameplaySafeDistinctSources = 20;
+        private const int MinimumGameplaySafeNormalVariants = 8;
+        private const int MinimumGameplaySafeHardVariants = 8;
+        private const int MinimumGameplaySafeSuperHardVariants = 4;
+        private const int BoardRenderResourceSoakCycles = 3;
+        private const int MaximumBoardRenderObjectCountDrift = 4;
         private const int SolvabilityNodeVisitLimit = 20000;
         private const float MinimumActualVehicleTargetRatio = 0.75f;
+        private const int ExpectedBoardGridColumns = 14;
         private const int ExpectedLockedReleaseStageCount = 200;
         private const int ExpectedLockedReleaseLayoutVariantPoolSize = 220;
         private const int ExpectedEndlessDifficultyPatternLength = 23;
@@ -33,6 +41,16 @@ namespace BusPuzzle.EditorTools
         private const int EndlessCompositeWindowLength =
             ExpectedEndlessDifficultyPatternLength * ExpectedEndlessIntensityPatternLength;
         private const int LateMasteryWindowOffset = EndlessCompositeWindowLength * 6;
+        private static readonly int[] BoardRenderResourceThemeStageNumbers =
+        {
+            1,
+            11,
+            21,
+            31,
+            41,
+            51,
+            61
+        };
         private const float MinimumCompositeDifficultyIncrease = 0.75f;
         private const float DifficultyComparisonEpsilon = 0.0001f;
         private static readonly int[] RepresentativeRegressionStages =
@@ -44,8 +62,10 @@ namespace BusPuzzle.EditorTools
             4998, 4999, 5000, 5001, 5002,
             9995, 9996, 9997, 9998, 9999, 10000
         };
+        private static readonly int[] GameplaySafetyRegressionStages =
+            RepresentativeRegressionStages;
 
-        [MenuItem("Bus Puzzle/Levels/Validate Infinite Runtime Generation (201-10000 Samples)")]
+        [MenuItem("Bus Puzzle/Levels/Validate Procedural Engine (201-10000 Samples)")]
         public static void ValidateRuntimeStageContinuity()
         {
             var config = AssetDatabase.LoadAssetAtPath<StageGenerationConfig>(StageGenerationConfigPath);
@@ -155,6 +175,7 @@ namespace BusPuzzle.EditorTools
                 }
 
                 ValidateCatalogFallbackInIsolation(config, releaseSequence, releaseSnapshot);
+                ValidateGameplaySafeResolution(config, releaseSequence);
             }
             finally
             {
@@ -162,11 +183,12 @@ namespace BusPuzzle.EditorTools
             }
 
             Debug.Log(
-                $"Infinite runtime generation regression passed: planner stages 201-{MaximumValidatedStageNumber} " +
+                $"Offline procedural-engine regression passed: planner stages 201-{MaximumValidatedStageNumber} " +
                 $"and {RepresentativeRegressionStages.Length} generated boards were deterministic, unique, " +
                 "not release-catalog clones, valid, greedy-exitable, independently solvable, and bounded. " +
                 "Production sequence stages 207/10000 matched the direct generator without persistent cache changes. " +
-                $"Sequence setup {setupMilliseconds} ms; generation limit {MaximumStageResolveMilliseconds} ms/stage.");
+                $"Gameplay-safe catalog resolution was validated separately. Sequence setup " +
+                $"{setupMilliseconds} ms; generation limit {MaximumStageResolveMilliseconds} ms/stage.");
         }
 
         public static void ValidateRuntimeStageContinuityFromCommandLine()
@@ -181,6 +203,205 @@ namespace BusPuzzle.EditorTools
             var releaseSequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(GeneratedSequencePath);
             ValidateRequiredAssets(config, releaseSequence);
             ValidateCatalogFallbackInIsolation(config, releaseSequence, CaptureReleaseSnapshot(releaseSequence));
+        }
+
+        [MenuItem("Bus Puzzle/Levels/Validate Gameplay-Safe Runtime Resolution")]
+        public static void ValidateGameplaySafeResolutionFromCommandLine()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<StageGenerationConfig>(StageGenerationConfigPath);
+            var releaseSequence = AssetDatabase.LoadAssetAtPath<LevelSequence>(GeneratedSequencePath);
+            ValidateRequiredAssets(config, releaseSequence);
+            ValidateGameplaySafeResolution(config, releaseSequence);
+        }
+
+        [MenuItem("Bus Puzzle/Release/Validate Board Render Resource Lifetime")]
+        public static void ValidateBoardRenderResourceLifetimeFromCommandLine()
+        {
+            var releaseSequence =
+                AssetDatabase.LoadAssetAtPath<LevelSequence>(
+                    GeneratedSequencePath);
+            if (releaseSequence == null ||
+                !releaseSequence.IsVerifiedGeneratedSet ||
+                releaseSequence.Count <= 0)
+            {
+                throw new BuildFailedException(
+                    $"A verified generated release sequence is required: " +
+                    $"{GeneratedSequencePath}");
+            }
+
+            var level = releaseSequence.GetLevel(
+                releaseSequence.Count - 1);
+            if (level == null)
+            {
+                throw new BuildFailedException(
+                    "Board render resource soak level is missing.");
+            }
+
+            var baselineOwnedMeshCount =
+                BoardView.RuntimeOwnedMeshCount;
+            GameObject boardObject = null;
+            BoardView boardView = null;
+            var fullyWarmedMaterialCacheCount = -1;
+            var referenceNativeMaterialCounts =
+                new int[BoardRenderResourceThemeStageNumbers.Length];
+            var referenceNativeMeshCounts =
+                new int[BoardRenderResourceThemeStageNumbers.Length];
+            var referenceOwnedMeshCounts =
+                new int[BoardRenderResourceThemeStageNumbers.Length];
+            var maximumNativeMaterialCount = 0;
+            var maximumNativeMeshCount = 0;
+            var minimumOwnedMeshCount = int.MaxValue;
+            var maximumOwnedMeshCount = 0;
+            try
+            {
+                boardObject =
+                    new GameObject("Board Render Resource Soak");
+                boardView = boardObject.AddComponent<BoardView>();
+                var passengers = new List<PassengerView>();
+                var buses = new List<BusView>();
+
+                var iterationCount =
+                    BoardRenderResourceThemeStageNumbers.Length *
+                    BoardRenderResourceSoakCycles;
+                for (var iteration = 0;
+                    iteration < iterationCount;
+                    iteration++)
+                {
+                    var themeIndex =
+                        iteration %
+                        BoardRenderResourceThemeStageNumbers.Length;
+                    var cycleIndex =
+                        iteration /
+                        BoardRenderResourceThemeStageNumbers.Length;
+                    var themeStageNumber =
+                        BoardRenderResourceThemeStageNumbers[themeIndex];
+                    boardView.BuildLevel(
+                        level,
+                        passengers,
+                        buses,
+                        themeStageNumber);
+                    for (var busIndex = 0;
+                        busIndex < buses.Count;
+                        busIndex++)
+                    {
+                        buses[busIndex]?.RevealConcealed();
+                    }
+
+                    var materialCacheCount =
+                        PuzzlePalette.RuntimeMaterialCount;
+                    var nativeMaterialCount =
+                        Resources.FindObjectsOfTypeAll<Material>()
+                            .Length;
+                    var nativeMeshCount =
+                        Resources.FindObjectsOfTypeAll<Mesh>()
+                            .Length;
+                    var ownedMeshCount =
+                        BoardView.RuntimeOwnedMeshCount;
+
+                    if (cycleIndex == 0)
+                    {
+                        if (themeIndex ==
+                            BoardRenderResourceThemeStageNumbers.Length -
+                            1)
+                        {
+                            fullyWarmedMaterialCacheCount =
+                                materialCacheCount;
+                        }
+                    }
+                    else
+                    {
+                        if (materialCacheCount !=
+                            fullyWarmedMaterialCacheCount)
+                        {
+                            throw new BuildFailedException(
+                                $"Board render material cache changed after " +
+                                $"all themes were warmed: " +
+                                $"{fullyWarmedMaterialCacheCount} -> " +
+                                $"{materialCacheCount} on cycle " +
+                                $"{cycleIndex + 1}, theme stage " +
+                                $"{themeStageNumber}.");
+                        }
+
+                        if (cycleIndex == 1)
+                        {
+                            referenceNativeMaterialCounts[themeIndex] =
+                                nativeMaterialCount;
+                            referenceNativeMeshCounts[themeIndex] =
+                                nativeMeshCount;
+                            referenceOwnedMeshCounts[themeIndex] =
+                                ownedMeshCount;
+                        }
+                        else
+                        {
+                            if (ownedMeshCount !=
+                                referenceOwnedMeshCounts[themeIndex])
+                            {
+                                throw new BuildFailedException(
+                                    $"Board-owned mesh count drifted for " +
+                                    $"theme stage {themeStageNumber}: " +
+                                    $"{referenceOwnedMeshCounts[themeIndex]} " +
+                                    $"-> {ownedMeshCount}.");
+                            }
+
+                            if (nativeMaterialCount >
+                                referenceNativeMaterialCounts[themeIndex] +
+                                MaximumBoardRenderObjectCountDrift ||
+                                nativeMeshCount >
+                                referenceNativeMeshCounts[themeIndex] +
+                                MaximumBoardRenderObjectCountDrift)
+                            {
+                                throw new BuildFailedException(
+                                    $"Board native render resources did not " +
+                                    $"plateau for theme stage " +
+                                    $"{themeStageNumber}: materials " +
+                                    $"{referenceNativeMaterialCounts[themeIndex]} " +
+                                    $"-> {nativeMaterialCount}, meshes " +
+                                    $"{referenceNativeMeshCounts[themeIndex]} " +
+                                    $"-> {nativeMeshCount}.");
+                            }
+                        }
+                    }
+
+                    maximumNativeMaterialCount = Math.Max(
+                        maximumNativeMaterialCount,
+                        nativeMaterialCount);
+                    maximumNativeMeshCount = Math.Max(
+                        maximumNativeMeshCount,
+                        nativeMeshCount);
+                    minimumOwnedMeshCount = Math.Min(
+                        minimumOwnedMeshCount,
+                        ownedMeshCount);
+                    maximumOwnedMeshCount = Math.Max(
+                        maximumOwnedMeshCount,
+                        ownedMeshCount);
+                }
+            }
+            finally
+            {
+                if (boardObject != null)
+                {
+                    boardView?.ReleaseRuntimeRenderResources();
+                    UnityEngine.Object.DestroyImmediate(boardObject);
+                }
+            }
+
+            if (BoardView.RuntimeOwnedMeshCount !=
+                baselineOwnedMeshCount)
+            {
+                throw new BuildFailedException(
+                    $"Board render resource cleanup retained " +
+                    $"{BoardView.RuntimeOwnedMeshCount - baselineOwnedMeshCount} " +
+                    "owned meshes after the soak object was destroyed.");
+            }
+
+            Debug.Log(
+                $"Board render resource lifetime passed " +
+                $"{BoardRenderResourceThemeStageNumbers.Length} themes x " +
+                $"{BoardRenderResourceSoakCycles} rebuild/reveal cycles: " +
+                $"material cache {fullyWarmedMaterialCacheCount}, owned meshes " +
+                $"{minimumOwnedMeshCount}-{maximumOwnedMeshCount}, native material max " +
+                $"{maximumNativeMaterialCount}, native mesh max " +
+                $"{maximumNativeMeshCount}; owned meshes returned to baseline.");
         }
 
         private static void ValidateRequiredAssets(
@@ -1057,13 +1278,33 @@ namespace BusPuzzle.EditorTools
                         fallbackLevel.GenerationSignature);
                 }
 
-                var sourceGeometry = CreateGeometryFingerprint(releaseSequence.StaticLevels[sourceLevelIndex]);
-                var fallbackGeometry = CreateGeometryFingerprint(fallbackLevel);
-                if (!string.Equals(sourceGeometry, fallbackGeometry, StringComparison.Ordinal) ||
-                    !releaseSnapshot.GeometryOwners.ContainsKey(fallbackGeometry))
+                if (!StageGenerationSignature.TryGetInt(
+                        fallbackLevel.GenerationSignature,
+                        "mirrorX",
+                        out var mirrorX) ||
+                    (mirrorX != 0 && mirrorX != 1))
                 {
                     throw new BuildFailedException(
-                        "Isolated catalog fallback did not preserve its declared source geometry.");
+                        $"Isolated fallback has invalid mirror metadata: " +
+                        fallbackLevel.GenerationSignature);
+                }
+
+                var sourceGeometry = CreateGeometryFingerprint(
+                    releaseSequence.StaticLevels[sourceLevelIndex]);
+                var expectedFallbackGeometry =
+                    CreateGeometryFingerprint(
+                        releaseSequence.StaticLevels[sourceLevelIndex],
+                        mirrorX == 1);
+                var fallbackGeometry = CreateGeometryFingerprint(fallbackLevel);
+                if (!releaseSnapshot.GeometryOwners.ContainsKey(sourceGeometry) ||
+                    !string.Equals(
+                        expectedFallbackGeometry,
+                        fallbackGeometry,
+                        StringComparison.Ordinal))
+                {
+                    throw new BuildFailedException(
+                        $"Isolated catalog fallback did not preserve its " +
+                        $"declared source geometry with mirrorX={mirrorX}.");
                 }
 
                 var report = LevelValidator.Validate(fallbackLevel, false);
@@ -1094,6 +1335,572 @@ namespace BusPuzzle.EditorTools
                 {
                     UnityEngine.Object.DestroyImmediate(fallbackLevel);
                 }
+            }
+        }
+
+        private static void ValidateGameplaySafeResolution(
+            StageGenerationConfig config,
+            LevelSequence releaseSequence)
+        {
+            ValidateGameplaySafePlannerCoverage(
+                config,
+                releaseSequence);
+
+            var runtimeSequence = LevelSequence.CreateRuntimeGenerated(
+                config,
+                releaseSequence.StaticLevels);
+            var preparedLevels = new List<LevelData>();
+            var safeSourceStages = new HashSet<int>();
+            var safeVariantsByDifficulty =
+                new Dictionary<LevelDifficulty, HashSet<string>>();
+            try
+            {
+                if (runtimeSequence.RuntimeSafeCatalogCount != releaseSequence.StaticLevels.Count)
+                {
+                    throw new BuildFailedException(
+                        $"Gameplay-safe runtime sequence accepted " +
+                        $"{runtimeSequence.RuntimeSafeCatalogCount}/" +
+                        $"{releaseSequence.StaticLevels.Count} release stages.");
+                }
+
+                for (var index = 0; index < GameplaySafetyRegressionStages.Length; index++)
+                {
+                    var stageNumber = GameplaySafetyRegressionStages[index];
+                    var levelIndex = stageNumber - 1;
+                    var stopwatch = Stopwatch.StartNew();
+                    var prepared = runtimeSequence.PrepareSafeGameplayLevel(
+                        levelIndex,
+                        "release safety validation");
+                    stopwatch.Stop();
+
+                    if (!prepared ||
+                        !runtimeSequence.TryGetPreparedLevel(levelIndex, out var level) ||
+                        level == null)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe runtime stage {stageNumber:00000} could not be prepared.");
+                    }
+
+                    preparedLevels.Add(level);
+                    if (stopwatch.ElapsedMilliseconds > MaximumGameplaySafeResolveMilliseconds)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe runtime stage {stageNumber:00000} took " +
+                            $"{stopwatch.ElapsedMilliseconds} ms; limit is " +
+                            $"{MaximumGameplaySafeResolveMilliseconds} ms.");
+                    }
+
+                    var signature = level.GenerationSignature;
+                    var usedCatalog =
+                        StageGenerationSignature.TryGetInt(
+                            signature,
+                            "runtimeSafeCatalog",
+                            out var catalogFlag) &&
+                        catalogFlag == 1;
+                    var usedEmergency =
+                        StageGenerationSignature.TryGetInt(
+                            signature,
+                            "runtimeEmergency",
+                            out var emergencyFlag) &&
+                        emergencyFlag == 1;
+                    if (!usedCatalog || usedEmergency)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe runtime stage {stageNumber:00000} did not use the " +
+                            $"verified release catalog: {signature}");
+                    }
+
+                    if (!StageGenerationSignature.TryGetInt(
+                            signature,
+                            "sourceStage",
+                            out var sourceStageNumber) ||
+                        sourceStageNumber <= 0)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe runtime stage {stageNumber:00000} is missing " +
+                            $"its verified source stage: {signature}");
+                    }
+
+                    safeSourceStages.Add(sourceStageNumber);
+                    if (!StageGenerationSignature.TryGetInt(
+                            signature,
+                            "mirrorX",
+                            out var mirrorX) ||
+                        (mirrorX != 0 && mirrorX != 1))
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe runtime stage {stageNumber:00000} is missing " +
+                            $"its deterministic mirror variant: {signature}");
+                    }
+
+                    var difficulty = level.DifficultyProfile.Difficulty;
+                    if (!safeVariantsByDifficulty.TryGetValue(
+                            difficulty,
+                            out var difficultyVariants))
+                    {
+                        difficultyVariants = new HashSet<string>(
+                            StringComparer.Ordinal);
+                        safeVariantsByDifficulty.Add(
+                            difficulty,
+                            difficultyVariants);
+                    }
+
+                    difficultyVariants.Add(
+                        $"{sourceStageNumber}:{mirrorX}");
+
+                    if (StageGenerationSignature.TryGetInt(
+                            signature,
+                            "runtimeProcedural",
+                            out _))
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe runtime stage {stageNumber:00000} entered the " +
+                            $"foreground procedural generator: {signature}");
+                    }
+
+                    ValidateGameplaySafeContract(
+                        config,
+                        stageNumber,
+                        level,
+                        signature);
+
+                    var report = LevelValidator.Validate(level, false);
+                    var solution = StageSolutionAnalyzer.Analyze(
+                        level.Buses,
+                        level.Garages,
+                        1,
+                        SolvabilityNodeVisitLimit);
+                    if (report.HasErrors || !solution.IsSolvable)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe runtime stage {stageNumber:00000} is invalid or unsolvable.");
+                    }
+
+                    Debug.Log(
+                        $"Gameplay-safe runtime stage {stageNumber:00000} passed in " +
+                        $"{stopwatch.ElapsedMilliseconds} ms using " +
+                        $"{(usedCatalog ? "the release catalog" : "the emergency board")}.");
+                }
+
+                if (safeSourceStages.Count <
+                    MinimumGameplaySafeDistinctSources)
+                {
+                    throw new BuildFailedException(
+                        $"Gameplay-safe representative stages used only " +
+                        $"{safeSourceStages.Count} distinct verified sources; minimum is " +
+                        $"{MinimumGameplaySafeDistinctSources}.");
+                }
+
+                ValidateGameplaySafeVariantDiversity(
+                    safeVariantsByDifficulty);
+                ValidateEmergencyCommitSemantics(
+                    runtimeSequence,
+                    preparedLevels);
+                if (runtimeSequence.RuntimePreparedLevelCount > 8)
+                {
+                    throw new BuildFailedException(
+                        $"Gameplay-safe runtime cache retained " +
+                        $"{runtimeSequence.RuntimePreparedLevelCount} levels; limit is 8.");
+                }
+
+                runtimeSequence.ReleaseRuntimeResources();
+                if (runtimeSequence.RuntimePreparedLevelCount != 0)
+                {
+                    throw new BuildFailedException(
+                        "Gameplay-safe runtime cache did not release all transient levels.");
+                }
+
+                ValidateRuntimeFallbackReleaseSemantics();
+            }
+            finally
+            {
+                DestroyRuntimeObjects(preparedLevels, runtimeSequence);
+            }
+        }
+
+        private static void ValidateGameplaySafePlannerCoverage(
+            StageGenerationConfig config,
+            LevelSequence releaseSequence)
+        {
+            var runtimeSequence = LevelSequence.CreateRuntimeGenerated(
+                config,
+                releaseSequence.StaticLevels);
+            var totalStopwatch = Stopwatch.StartNew();
+            long maximumResolveMilliseconds = 0;
+            try
+            {
+                for (var stageNumber = config.GeneratedStageCount + 1;
+                    stageNumber <= MaximumValidatedStageNumber;
+                    stageNumber++)
+                {
+                    var levelIndex = stageNumber - 1;
+                    var resolveStopwatch = Stopwatch.StartNew();
+                    var prepared = runtimeSequence.PrepareSafeGameplayLevel(
+                        levelIndex,
+                        "full planner coverage validation",
+                        false);
+                    resolveStopwatch.Stop();
+                    maximumResolveMilliseconds = Math.Max(
+                        maximumResolveMilliseconds,
+                        resolveStopwatch.ElapsedMilliseconds);
+
+                    if (!prepared ||
+                        !runtimeSequence.TryGetPreparedLevel(
+                            levelIndex,
+                            out var level) ||
+                        level == null)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe full sweep could not prepare stage " +
+                            $"{stageNumber:00000}.");
+                    }
+
+                    var signature = level.GenerationSignature;
+                    var usedVerifiedCatalog =
+                        StageGenerationSignature.TryGetInt(
+                            signature,
+                            "runtimeSafeCatalog",
+                            out var catalogFlag) &&
+                        catalogFlag == 1;
+                    var usedEmergency =
+                        StageGenerationSignature.TryGetInt(
+                            signature,
+                            "runtimeEmergency",
+                            out var emergencyFlag) &&
+                        emergencyFlag == 1;
+                    if (!usedVerifiedCatalog ||
+                        usedEmergency ||
+                        !StageGenerationSignature.TryGetInt(
+                            signature,
+                            "sourceStage",
+                            out var sourceStageNumber) ||
+                        sourceStageNumber <= 0)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe full sweep stage {stageNumber:00000} " +
+                            $"did not resolve through a verified catalog source: " +
+                            $"{signature}");
+                    }
+
+                    if (resolveStopwatch.ElapsedMilliseconds >
+                        MaximumGameplaySafeResolveMilliseconds)
+                    {
+                        throw new BuildFailedException(
+                            $"Gameplay-safe full sweep stage {stageNumber:00000} took " +
+                            $"{resolveStopwatch.ElapsedMilliseconds} ms; limit is " +
+                            $"{MaximumGameplaySafeResolveMilliseconds} ms.");
+                    }
+
+                    ValidateGameplaySafeContract(
+                        config,
+                        stageNumber,
+                        level,
+                        signature);
+                }
+            }
+            finally
+            {
+                runtimeSequence.ReleaseRuntimeResources();
+                UnityEngine.Object.DestroyImmediate(runtimeSequence);
+            }
+
+            totalStopwatch.Stop();
+            Debug.Log(
+                $"Gameplay-safe full sweep passed for stages " +
+                $"{config.GeneratedStageCount + 1}-{MaximumValidatedStageNumber}: " +
+                "every request used a verified catalog source without emergency or " +
+                $"procedural generation; slowest resolve {maximumResolveMilliseconds} ms, " +
+                $"total {totalStopwatch.ElapsedMilliseconds} ms.");
+        }
+
+        private static void ValidateGameplaySafeVariantDiversity(
+            IReadOnlyDictionary<LevelDifficulty, HashSet<string>>
+                variantsByDifficulty)
+        {
+            ValidateGameplaySafeVariantDiversity(
+                variantsByDifficulty,
+                LevelDifficulty.Normal,
+                MinimumGameplaySafeNormalVariants);
+            ValidateGameplaySafeVariantDiversity(
+                variantsByDifficulty,
+                LevelDifficulty.Hard,
+                MinimumGameplaySafeHardVariants);
+            ValidateGameplaySafeVariantDiversity(
+                variantsByDifficulty,
+                LevelDifficulty.SuperHard,
+                MinimumGameplaySafeSuperHardVariants);
+        }
+
+        private static void ValidateGameplaySafeVariantDiversity(
+            IReadOnlyDictionary<LevelDifficulty, HashSet<string>>
+                variantsByDifficulty,
+            LevelDifficulty difficulty,
+            int minimumCount)
+        {
+            var actualCount =
+                variantsByDifficulty.TryGetValue(
+                    difficulty,
+                    out var variants)
+                    ? variants.Count
+                    : 0;
+            if (actualCount < minimumCount)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe {difficulty} representative stages used only " +
+                    $"{actualCount} source/mirror variants; minimum is {minimumCount}.");
+            }
+
+            var mirrorVariants = new HashSet<int>();
+            foreach (var variant in variants)
+            {
+                if (variant.EndsWith(
+                        ":0",
+                        StringComparison.Ordinal))
+                {
+                    mirrorVariants.Add(0);
+                }
+                else if (variant.EndsWith(
+                    ":1",
+                    StringComparison.Ordinal))
+                {
+                    mirrorVariants.Add(1);
+                }
+            }
+
+            if (mirrorVariants.Count != 2)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe {difficulty} stages did not exercise both " +
+                    "horizontal mirror orientations.");
+            }
+
+            Debug.Log(
+                $"Gameplay-safe {difficulty} diversity passed with " +
+                $"{actualCount} source/mirror variants across both orientations.");
+        }
+
+        private static void ValidateRuntimeFallbackReleaseSemantics()
+        {
+            LevelSequence fallbackSequence = null;
+            try
+            {
+                fallbackSequence = LevelSequence.CreateRuntimeFallback();
+                if (fallbackSequence == null ||
+                    !fallbackSequence.IsTransientRuntimeSequence ||
+                    fallbackSequence.Count != 3)
+                {
+                    throw new BuildFailedException(
+                        "Runtime fallback did not create three transient owned levels.");
+                }
+
+                fallbackSequence.ReleaseRuntimeResources();
+                if (fallbackSequence.Count != 0)
+                {
+                    throw new BuildFailedException(
+                        "Runtime fallback did not release its owned transient levels.");
+                }
+
+                Debug.Log(
+                    "Runtime fallback released all three owned transient levels.");
+            }
+            finally
+            {
+                if (fallbackSequence != null)
+                {
+                    fallbackSequence.ReleaseRuntimeResources();
+                    UnityEngine.Object.DestroyImmediate(fallbackSequence);
+                }
+            }
+        }
+
+        private static void ValidateEmergencyCommitSemantics(
+            LevelSequence runtimeSequence,
+            ICollection<LevelData> preparedLevels)
+        {
+            const int stageNumber = 206;
+            const int levelIndex = stageNumber - 1;
+            if (!runtimeSequence.PrepareSafeGameplayLevel(
+                    levelIndex,
+                    "release atomic-commit validation") ||
+                !runtimeSequence.TryGetPreparedLevel(levelIndex, out var originalLevel) ||
+                originalLevel == null)
+            {
+                throw new BuildFailedException(
+                    $"Stage {stageNumber:000} is missing before emergency commit validation.");
+            }
+
+            LevelData emergencyLevel = null;
+            var committed = false;
+            try
+            {
+                if (!runtimeSequence.TryCreateEmergencyRuntimeLevel(
+                        levelIndex,
+                        "release atomic-commit validation",
+                        out emergencyLevel) ||
+                    emergencyLevel == null)
+                {
+                    throw new BuildFailedException(
+                        $"Stage {stageNumber:000} could not create an emergency candidate.");
+                }
+
+                if (!runtimeSequence.TryGetPreparedLevel(levelIndex, out var stillPrepared) ||
+                    !ReferenceEquals(stillPrepared, originalLevel))
+                {
+                    throw new BuildFailedException(
+                        $"Stage {stageNumber:000} replaced its cache before activation commit.");
+                }
+
+                var report = LevelValidator.Validate(emergencyLevel, false);
+                var solution = StageSolutionAnalyzer.Analyze(
+                    emergencyLevel.Buses,
+                    emergencyLevel.Garages,
+                    1,
+                    SolvabilityNodeVisitLimit);
+                if (report.HasErrors || !solution.IsSolvable)
+                {
+                    throw new BuildFailedException(
+                        $"Stage {stageNumber:000} emergency candidate is invalid or unsolvable.");
+                }
+
+                if (!runtimeSequence.CommitPreparedRuntimeLevel(
+                        levelIndex,
+                        emergencyLevel) ||
+                    !runtimeSequence.TryGetPreparedLevel(levelIndex, out var committedLevel) ||
+                    !ReferenceEquals(committedLevel, emergencyLevel))
+                {
+                    throw new BuildFailedException(
+                        $"Stage {stageNumber:000} emergency candidate did not commit atomically.");
+                }
+
+                committed = true;
+                preparedLevels.Add(emergencyLevel);
+                Debug.Log(
+                    $"Gameplay-safe runtime stage {stageNumber:00000} emergency replacement " +
+                    "preserved the original cache until explicit activation commit.");
+            }
+            finally
+            {
+                if (!committed && emergencyLevel != null)
+                {
+                    runtimeSequence.ReleaseTransientRuntimeLevel(emergencyLevel);
+                }
+            }
+        }
+
+        private static void ValidateGameplaySafeContract(
+            StageGenerationConfig config,
+            int stageNumber,
+            LevelData level,
+            string signature)
+        {
+            var request = StageGenerationPlanner.CreateRequest(
+                config,
+                stageNumber);
+            if (level.DifficultyProfile.Difficulty != request.Difficulty)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} difficulty mismatch: " +
+                    $"{level.DifficultyProfile.Difficulty}/{request.Difficulty}.");
+            }
+
+            var wantsGarages = request.GarageCount > 0 ||
+                (request.Modifiers & StageModifierFlags.Garages) != 0;
+            var garageCount = level.Garages != null ? level.Garages.Count : 0;
+            if ((garageCount > 0) != wantsGarages ||
+                garageCount != request.GarageCount)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} garage mismatch: " +
+                    $"{garageCount}/{request.GarageCount}.");
+            }
+
+            for (var garageIndex = 0; garageIndex < garageCount; garageIndex++)
+            {
+                var queueCount = level.Garages[garageIndex].QueuedVehicleCount;
+                if (queueCount < request.MinGarageQueuedVehicles ||
+                    queueCount > request.MaxGarageQueuedVehicles)
+                {
+                    throw new BuildFailedException(
+                        $"Gameplay-safe stage {stageNumber:00000} garage {garageIndex + 1} " +
+                        $"queue {queueCount} is outside " +
+                        $"{request.MinGarageQueuedVehicles}-{request.MaxGarageQueuedVehicles}.");
+                }
+            }
+
+            var wantsMysteryVehicles = request.MysteryVehicleProfile.Enabled ||
+                (request.Modifiers &
+                    (StageModifierFlags.MysteryVehicles |
+                        StageModifierFlags.LightMysteryVehicles)) != 0;
+            if (HasMysteryVehicles(level) != wantsMysteryVehicles)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} mystery-vehicle contract mismatch.");
+            }
+
+            if (!StageGenerationSignature.TryGetInt(
+                    signature,
+                    "requestedVehicles",
+                    out var requestedVehicleCount))
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} is missing its capped vehicle contract.");
+            }
+
+            var profile = level.DifficultyProfile;
+            if (profile.TargetVehicleCount != requestedVehicleCount ||
+                profile.TargetColorCount != request.Profile.TargetColorCount ||
+                Mathf.Abs(
+                    profile.ParkingTension -
+                    request.Profile.ParkingTension) >
+                    DifficultyComparisonEpsilon ||
+                Mathf.Abs(
+                    profile.StationPressure -
+                    request.Profile.StationPressure) >
+                    DifficultyComparisonEpsilon)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} profile contract mismatch.");
+            }
+
+            var actualVehicleCount =
+                level.AllVehicles != null ? level.AllVehicles.Count : 0;
+            if (actualVehicleCount <
+                    Mathf.CeilToInt(
+                        requestedVehicleCount *
+                        MinimumActualVehicleTargetRatio) ||
+                Mathf.Abs(actualVehicleCount - requestedVehicleCount) > 8)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} vehicle contract mismatch: " +
+                    $"profile {level.DifficultyProfile.TargetVehicleCount}, " +
+                    $"actual {actualVehicleCount}, request {requestedVehicleCount}.");
+            }
+
+            if (level.RoadPresetId != request.RoadPresetId ||
+                !StageGenerationSignature.TryGetInt(
+                    signature,
+                    "requestedRoad",
+                    out var requestedRoad) ||
+                requestedRoad != (int)request.RoadPresetId)
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} road mismatch: " +
+                    $"{level.RoadPresetId}/{request.RoadPresetId}.");
+            }
+
+            var effectiveRotaryCapacity =
+                RotaryCapacityPolicy.Resolve(
+                    level,
+                    level.RoadPreset);
+            if (level.RotaryUnitCapacity != request.RotaryCapacity ||
+                effectiveRotaryCapacity != request.RotaryCapacity ||
+                !RotaryCapacityPolicy.UsesExactRuntimeCapacity(level))
+            {
+                throw new BuildFailedException(
+                    $"Gameplay-safe stage {stageNumber:00000} rotary mismatch: " +
+                    $"stored {level.RotaryUnitCapacity}, effective " +
+                    $"{effectiveRotaryCapacity}, requested " +
+                    $"{request.RotaryCapacity}.");
             }
         }
 
@@ -1186,11 +1993,24 @@ namespace BusPuzzle.EditorTools
 
         private static string CreateGeometryFingerprint(LevelData level)
         {
+            return CreateGeometryFingerprint(level, false);
+        }
+
+        private static string CreateGeometryFingerprint(
+            LevelData level,
+            bool mirrorHorizontally)
+        {
             var vehicleTokens = new List<string>(level.Buses.Count);
             for (var index = 0; index < level.Buses.Count; index++)
             {
                 var token = new StringBuilder(96);
-                AppendBus(token, level.Buses[index], false);
+                AppendBus(
+                    token,
+                    mirrorHorizontally
+                        ? MirrorBusForGeometryFingerprint(
+                            level.Buses[index])
+                        : level.Buses[index],
+                    false);
                 vehicleTokens.Add(token.ToString());
             }
 
@@ -1199,7 +2019,10 @@ namespace BusPuzzle.EditorTools
             for (var garageIndex = 0; garageIndex < level.Garages.Count; garageIndex++)
             {
                 var token = new StringBuilder(192);
-                AppendGarage(token, level.Garages[garageIndex], false);
+                AppendGeometryGarage(
+                    token,
+                    level.Garages[garageIndex],
+                    mirrorHorizontally);
                 garageTokens.Add(token.ToString());
             }
 
@@ -1218,6 +2041,89 @@ namespace BusPuzzle.EditorTools
             }
 
             return Hash(builder.ToString());
+        }
+
+        private static void AppendGeometryGarage(
+            StringBuilder builder,
+            GarageDefinition garage,
+            bool mirrorHorizontally)
+        {
+            if (!mirrorHorizontally)
+            {
+                AppendGarage(builder, garage, false);
+                return;
+            }
+
+            var mirroredPosition =
+                MirrorGridPositionForGeometryFingerprint(
+                    garage.GridPosition);
+            builder.Append('[')
+                .Append(mirroredPosition.x)
+                .Append(',')
+                .Append(mirroredPosition.y)
+                .Append(',')
+                .Append((int)MirrorDirectionForGeometryFingerprint(
+                    garage.ExitDirection))
+                .Append('|');
+            AppendBus(
+                builder,
+                MirrorBusForGeometryFingerprint(
+                    garage.FrontVehicle),
+                false);
+            builder.Append('|');
+            for (var index = 0;
+                index < garage.QueuedVehicles.Count;
+                index++)
+            {
+                AppendBus(
+                    builder,
+                    MirrorBusForGeometryFingerprint(
+                        garage.QueuedVehicles[index]),
+                    false);
+            }
+
+            builder.Append(']');
+        }
+
+        private static BusDefinition MirrorBusForGeometryFingerprint(
+            BusDefinition source)
+        {
+            return new BusDefinition(
+                source.Color,
+                source.Size,
+                MirrorDirectionForGeometryFingerprint(
+                    source.Direction),
+                MirrorGridPositionForGeometryFingerprint(
+                    source.GridPosition),
+                -source.AngleOffsetDegrees,
+                new Vector2(
+                    -source.PositionOffsetCells.x,
+                    source.PositionOffsetCells.y),
+                source.StartsConcealed);
+        }
+
+        private static Vector2Int
+            MirrorGridPositionForGeometryFingerprint(
+                Vector2Int position)
+        {
+            return new Vector2Int(
+                ExpectedBoardGridColumns - 1 - position.x,
+                position.y);
+        }
+
+        private static GridDirection
+            MirrorDirectionForGeometryFingerprint(
+                GridDirection direction)
+        {
+            switch (direction)
+            {
+                case GridDirection.Right:
+                    return GridDirection.Left;
+                case GridDirection.Left:
+                    return GridDirection.Right;
+                default:
+                    return direction;
+            }
         }
 
         private static void AppendPassengerFlow(StringBuilder builder, PassengerFlowPlan plan)

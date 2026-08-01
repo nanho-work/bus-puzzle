@@ -98,6 +98,7 @@ namespace BusPuzzle
 
             var meshFilter = shadow.AddComponent<MeshFilter>();
             meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(shadow, mesh);
 
             var renderer = shadow.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
@@ -152,6 +153,7 @@ namespace BusPuzzle
 
             var meshFilter = shadow.AddComponent<MeshFilter>();
             meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(shadow, mesh);
 
             var renderer = shadow.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;

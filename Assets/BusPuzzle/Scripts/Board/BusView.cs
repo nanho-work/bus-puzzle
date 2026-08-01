@@ -811,9 +811,18 @@ namespace BusPuzzle
             baseVisualBodyLocalScale = Vector3.one;
             baseVisualBodyLocalRotation = Quaternion.identity;
 
+            RuntimeOwnedMesh.ReleaseInHierarchy(transform);
             for (var index = transform.childCount - 1; index >= 0; index--)
             {
-                Destroy(transform.GetChild(index).gameObject);
+                var child = transform.GetChild(index).gameObject;
+#if UNITY_EDITOR
+                if (!Application.isPlaying)
+                {
+                    DestroyImmediate(child);
+                    continue;
+                }
+#endif
+                Destroy(child);
             }
         }
 

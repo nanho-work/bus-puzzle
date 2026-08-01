@@ -8,6 +8,7 @@ namespace BusPuzzle
     {
         private enum GameState
         {
+            Loading,
             Playing,
             Cleared,
             Failed
@@ -49,6 +50,7 @@ namespace BusPuzzle
         private const float EndgamePassengerSpeedMultiplier = 1.35f;
         private const float ClearNextStagePreloadSettleSeconds = 0.55f;
         private const float ClearNextStageMinimumPreparingSeconds = 1.25f;
+        private const float RuntimeGenerationClearWaitSeconds = 3.25f;
         private const float StageTransitionLoadingSettleSeconds = 0.05f;
         private const float DailyChallengeLoadingSettleSeconds = 0.08f;
         private const int EndgameRemainingBusThreshold = 4;
@@ -75,6 +77,8 @@ namespace BusPuzzle
         private GameInputController inputController;
         private VehicleDispatchController vehicleDispatchController;
         private BoardingFlowController boardingFlowController;
+        private Coroutine initialLevelLoadRoutine;
+        private Coroutine runtimeAheadPreloadRoutine;
         private Coroutine clearNextStagePreloadRoutine;
         private Coroutine nextLevelLoadRoutine;
         private Coroutine dailyChallengeStartRoutine;
@@ -110,6 +114,7 @@ namespace BusPuzzle
         private BusView tutorialDepartHintBus;
         private BusView tutorialHighlightedBus;
         private Coroutine departBoostRoutine;
+        private bool isShuttingDown;
         private Vector2Int lastCameraFrameScreenSize;
         private Rect lastCameraFrameSafeArea;
         private float lastCameraFrameAspect;
@@ -128,6 +133,7 @@ namespace BusPuzzle
 
         private void Awake()
         {
+            gameState = GameState.Loading;
             ApplyStartupOrientation();
             MobilePerformanceProfile.Apply();
             InitializeOptionalService("Firebase anonymous auth", PlayerIdentityService.Initialize);
@@ -142,7 +148,7 @@ namespace BusPuzzle
             var initialLevelIndex = startingLevelIndex > 0
                 ? startingLevelIndex
                 : UserProgress.GetLastStageIndex(levelSequence.Count);
-            LoadLevel(initialLevelIndex);
+            initialLevelLoadRoutine = StartCoroutine(LoadInitialLevelRoutine(initialLevelIndex));
             ApplyRemoteConfigState();
         }
 
@@ -160,8 +166,11 @@ namespace BusPuzzle
 
         private void OnDestroy()
         {
+            isShuttingDown = true;
             SetTutorialGameplayPaused(false);
             boardingFlowController?.Stop();
+            StopInitialLevelLoad();
+            StopRuntimeAheadPreload();
             StopClearNextStagePreload();
             StopNextLevelLoad();
             StopDailyChallengeStart();
@@ -211,6 +220,14 @@ namespace BusPuzzle
             {
                 bannerAdService.Shutdown();
                 bannerAdService = null;
+            }
+
+            if (levelSequence != null &&
+                levelSequence.IsTransientRuntimeSequence)
+            {
+                levelSequence.ReleaseRuntimeResources();
+                Destroy(levelSequence);
+                levelSequence = null;
             }
         }
 
@@ -315,6 +332,11 @@ namespace BusPuzzle
 
         private void LateUpdate()
         {
+            if (gameState == GameState.Loading || currentLevel == null)
+            {
+                return;
+            }
+
             ReframeBoardCamera(false);
         }
 

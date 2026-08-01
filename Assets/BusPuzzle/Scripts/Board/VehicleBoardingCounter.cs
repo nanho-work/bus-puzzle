@@ -112,7 +112,12 @@ namespace BusPuzzle
             badge.transform.localPosition = localPosition;
 
             var meshFilter = badge.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = CreateRoundedBadgeMesh(cellSize * 0.90f, cellSize * 0.43f, cellSize * 0.152f);
+            var mesh = CreateRoundedBadgeMesh(
+                cellSize * 0.90f,
+                cellSize * 0.43f,
+                cellSize * 0.152f);
+            meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(badge, mesh);
 
             var renderer = badge.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = PuzzlePalette.CreateSolidMaterial(name, color);

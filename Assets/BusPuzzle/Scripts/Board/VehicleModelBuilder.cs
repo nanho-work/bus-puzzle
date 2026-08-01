@@ -29,6 +29,10 @@ namespace BusPuzzle
             0, 1, 2, 0, 2, 3,
             0, 2, 1, 0, 3, 2,
         };
+        private static readonly Dictionary<PuzzleColor, VehicleMaterials>
+            VehicleMaterialSets =
+                new Dictionary<PuzzleColor, VehicleMaterials>();
+        private static SilhouetteMaterials silhouetteMaterialSet;
 
         public static GameObject Create(
             BusSize size,
@@ -48,7 +52,7 @@ namespace BusPuzzle
             var root = new GameObject($"{BusSizeUtility.DisplayName(size)} Model");
             root.transform.SetParent(parent, false);
 
-            var materials = new VehicleMaterials(color);
+            var materials = GetVehicleMaterials(color);
             switch (size)
             {
                 case BusSize.Small:
@@ -94,7 +98,7 @@ namespace BusPuzzle
             instance.transform.localPosition = Vector3.zero;
             instance.transform.localRotation = GetAssetVehiclePrefabRotation(prefab);
 
-            ApplyPrefabMaterials(instance, new VehicleMaterials(color));
+            ApplyPrefabMaterials(instance, GetVehicleMaterials(color));
             RemovePrefabColliders(instance);
             NormalizePrefabBounds(root.transform, instance.transform, size, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
             return true;
@@ -125,7 +129,9 @@ namespace BusPuzzle
             instance.transform.localPosition = Vector3.zero;
             instance.transform.localRotation = GetAssetVehiclePrefabRotation(prefab);
 
-            ApplyPrefabMysteryMaterials(instance, new SilhouetteMaterials());
+            ApplyPrefabMysteryMaterials(
+                instance,
+                GetSilhouetteMaterials());
             RemovePrefabColliders(instance);
             NormalizePrefabBounds(root.transform, instance.transform, size, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
             return true;
@@ -466,9 +472,44 @@ namespace BusPuzzle
             var root = new GameObject($"{BusSizeUtility.DisplayName(size)} Mystery Model");
             root.transform.SetParent(parent, false);
 
-            var materials = new SilhouetteMaterials();
+            var materials = GetSilhouetteMaterials();
             CreateMysteryVehicle(root.transform, materials, size, visualWidth, visualHeight, visualLength, visualCenterZ, cellSize);
             return root;
+        }
+
+        [RuntimeInitializeOnLoadMethod(
+            RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetMaterialSetCache()
+        {
+            VehicleMaterialSets.Clear();
+            silhouetteMaterialSet = null;
+        }
+
+        private static VehicleMaterials GetVehicleMaterials(
+            PuzzleColor color)
+        {
+            if (!VehicleMaterialSets.TryGetValue(
+                    color,
+                    out var materials) ||
+                materials == null ||
+                materials.Body == null)
+            {
+                materials = new VehicleMaterials(color);
+                VehicleMaterialSets[color] = materials;
+            }
+
+            return materials;
+        }
+
+        private static SilhouetteMaterials GetSilhouetteMaterials()
+        {
+            if (silhouetteMaterialSet == null ||
+                silhouetteMaterialSet.Body == null)
+            {
+                silhouetteMaterialSet = new SilhouetteMaterials();
+            }
+
+            return silhouetteMaterialSet;
         }
 
         private static void CreateMysteryVehicle(
@@ -993,6 +1034,7 @@ namespace BusPuzzle
 
             var meshFilter = detail.AddComponent<MeshFilter>();
             meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(detail, mesh);
 
             var renderer = detail.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
@@ -1182,6 +1224,7 @@ namespace BusPuzzle
 
             var meshFilter = shape.AddComponent<MeshFilter>();
             meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(shape, mesh);
 
             var meshRenderer = shape.AddComponent<MeshRenderer>();
             meshRenderer.sharedMaterial = material;
@@ -1230,8 +1273,10 @@ namespace BusPuzzle
 
             private static Material CreateLitMaterial(string name, Color color, float smoothness)
             {
-                var shader = PuzzlePalette.FindDefaultShader();
-                var material = PuzzlePalette.CreateMaterialFromShader(shader, name);
+                var material = PuzzlePalette.CreateLitMaterial(
+                    name,
+                    color,
+                    smoothness);
                 if (material == null)
                 {
                     return null;

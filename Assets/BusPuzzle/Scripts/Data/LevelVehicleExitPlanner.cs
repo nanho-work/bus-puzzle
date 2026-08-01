@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 namespace BusPuzzle
@@ -14,6 +15,20 @@ namespace BusPuzzle
             out List<int> exitOrder,
             out List<int> stuckIndices)
         {
+            return TryFindExitOrder(
+                buses,
+                out exitOrder,
+                out stuckIndices,
+                CancellationToken.None);
+        }
+
+        public static bool TryFindExitOrder(
+            IReadOnlyList<BusDefinition> buses,
+            out List<int> exitOrder,
+            out List<int> stuckIndices,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             exitOrder = new List<int>();
             stuckIndices = new List<int>();
 
@@ -25,17 +40,26 @@ namespace BusPuzzle
             var active = new bool[buses.Count];
             for (var index = 0; index < active.Length; index++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 active[index] = true;
             }
 
             var removedAny = true;
             while (removedAny)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 removedAny = false;
 
                 for (var index = 0; index < buses.Count; index++)
                 {
-                    if (!active[index] || !IsPathClear(index, buses, active, out _))
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!active[index] ||
+                        !IsPathClear(
+                            index,
+                            buses,
+                            active,
+                            out _,
+                            cancellationToken))
                     {
                         continue;
                     }
@@ -48,12 +72,14 @@ namespace BusPuzzle
 
             for (var index = 0; index < active.Length; index++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (active[index])
                 {
                     stuckIndices.Add(index);
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return stuckIndices.Count == 0;
         }
 
@@ -63,7 +89,29 @@ namespace BusPuzzle
             IReadOnlyList<bool> active,
             out int blockingIndex)
         {
-            return IsPathClear(movingIndex, buses, active, null, out blockingIndex);
+            return IsPathClear(
+                movingIndex,
+                buses,
+                active,
+                null,
+                out blockingIndex,
+                CancellationToken.None);
+        }
+
+        public static bool IsPathClear(
+            int movingIndex,
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<bool> active,
+            out int blockingIndex,
+            CancellationToken cancellationToken)
+        {
+            return IsPathClear(
+                movingIndex,
+                buses,
+                active,
+                null,
+                out blockingIndex,
+                cancellationToken);
         }
 
         public static bool IsPathClear(
@@ -73,6 +121,24 @@ namespace BusPuzzle
             IReadOnlyList<GarageDefinition> activeGarages,
             out int blockingIndex)
         {
+            return IsPathClear(
+                movingIndex,
+                buses,
+                active,
+                activeGarages,
+                out blockingIndex,
+                CancellationToken.None);
+        }
+
+        public static bool IsPathClear(
+            int movingIndex,
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<bool> active,
+            IReadOnlyList<GarageDefinition> activeGarages,
+            out int blockingIndex,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             blockingIndex = -1;
             if (buses == null || movingIndex < 0 || movingIndex >= buses.Count)
             {
@@ -95,6 +161,7 @@ namespace BusPuzzle
 
             for (var sample = 1; sample <= sampleCount; sample++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var distance = Mathf.Min(sweepDistance, sample * SweepStepCells);
                 var footprint = BoardLayoutConfig.GetVehicleFootprint(
                     movingRoot + worldDirection * distance,
@@ -104,6 +171,7 @@ namespace BusPuzzle
 
                 for (var index = 0; index < buses.Count; index++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (index == movingIndex || !IsActive(active, index))
                     {
                         continue;
@@ -116,18 +184,26 @@ namespace BusPuzzle
                     }
                 }
 
-                if (IntersectsGarageObstacle(footprint, activeGarages))
+                if (IntersectsGarageObstacle(
+                    footprint,
+                    activeGarages,
+                    cancellationToken))
                 {
                     blockingIndex = -1;
                     return false;
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return true;
         }
 
-        private static bool IntersectsGarageObstacle(VehicleFootprint footprint, IReadOnlyList<GarageDefinition> activeGarages)
+        private static bool IntersectsGarageObstacle(
+            VehicleFootprint footprint,
+            IReadOnlyList<GarageDefinition> activeGarages,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (activeGarages == null)
             {
                 return false;
@@ -135,6 +211,7 @@ namespace BusPuzzle
 
             for (var index = 0; index < activeGarages.Count; index++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var garageFootprint = new VehicleFootprint(
                     new Vector3(activeGarages[index].GridPosition.x, 0f, activeGarages[index].GridPosition.y),
                     Vector3.right,
@@ -147,6 +224,7 @@ namespace BusPuzzle
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return false;
         }
 

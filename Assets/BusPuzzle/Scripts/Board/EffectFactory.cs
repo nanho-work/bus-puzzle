@@ -130,7 +130,9 @@ namespace BusPuzzle
             star.transform.localScale = Vector3.one * (cellSize * 0.16f);
 
             var meshFilter = star.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = CreateStarMesh();
+            var mesh = CreateStarMesh();
+            meshFilter.sharedMesh = mesh;
+            RuntimeOwnedMesh.Attach(star, mesh);
 
             var meshRenderer = star.AddComponent<MeshRenderer>();
             meshRenderer.sharedMaterial = GetSparkMaterial();
@@ -249,10 +251,11 @@ namespace BusPuzzle
 
         private static Material GetAbsorbMaterial(PuzzleColor color)
         {
-            if (!AbsorbMaterials.TryGetValue(color, out var material))
+            if (!AbsorbMaterials.TryGetValue(color, out var material) ||
+                material == null)
             {
                 material = PuzzlePalette.CreateSolidMaterial($"Effect Absorb {PuzzlePalette.DisplayName(color)}", Color.Lerp(PuzzlePalette.ToColor(color), Color.white, 0.16f));
-                AbsorbMaterials.Add(color, material);
+                AbsorbMaterials[color] = material;
             }
 
             return material;

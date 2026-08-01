@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BusPuzzle
@@ -7,6 +9,11 @@ namespace BusPuzzle
         private const string LitShaderResourcePath = "Shaders/BusPuzzleLitColor";
         private const string FlatShaderResourcePath = "Shaders/BusPuzzleFlatColor";
         private const string TransparentShaderResourcePath = "Shaders/BusPuzzleTransparentColor";
+        private static readonly Dictionary<MaterialCacheKey, Material>
+            RuntimeMaterials =
+                new Dictionary<MaterialCacheKey, Material>();
+
+        public static int RuntimeMaterialCount => RuntimeMaterials.Count;
 
         public static Color ToColor(PuzzleColor color)
         {
@@ -76,29 +83,65 @@ namespace BusPuzzle
 
         public static Material CreateMaterial(PuzzleColor color, string nameSuffix)
         {
-            var material = CreateMaterialFromShader(FindDefaultShader(), $"{DisplayName(color)} {nameSuffix}");
-            SetMaterialColor(material, ToColor(color));
-            return material;
+            var materialName = $"{DisplayName(color)} {nameSuffix}";
+            var materialColor = ToColor(color);
+            return GetOrCreateRuntimeMaterial(
+                new MaterialCacheKey(
+                    RuntimeMaterialKind.Palette,
+                    materialName,
+                    materialColor,
+                    0f),
+                () =>
+                {
+                    var material = CreateMaterialFromShader(
+                        FindDefaultShader(),
+                        materialName);
+                    SetMaterialColor(material, materialColor);
+                    return material;
+                });
         }
 
         public static Material CreateSolidMaterial(string materialName, Color color)
         {
-            var material = CreateMaterialFromShader(FindFlatShader(), materialName);
-            SetMaterialColor(material, color);
-            return material;
+            return GetOrCreateRuntimeMaterial(
+                new MaterialCacheKey(
+                    RuntimeMaterialKind.Solid,
+                    materialName,
+                    color,
+                    0f),
+                () =>
+                {
+                    var material = CreateMaterialFromShader(
+                        FindFlatShader(),
+                        materialName);
+                    SetMaterialColor(material, color);
+                    return material;
+                });
         }
 
         public static Material CreateLitMaterial(string materialName, Color color, float smoothness = 0.28f)
         {
-            var material = CreateMaterialFromShader(FindDefaultShader(), materialName);
-            SetMaterialColor(material, color);
+            return GetOrCreateRuntimeMaterial(
+                new MaterialCacheKey(
+                    RuntimeMaterialKind.Lit,
+                    materialName,
+                    color,
+                    smoothness),
+                () =>
+                {
+                    var material = CreateMaterialFromShader(
+                        FindDefaultShader(),
+                        materialName);
+                    SetMaterialColor(material, color);
 
-            if (material != null && material.HasProperty("_Smoothness"))
-            {
-                material.SetFloat("_Smoothness", smoothness);
-            }
+                    if (material != null &&
+                        material.HasProperty("_Smoothness"))
+                    {
+                        material.SetFloat("_Smoothness", smoothness);
+                    }
 
-            return material;
+                    return material;
+                });
         }
 
         public static Material CreateMaterialFromShader(Shader shader, string materialName)
@@ -126,44 +169,175 @@ namespace BusPuzzle
 
         public static Material CreateTransparentMaterial(string materialName, Color color)
         {
-            var material = CreateMaterialFromShader(FindTransparentShader(), materialName);
+            return GetOrCreateRuntimeMaterial(
+                new MaterialCacheKey(
+                    RuntimeMaterialKind.Transparent,
+                    materialName,
+                    color,
+                    0f),
+                () =>
+                {
+                    var material = CreateMaterialFromShader(
+                        FindTransparentShader(),
+                        materialName);
+                    if (material == null)
+                    {
+                        return null;
+                    }
+
+                    SetMaterialColor(material, color);
+                    material.SetOverrideTag(
+                        "RenderType",
+                        "Transparent");
+                    material.renderQueue =
+                        (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+                    if (material.HasProperty("_Surface"))
+                    {
+                        material.SetFloat("_Surface", 1f);
+                    }
+
+                    if (material.HasProperty("_Blend"))
+                    {
+                        material.SetFloat("_Blend", 0f);
+                    }
+
+                    if (material.HasProperty("_SrcBlend"))
+                    {
+                        material.SetFloat(
+                            "_SrcBlend",
+                            (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    }
+
+                    if (material.HasProperty("_DstBlend"))
+                    {
+                        material.SetFloat(
+                            "_DstBlend",
+                            (float)UnityEngine.Rendering.BlendMode
+                                .OneMinusSrcAlpha);
+                    }
+
+                    if (material.HasProperty("_ZWrite"))
+                    {
+                        material.SetFloat("_ZWrite", 0f);
+                    }
+
+                    material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    material.DisableKeyword("_ALPHATEST_ON");
+                    return material;
+                });
+        }
+
+        [RuntimeInitializeOnLoadMethod(
+            RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetRuntimeMaterialCache()
+        {
+            foreach (var material in RuntimeMaterials.Values)
+            {
+                if (material == null)
+                {
+                    continue;
+                }
+
+#if UNITY_EDITOR
+                if (!Application.isPlaying)
+                {
+                    UnityEngine.Object.DestroyImmediate(material);
+                    continue;
+                }
+#endif
+                UnityEngine.Object.Destroy(material);
+            }
+
+            RuntimeMaterials.Clear();
+        }
+
+        private static Material GetOrCreateRuntimeMaterial(
+            MaterialCacheKey key,
+            Func<Material> factory)
+        {
+            if (RuntimeMaterials.TryGetValue(
+                    key,
+                    out var cachedMaterial) &&
+                cachedMaterial != null)
+            {
+                return cachedMaterial;
+            }
+
+            var material = factory != null ? factory() : null;
             if (material == null)
             {
+                RuntimeMaterials.Remove(key);
                 return null;
             }
 
-            SetMaterialColor(material, color);
-            material.SetOverrideTag("RenderType", "Transparent");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-
-            if (material.HasProperty("_Surface"))
-            {
-                material.SetFloat("_Surface", 1f);
-            }
-
-            if (material.HasProperty("_Blend"))
-            {
-                material.SetFloat("_Blend", 0f);
-            }
-
-            if (material.HasProperty("_SrcBlend"))
-            {
-                material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            }
-
-            if (material.HasProperty("_DstBlend"))
-            {
-                material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            }
-
-            if (material.HasProperty("_ZWrite"))
-            {
-                material.SetFloat("_ZWrite", 0f);
-            }
-
-            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            material.DisableKeyword("_ALPHATEST_ON");
+            material.hideFlags = HideFlags.DontSave;
+            RuntimeMaterials[key] = material;
             return material;
+        }
+
+        private enum RuntimeMaterialKind
+        {
+            Palette,
+            Solid,
+            Lit,
+            Transparent
+        }
+
+        private readonly struct MaterialCacheKey :
+            IEquatable<MaterialCacheKey>
+        {
+            public MaterialCacheKey(
+                RuntimeMaterialKind kind,
+                string name,
+                Color color,
+                float smoothness)
+            {
+                Kind = kind;
+                Name = name ?? string.Empty;
+                Color = color;
+                Smoothness = smoothness;
+            }
+
+            private RuntimeMaterialKind Kind { get; }
+            private string Name { get; }
+            private Color Color { get; }
+            private float Smoothness { get; }
+
+            public bool Equals(MaterialCacheKey other)
+            {
+                return Kind == other.Kind &&
+                    string.Equals(
+                        Name,
+                        other.Name,
+                        StringComparison.Ordinal) &&
+                    Color.Equals(other.Color) &&
+                    Smoothness.Equals(other.Smoothness);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is MaterialCacheKey other &&
+                    Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hashCode = (int)Kind;
+                    hashCode =
+                        (hashCode * 397) ^
+                        StringComparer.Ordinal.GetHashCode(Name);
+                    hashCode =
+                        (hashCode * 397) ^
+                        Color.GetHashCode();
+                    hashCode =
+                        (hashCode * 397) ^
+                        Smoothness.GetHashCode();
+                    return hashCode;
+                }
+            }
         }
 
         public static Color Darken(Color color, float amount)

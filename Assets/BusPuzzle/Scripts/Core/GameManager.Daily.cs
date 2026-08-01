@@ -5,34 +5,55 @@ namespace BusPuzzle
 {
     public sealed partial class GameManager
     {
-        private void LoadDailyChallengeLevel(int stepIndex)
+        private bool LoadDailyChallengeLevel(int stepIndex)
         {
-            var challengeLevel = DailyChallengeService.CreateRuntimeLevel(stepIndex);
-            if (challengeLevel == null)
+            LevelData challengeLevel;
+            try
             {
-                uiController?.ShowDailyChallengePrompt(DailyChallengeService.GetTodaySteps());
-                return;
+                challengeLevel =
+                    DailyChallengeService.CreateRuntimeLevel(stepIndex);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError(
+                    $"Daily challenge step {stepIndex} creation failed: " +
+                    $"{exception}");
+                return false;
             }
 
-            boardingFlowController.Reset();
-            ResetVipTeleportState();
-            ResetMixShuffleState();
-            ResetDepartState();
-            ResetClearRewardDoubleState();
-            ResetTutorialState();
-            StopDailyRewardPromptCheck();
+            if (challengeLevel == null)
+            {
+                Debug.LogError(
+                    $"Daily challenge step {stepIndex} could not be created.");
+                return false;
+            }
 
-            isDailyChallengeMode = true;
-            activeDailyChallengeStepIndex = Mathf.Clamp(stepIndex, 1, 3);
-            activeDailyChallengeDateKey = DailyChallengeService.CurrentDateKey;
-            BackgroundMusicPlayer.PlayDailyChallengeEvent();
-            currentLevel = challengeLevel;
-            UpdateBannerAdState(false);
+            LevelValidationReport validationReport;
+            try
+            {
+                validationReport =
+                    LevelValidator.Validate(challengeLevel, false);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError(
+                    $"Daily challenge step {stepIndex} validation failed: " +
+                    $"{exception}");
+                return false;
+            }
 
-            var validationReport = LevelValidator.Validate(currentLevel, false);
+            if (validationReport == null)
+            {
+                Debug.LogError(
+                    $"Daily challenge step {stepIndex} validation returned no report.");
+                return false;
+            }
+
             if (validationReport.HasIssues)
             {
-                var validationMessage = validationReport.ToConsoleMessage(currentLevel.LevelName);
+                var validationMessage =
+                    validationReport.ToConsoleMessage(
+                        challengeLevel.LevelName);
                 if (validationReport.HasErrors)
                 {
                     Debug.LogError(validationMessage);
@@ -43,21 +64,110 @@ namespace BusPuzzle
                 }
             }
 
-            gameState = GameState.Playing;
-            ClearPendingFailureRecoveryState();
+            if (validationReport.HasErrors)
+            {
+                return false;
+            }
 
-            boardView.BuildLevel(currentLevel, circulatingPassengerUnits, buses, GetDailyChallengeThemeStageNumber());
-            RevealReadyConcealedBuses();
-            ReframeBoardCamera(true);
-            UpdateCounters();
-            UpdateGoldUi();
-            UpdateRewardedAdUi();
+            var previousState = CaptureLevelLoadState();
+            try
+            {
+                StopNextLevelLoad();
+                StopClearNextStagePreload();
+                StopRuntimeAheadPreload();
+                boardingFlowController?.Reset();
 
-            uiController.SetDailyChallengeLevel(stepIndex);
-            uiController.SetDailyChallengeReturnButtonState(true);
-            uiController.ShowPlaying(currentLevel.LevelName);
-            RefreshDailyRewardButtonState();
-            CheckBlocked();
+                if (!TryBuildDailyChallengeBoard(
+                        challengeLevel,
+                        out var buildException))
+                {
+                    throw new System.InvalidOperationException(
+                        $"Daily challenge step {stepIndex} board activation failed.",
+                        buildException);
+                }
+
+                ResetVipTeleportState();
+                ResetMixShuffleState();
+                ResetDepartState();
+                ResetClearRewardDoubleState();
+                ResetTutorialState();
+                StopDailyRewardPromptCheck();
+
+                isDailyChallengeMode = true;
+                activeDailyChallengeStepIndex =
+                    Mathf.Clamp(stepIndex, 1, 3);
+                activeDailyChallengeDateKey =
+                    DailyChallengeService.CurrentDateKey;
+                currentLevel = challengeLevel;
+                gameState = GameState.Playing;
+                ClearPendingFailureRecoveryState();
+
+                BackgroundMusicPlayer.PlayDailyChallengeEvent();
+                UpdateBannerAdState(false);
+                RevealReadyConcealedBuses();
+                ReframeBoardCamera(true);
+                UpdateCounters();
+                UpdateGoldUi();
+                UpdateRewardedAdUi();
+
+                uiController.SetDailyChallengeLevel(stepIndex);
+                uiController.SetDailyChallengeReturnButtonState(true);
+                uiController.ShowPlaying(currentLevel.LevelName);
+                RefreshDailyRewardButtonState();
+                CheckBlocked();
+                return true;
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError(
+                    $"Daily challenge step {stepIndex} activation was " +
+                    $"rolled back: {exception}");
+                if (!TryRestorePreviousBoard(previousState))
+                {
+                    gameState = GameState.Failed;
+                }
+
+                return false;
+            }
+        }
+
+        private bool TryBuildDailyChallengeBoard(
+            LevelData challengeLevel,
+            out System.Exception exception)
+        {
+            exception = null;
+            try
+            {
+                boardView.BuildLevel(
+                    challengeLevel,
+                    circulatingPassengerUnits,
+                    buses,
+                    GetDailyChallengeThemeStageNumber());
+                return true;
+            }
+            catch (System.Exception buildException)
+            {
+                exception = buildException;
+                return false;
+            }
+        }
+
+        private static bool TryPreloadDailyChallengeStep(int stepIndex)
+        {
+            try
+            {
+                DailyChallengeEventMapBuilder.PreloadResources();
+                DailyChallengeService.PreloadRuntimeLevel(stepIndex);
+                return DailyChallengeService.CreateRuntimeLevel(stepIndex) !=
+                    null;
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError(
+                    $"Daily challenge step {stepIndex} preload failed: " +
+                    $"{exception}");
+                return false;
+            }
         }
 
         private int GetDailyChallengeThemeStageNumber()
@@ -193,29 +303,55 @@ namespace BusPuzzle
 
         private IEnumerator StartDailyChallengeStepRoutine(int stepIndex)
         {
-            uiController?.ShowDailyChallengeLoading();
-            Canvas.ForceUpdateCanvases();
-            yield return null;
-            yield return new WaitForSecondsRealtime(DailyChallengeLoadingSettleSeconds);
-
-            if (!DailyChallengeService.CanStartStep(stepIndex))
+            var loaded = false;
+            try
             {
-                uiController?.HideDailyChallengeLoading();
-                uiController?.ShowDailyChallengePrompt(DailyChallengeService.GetTodaySteps());
-                dailyChallengeStartRoutine = null;
-                yield break;
+                uiController?.ShowDailyChallengeLoading();
+                Canvas.ForceUpdateCanvases();
+                yield return null;
+                yield return new WaitForSecondsRealtime(
+                    DailyChallengeLoadingSettleSeconds);
+
+                if (!DailyChallengeService.CanStartStep(stepIndex))
+                {
+                    uiController?.ShowDailyChallengePrompt(
+                        DailyChallengeService.GetTodaySteps());
+                    yield break;
+                }
+
+                if (!TryPreloadDailyChallengeStep(stepIndex))
+                {
+                    uiController?.ShowInvalid(
+                        Localization.Text("stage_failed"));
+                    uiController?.ShowDailyChallengePrompt(
+                        DailyChallengeService.GetTodaySteps());
+                    yield break;
+                }
+
+                yield return null;
+
+                loaded = LoadDailyChallengeLevel(stepIndex);
+                if (!loaded)
+                {
+                    uiController?.ShowInvalid(
+                        Localization.Text("stage_failed"));
+                    uiController?.ShowDailyChallengePrompt(
+                        DailyChallengeService.GetTodaySteps());
+                    yield break;
+                }
+
+                yield return null;
+                Debug.Log(
+                    $"Daily challenge step {stepIndex} started.");
             }
-
-            DailyChallengeEventMapBuilder.PreloadResources();
-            DailyChallengeService.PreloadRuntimeLevel(stepIndex);
-            yield return null;
-
-            LoadDailyChallengeLevel(stepIndex);
-            yield return null;
-
-            uiController?.HideDailyChallengeLoading();
-            dailyChallengeStartRoutine = null;
-            Debug.Log($"Daily challenge step {stepIndex} started.");
+            finally
+            {
+                dailyChallengeStartRoutine = null;
+                if (!isShuttingDown)
+                {
+                    uiController?.HideDailyChallengeLoading();
+                }
+            }
         }
 
         private void ReturnFromDailyChallenge()
@@ -225,8 +361,25 @@ namespace BusPuzzle
                 return;
             }
 
-            var returnLevelIndex = Mathf.Clamp(dailyChallengeReturnLevelIndex, 0, levelSequence.Count - 1);
-            LoadLevel(returnLevelIndex);
+            if (levelSequence == null || levelSequence.Count <= 0)
+            {
+                uiController?.ShowInvalid(
+                    Localization.Text("stage_failed"));
+                return;
+            }
+
+            var returnLevelIndex = Mathf.Clamp(
+                dailyChallengeReturnLevelIndex,
+                0,
+                levelSequence.Count - 1);
+            if (!TryLoadLevelWithoutThrow(returnLevelIndex))
+            {
+                uiController?.SetDailyChallengeReturnButtonState(true);
+                uiController?.ShowInvalid(
+                    Localization.Text("stage_failed"));
+                return;
+            }
+
             RefreshDailyRewardButtonState();
             Debug.Log($"Returned from daily challenge to stage {returnLevelIndex + 1}.");
         }
@@ -269,8 +422,26 @@ namespace BusPuzzle
                 ? $"Daily challenge step {completedStepIndex} cleared."
                 : $"Daily challenge step {completedStepIndex} clear skipped because the challenge state changed.");
 
-            var returnLevelIndex = Mathf.Clamp(dailyChallengeReturnLevelIndex, 0, levelSequence.Count - 1);
-            LoadLevel(returnLevelIndex);
+            if (levelSequence == null || levelSequence.Count <= 0)
+            {
+                uiController?.SetDailyChallengeReturnButtonState(true);
+                uiController?.ShowInvalid(
+                    Localization.Text("stage_failed"));
+                return;
+            }
+
+            var returnLevelIndex = Mathf.Clamp(
+                dailyChallengeReturnLevelIndex,
+                0,
+                levelSequence.Count - 1);
+            if (!TryLoadLevelWithoutThrow(returnLevelIndex))
+            {
+                uiController?.SetDailyChallengeReturnButtonState(true);
+                uiController?.ShowInvalid(
+                    Localization.Text("stage_failed"));
+                return;
+            }
+
             StopDailyRewardPromptCheck();
             DailyChallengeService.MarkAvailableNotificationSeen();
             RefreshDailyRewardButtonState();

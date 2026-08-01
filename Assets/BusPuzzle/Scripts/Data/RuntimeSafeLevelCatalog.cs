@@ -16,6 +16,7 @@ namespace BusPuzzle
         private const int BucketCount = DifficultyBucketCount * GarageBucketCount * MysteryBucketCount;
         private const int MaximumCompatibleProfileVehicleDelta = 3;
         private const int MaximumCompatibleRotaryCapacityDelta = 8;
+        private const int MaximumCatalogVehicleSelectionSlack = 2;
         private const float MinimumActualVehicleTargetRatio = 0.75f;
 
         private readonly List<CatalogEntry>[] entriesByRequirement;
@@ -93,7 +94,14 @@ namespace BusPuzzle
             var plannerVehicleCount = GetRequestedVehicleCount(request);
             var catalogVehicleCap = GetCatalogVehicleCap(request, candidates);
             var effectiveRequest = CapVehicleRequest(request, catalogVehicleCap);
-            var selected = SelectClosestCandidate(effectiveRequest, candidates);
+            if (!TrySelectClosestCandidate(
+                    effectiveRequest,
+                    candidates,
+                    out var selected))
+            {
+                return false;
+            }
+
             level = CloneLevel(
                 selected.Level,
                 effectiveRequest,
@@ -308,114 +316,64 @@ namespace BusPuzzle
                 mysteryIndex;
         }
 
-        private static CatalogEntry SelectClosestCandidate(
+        private static bool TrySelectClosestCandidate(
             StageGenerationRequest request,
-            IReadOnlyList<CatalogEntry> candidates)
+            IReadOnlyList<CatalogEntry> candidates,
+            out CatalogEntry selected)
         {
             var startIndex = GetStableSelectionIndex(request, candidates.Count);
-            var best = candidates[startIndex];
-            var bestRank = GetCandidateRank(request, best.Level);
-            for (var offset = 1; offset < candidates.Count; offset++)
+            selected = default;
+            var requestedVehicleCount = GetRequestedVehicleCount(request);
+            var bestActualVehicleDistance = int.MaxValue;
+            for (var offset = 0; offset < candidates.Count; offset++)
             {
                 var candidate = candidates[(startIndex + offset) % candidates.Count];
-                var rank = GetCandidateRank(request, candidate.Level);
-                if (rank.IsBetterThan(bestRank))
+                if (!MeetsStructuralRuntimeContract(request, candidate.Level))
                 {
-                    best = candidate;
-                    bestRank = rank;
+                    continue;
                 }
+
+                var actualVehicleCount = candidate.Level.AllVehicles != null
+                    ? candidate.Level.AllVehicles.Count
+                    : 0;
+                bestActualVehicleDistance = Mathf.Min(
+                    bestActualVehicleDistance,
+                    Mathf.Abs(actualVehicleCount - requestedVehicleCount));
             }
 
-            return best;
-        }
-
-        private static CandidateRank GetCandidateRank(
-            StageGenerationRequest request,
-            LevelData source)
-        {
-            var requestProfile = request.Profile ??
-                LevelDifficultyProfile.DefaultFor(request.Difficulty);
-            var sourceProfile = source.DifficultyProfile ??
-                LevelDifficultyProfile.DefaultFor(request.Difficulty);
-            var profileVehicleDelta = Mathf.Abs(
-                sourceProfile.TargetVehicleCount - requestProfile.TargetVehicleCount);
-
-            // Garage shape and the already-verified profile band are compatibility
-            // constraints. Once a compatible release source exists, actual playable
-            // vehicle count ranks ahead of the softer profile/road balance score.
-            var contractViolationDistance = Mathf.Max(
-                0,
-                profileVehicleDelta - MaximumCompatibleProfileVehicleDelta);
-            var sourceGarageCount = source.Garages != null ? source.Garages.Count : 0;
-            contractViolationDistance += Mathf.Abs(sourceGarageCount - request.GarageCount) * 100;
-            if (sourceGarageCount > 0)
+            if (bestActualVehicleDistance == int.MaxValue)
             {
-                for (var index = 0; index < source.Garages.Count; index++)
-                {
-                    var queuedVehicleCount = source.Garages[index].QueuedVehicles.Count;
-                    if (queuedVehicleCount < request.MinGarageQueuedVehicles)
-                    {
-                        contractViolationDistance +=
-                            10 + request.MinGarageQueuedVehicles - queuedVehicleCount;
-                    }
-                    else if (queuedVehicleCount > request.MaxGarageQueuedVehicles)
-                    {
-                        contractViolationDistance +=
-                            10 + queuedVehicleCount - request.MaxGarageQueuedVehicles;
-                    }
-                }
+                return false;
             }
 
-            var actualVehicleCount = source.AllVehicles != null ? source.AllVehicles.Count : 0;
-            var minimumActualVehicleCount = Mathf.CeilToInt(
-                requestProfile.TargetVehicleCount * MinimumActualVehicleTargetRatio);
-            contractViolationDistance += Mathf.Max(
-                0,
-                minimumActualVehicleCount - actualVehicleCount);
-            contractViolationDistance += Mathf.Max(
-                0,
-                Mathf.Abs(source.RotaryUnitCapacity - request.RotaryCapacity) -
-                MaximumCompatibleRotaryCapacityDelta);
-            var actualVehicleDistance = Mathf.Abs(
-                actualVehicleCount - requestProfile.TargetVehicleCount);
-            return new CandidateRank(
-                contractViolationDistance,
-                actualVehicleDistance,
-                GetBalanceDistance(request, source));
-        }
-
-        private static int GetBalanceDistance(StageGenerationRequest request, LevelData source)
-        {
-            var requestProfile = request.Profile ??
-                LevelDifficultyProfile.DefaultFor(request.Difficulty);
-            var sourceProfile = source.DifficultyProfile ??
-                LevelDifficultyProfile.DefaultFor(request.Difficulty);
-            var score = Mathf.Abs(sourceProfile.TargetVehicleCount - requestProfile.TargetVehicleCount) * 40;
-            score += Mathf.Abs(sourceProfile.TargetColorCount - requestProfile.TargetColorCount) * 8;
-            score += Mathf.Abs(source.RotaryUnitCapacity - request.RotaryCapacity) * 4;
-            score += source.RoadPresetId == request.RoadPresetId ? 0 : 20;
-            score += Mathf.RoundToInt(
-                Mathf.Abs(sourceProfile.ParkingTension - requestProfile.ParkingTension) * 30f);
-            score += Mathf.RoundToInt(
-                Mathf.Abs(sourceProfile.StationPressure - requestProfile.StationPressure) * 30f);
-
-            var sourceGarageCount = source.Garages != null ? source.Garages.Count : 0;
-            score += Mathf.Abs(sourceGarageCount - request.GarageCount) * 120;
-            if (sourceGarageCount > 0)
+            var maximumVehicleDistance =
+                bestActualVehicleDistance +
+                MaximumCatalogVehicleSelectionSlack;
+            for (var offset = 0; offset < candidates.Count; offset++)
             {
-                var sourceQueuedVehicleCount = 0;
-                for (var index = 0; index < source.Garages.Count; index++)
+                var candidate = candidates[(startIndex + offset) % candidates.Count];
+                if (!MeetsStructuralRuntimeContract(request, candidate.Level))
                 {
-                    sourceQueuedVehicleCount += source.Garages[index].QueuedVehicles.Count;
+                    continue;
                 }
 
-                var sourceQueueAverage = sourceQueuedVehicleCount / (float)sourceGarageCount;
-                var requestedQueueAverage =
-                    (request.MinGarageQueuedVehicles + request.MaxGarageQueuedVehicles) * 0.5f;
-                score += Mathf.RoundToInt(Mathf.Abs(sourceQueueAverage - requestedQueueAverage) * 24f);
+                var actualVehicleCount = candidate.Level.AllVehicles != null
+                    ? candidate.Level.AllVehicles.Count
+                    : 0;
+                if (Mathf.Abs(actualVehicleCount - requestedVehicleCount) >
+                    maximumVehicleDistance)
+                {
+                    continue;
+                }
+
+                // The hashed start index spreads otherwise equivalent, verified
+                // sources across the endless stream. Every eligible candidate already
+                // satisfies the hard garage/queue/rotary contract above.
+                selected = candidate;
+                return true;
             }
 
-            return score;
+            return false;
         }
 
         private static int GetStableSelectionIndex(StageGenerationRequest request, int candidateCount)
@@ -449,8 +407,17 @@ namespace BusPuzzle
                 (request.Modifiers & (StageModifierFlags.MysteryVehicles | StageModifierFlags.LightMysteryVehicles)) != 0;
             var buses = CloneBuses(source.Buses, request, wantsMysteryVehicles);
             var garages = CloneGarages(source.Garages, false);
+            var mirrorX = ShouldMirrorHorizontally(request);
+            if (mirrorX)
+            {
+                buses = MirrorBusesHorizontally(buses);
+                garages = MirrorGaragesHorizontally(garages);
+            }
+
             var passengerUnits = new List<PuzzleColor>(source.PassengerUnits);
-            var difficultyProfile = CloneDifficultyProfile(source.DifficultyProfile);
+            var difficultyProfile = CloneDifficultyProfile(
+                request.Profile ??
+                    source.DifficultyProfile);
             var passengerFlowPlan = ClonePassengerFlowPlan(source.PassengerFlowPlan);
             var requestedVehicleCount = request.Profile != null
                 ? request.Profile.TargetVehicleCount
@@ -468,24 +435,143 @@ namespace BusPuzzle
                 difficultyProfile,
                 passengerFlowPlan,
                 buses,
-                source.RotaryUnitCapacity,
-                source.RoadPresetId,
+                request.RotaryCapacity,
+                request.RoadPresetId,
                 passengerUnits,
                 garages,
                 LevelPresentationMode.Standard);
             level.SetGenerationMetadata(
                 $"runtimeSafeCatalog=1;stage={request.StageNumber};sourceStage={sourceLevelIndex + 1};" +
                 $"difficulty={(int)difficultyProfile.Difficulty};modifiers={(int)request.Modifiers};" +
+                $"requestedRoad={(int)request.RoadPresetId};" +
                 $"garages={garages.Count};mysteryEnabled={(wantsMysteryVehicles ? 1 : 0)};" +
+                $"mirrorX={(mirrorX ? 1 : 0)};" +
                 $"plannerVehicles={plannerVehicleCount};catalogVehicleCap={catalogVehicleCap};" +
                 $"requestedVehicles={requestedVehicleCount};actualVehicles={actualVehicleCount};" +
-                $"sourceVehicles={difficultyProfile.TargetVehicleCount};" +
+                $"effectiveProfileVehicles={difficultyProfile.TargetVehicleCount};" +
+                $"sourceVehicles={source.DifficultyProfile.TargetVehicleCount};" +
                 $"requestedSolutionMin={request.MinSolutionCount};" +
                 $"requestedSolutionMax={request.MaxSolutionCount};" +
                 $"sourceStoredSolutions={sourceStoredSolutions};" +
                 $"solutionFallback={(usesSolutionFallback ? 1 : 0)};",
                 sourceStoredSolutions);
             return level;
+        }
+
+        private static bool ShouldMirrorHorizontally(
+            StageGenerationRequest request)
+        {
+            unchecked
+            {
+                // Seed is derived linearly from StageNumber, so using only the raw
+                // low bit makes both values cancel for most stages. Avalanche the
+                // independent fields before choosing the mirror bit.
+                var hash = (uint)request.Seed;
+                hash ^= (uint)request.StageNumber * 0x9e3779b9u;
+                hash ^= (uint)request.Modifiers * 0x85ebca6bu;
+                hash ^= (uint)request.Difficulty * 0xc2b2ae35u;
+                hash ^= hash >> 16;
+                hash *= 0x7feb352du;
+                hash ^= hash >> 15;
+                hash *= 0x846ca68bu;
+                hash ^= hash >> 16;
+                return (hash & 1u) != 0u;
+            }
+        }
+
+        private static List<BusDefinition> MirrorBusesHorizontally(
+            IReadOnlyList<BusDefinition> sourceBuses)
+        {
+            var mirrored = new List<BusDefinition>(
+                sourceBuses != null ? sourceBuses.Count : 0);
+            if (sourceBuses == null)
+            {
+                return mirrored;
+            }
+
+            for (var index = 0; index < sourceBuses.Count; index++)
+            {
+                mirrored.Add(MirrorBusHorizontally(sourceBuses[index]));
+            }
+
+            return mirrored;
+        }
+
+        private static List<GarageDefinition> MirrorGaragesHorizontally(
+            IReadOnlyList<GarageDefinition> sourceGarages)
+        {
+            var mirrored = new List<GarageDefinition>(
+                sourceGarages != null ? sourceGarages.Count : 0);
+            if (sourceGarages == null)
+            {
+                return mirrored;
+            }
+
+            for (var garageIndex = 0;
+                garageIndex < sourceGarages.Count;
+                garageIndex++)
+            {
+                var source = sourceGarages[garageIndex];
+                var queuedVehicles = new List<BusDefinition>(
+                    source.QueuedVehicleCount);
+                for (var queueIndex = 0;
+                    queueIndex < source.QueuedVehicleCount;
+                    queueIndex++)
+                {
+                    queuedVehicles.Add(
+                        MirrorBusHorizontally(
+                            source.QueuedVehicles[queueIndex]));
+                }
+
+                mirrored.Add(
+                    new GarageDefinition(
+                        MirrorGridPositionHorizontally(
+                            source.GridPosition),
+                        MirrorDirectionHorizontally(
+                            source.ExitDirection),
+                        MirrorBusHorizontally(
+                            source.FrontVehicle),
+                        queuedVehicles));
+            }
+
+            return mirrored;
+        }
+
+        private static BusDefinition MirrorBusHorizontally(
+            BusDefinition source)
+        {
+            return new BusDefinition(
+                source.Color,
+                source.Size,
+                MirrorDirectionHorizontally(source.Direction),
+                MirrorGridPositionHorizontally(source.GridPosition),
+                -source.AngleOffsetDegrees,
+                new Vector2(
+                    -source.PositionOffsetCells.x,
+                    source.PositionOffsetCells.y),
+                source.StartsConcealed);
+        }
+
+        private static Vector2Int MirrorGridPositionHorizontally(
+            Vector2Int position)
+        {
+            return new Vector2Int(
+                BoardLayoutConfig.GridColumns - 1 - position.x,
+                position.y);
+        }
+
+        private static GridDirection MirrorDirectionHorizontally(
+            GridDirection direction)
+        {
+            switch (direction)
+            {
+                case GridDirection.Right:
+                    return GridDirection.Left;
+                case GridDirection.Left:
+                    return GridDirection.Right;
+                default:
+                    return direction;
+            }
         }
 
         private static List<BusDefinition> CloneBuses(
@@ -664,36 +750,5 @@ namespace BusPuzzle
             public int SourceLevelIndex { get; }
         }
 
-        private readonly struct CandidateRank
-        {
-            public CandidateRank(
-                int contractViolationDistance,
-                int actualVehicleDistance,
-                int balanceDistance)
-            {
-                ContractViolationDistance = contractViolationDistance;
-                ActualVehicleDistance = actualVehicleDistance;
-                BalanceDistance = balanceDistance;
-            }
-
-            private int ContractViolationDistance { get; }
-            private int ActualVehicleDistance { get; }
-            private int BalanceDistance { get; }
-
-            public bool IsBetterThan(CandidateRank other)
-            {
-                if (ContractViolationDistance != other.ContractViolationDistance)
-                {
-                    return ContractViolationDistance < other.ContractViolationDistance;
-                }
-
-                if (ActualVehicleDistance != other.ActualVehicleDistance)
-                {
-                    return ActualVehicleDistance < other.ActualVehicleDistance;
-                }
-
-                return BalanceDistance < other.BalanceDistance;
-            }
-        }
     }
 }

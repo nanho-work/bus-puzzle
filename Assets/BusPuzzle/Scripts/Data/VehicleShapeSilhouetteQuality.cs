@@ -326,7 +326,7 @@ namespace BusPuzzle
         }
 
         internal static bool TryGetFailureMessage(
-            VehicleShapeTemplate template,
+            IVehicleShapeTemplate template,
             VehicleShapeSilhouetteMetrics metrics,
             out string message)
         {
@@ -444,7 +444,7 @@ namespace BusPuzzle
         }
 
         private static void BuildTargetMask(
-            VehicleShapeTemplate template,
+            IVehicleShapeTemplate template,
             VehicleShapeLayoutDefinition definition,
             int pixelsPerCell,
             int width,
@@ -765,7 +765,7 @@ namespace BusPuzzle
         }
 
         private static float CalculateSymmetryError(
-            VehicleShapeTemplate template,
+            IVehicleShapeTemplate template,
             float shapeScale,
             bool[] mask,
             int width,
@@ -950,7 +950,7 @@ namespace BusPuzzle
         }
 
         private static float CalculateFeaturePassRatio(
-            VehicleShapeTemplate template,
+            IVehicleShapeTemplate template,
             float shapeScale,
             bool[] outputMask,
             bool[] outputBoundary,
@@ -1074,7 +1074,7 @@ namespace BusPuzzle
         }
 
         private static void CalculateMeanTangentError(
-            VehicleShapeTemplate template,
+            IVehicleShapeTemplate template,
             VehicleShapeLayoutDefinition definition,
             IReadOnlyList<BusDefinition> vehicles,
             float tangentProbeDistanceCells,

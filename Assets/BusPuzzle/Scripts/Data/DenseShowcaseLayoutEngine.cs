@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 namespace BusPuzzle
@@ -42,8 +43,10 @@ namespace BusPuzzle
             IReadOnlyList<PuzzleColor> colors,
             out List<BusDefinition> vehicles,
             bool useVisualPreviewQuality = false,
-            int placementProbeIndex = 0)
+            int placementProbeIndex = 0,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             vehicles = new List<BusDefinition>();
             profile = profile ?? LevelDifficultyProfile.DefaultFor(LevelDifficulty.Normal);
             targetVehicleCount = Mathf.Clamp(targetVehicleCount, 1, 80);
@@ -113,7 +116,8 @@ namespace BusPuzzle
                 placementQualityTemplate,
                 useTemplateVisualPlacementQuality,
                 false,
-                false);
+                false,
+                cancellationToken);
             if (IsAcceptableDenseSet(profile, vehicles, targetVehicleCount, layoutVariantIndex, libraryId, useVisualPreviewQuality))
             {
                 return true;
@@ -131,7 +135,8 @@ namespace BusPuzzle
                 placementQualityTemplate,
                 useTemplateVisualPlacementQuality,
                 true,
-                false);
+                false,
+                cancellationToken);
             if (IsAcceptableDenseSet(profile, vehicles, targetVehicleCount, layoutVariantIndex, libraryId, useVisualPreviewQuality))
             {
                 return true;
@@ -149,7 +154,8 @@ namespace BusPuzzle
                 placementQualityTemplate,
                 useTemplateVisualPlacementQuality,
                 true,
-                true);
+                true,
+                cancellationToken);
             if (IsAcceptableDenseSet(profile, vehicles, targetVehicleCount, layoutVariantIndex, libraryId, useVisualPreviewQuality))
             {
                 return true;
@@ -252,16 +258,18 @@ namespace BusPuzzle
             int targetVehicleCount,
             int minimumDenseVehicleCount,
             VehicleShapeLayoutDefinition shapeDefinition,
-            VehicleShapeTemplate qualityTemplate,
+            IVehicleShapeTemplate qualityTemplate,
             bool useVisualPreviewQuality,
             bool forceEscapeLanes,
-            bool forceRadialEscapes)
+            bool forceRadialEscapes,
+            CancellationToken cancellationToken)
         {
             var vehicles = new List<BusDefinition>(targetVehicleCount);
             var poseCandidates = new List<DensePoseCandidate>(256);
             var sizeCandidates = new List<BusSize>(3);
             for (var slotIndex = 0; slotIndex < slots.Count && vehicles.Count < targetVehicleCount; slotIndex++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var slot = slots[slotIndex];
                 var preservesHeartMirrorPairs =
                     libraryId == VehicleShapeLibraryId.Heart ||
@@ -290,7 +298,8 @@ namespace BusPuzzle
                                 slotIndex,
                                 vehicles,
                                 poseCandidates,
-                                sizeCandidates);
+                                sizeCandidates,
+                                cancellationToken);
                         }
 
                         slotIndex++;
@@ -327,6 +336,11 @@ namespace BusPuzzle
                 {
                     for (var poseIndex = 0; poseIndex < poseCandidates.Count; poseIndex++)
                     {
+                        if ((poseIndex & 15) == 0)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                        }
+
                         var pose = poseCandidates[poseIndex];
                         var candidate = new BusDefinition(
                             color,
@@ -365,14 +379,15 @@ namespace BusPuzzle
             int targetVehicleCount,
             int minimumDenseVehicleCount,
             VehicleShapeLayoutDefinition shapeDefinition,
-            VehicleShapeTemplate qualityTemplate,
+            IVehicleShapeTemplate qualityTemplate,
             bool useVisualPreviewQuality,
             bool forceEscapeLanes,
             bool forceRadialEscapes,
             int slotIndex,
             List<BusDefinition> vehicles,
             List<DensePoseCandidate> poseCandidates,
-            List<BusSize> sizeCandidates)
+            List<BusSize> sizeCandidates,
+            CancellationToken cancellationToken)
         {
             BuildPoseCandidates(
                 leftSlot,
@@ -409,6 +424,11 @@ namespace BusPuzzle
                 var size = sizeCandidates[sizeIndex];
                 for (var poseIndex = 0; poseIndex < poseCandidates.Count; poseIndex++)
                 {
+                    if ((poseIndex & 15) == 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+
                     var leftPose = poseCandidates[poseIndex];
                     var left = new BusDefinition(
                         leftColor,
@@ -1883,7 +1903,7 @@ namespace BusPuzzle
             BusDefinition candidate,
             IReadOnlyList<BusDefinition> placedVehicles,
             VehicleShapeLayoutDefinition shapeDefinition,
-            VehicleShapeTemplate qualityTemplate,
+            IVehicleShapeTemplate qualityTemplate,
             bool useVisualPreviewQuality)
         {
             if (!BoardLayoutConfig.IsInsideGrid(candidate.GridPosition) ||
@@ -1921,7 +1941,7 @@ namespace BusPuzzle
         private static bool PreservesTemplateBackgroundFeatures(
             BusDefinition candidate,
             VehicleShapeLayoutDefinition shapeDefinition,
-            VehicleShapeTemplate template)
+            IVehicleShapeTemplate template)
         {
             if (template == null || template.KeyFeatures == null)
             {

@@ -29,6 +29,10 @@ namespace BusPuzzle.EditorTools
             202,
             206,
             223,
+            449,
+            450,
+            451,
+            452,
             500
         };
 
@@ -69,6 +73,8 @@ namespace BusPuzzle.EditorTools
             var runtimeSequence = LevelSequence.CreateRuntimeGenerated(
                 config,
                 releaseSequence.StaticLevels);
+            runtimeSequence.PinActiveRuntimeLevel(
+                RepresentativeStageNumbers[0] - 1);
             var pending = new HashSet<int>();
             var acceptedFingerprints = new HashSet<string>(
                 StringComparer.Ordinal);

@@ -237,9 +237,11 @@ namespace BusPuzzle
 
     internal static class RuntimeStageDataGenerator
     {
-        private const int RuntimeGeneratorVersion = 5;
+        private const int RuntimeGeneratorVersion = 6;
         private const int MaximumRuntimeSolutionCountLimit = 256;
         private const int RuntimeSolutionNodeVisitLimit = 8192;
+        private const int RuntimeGarageSolutionNodeVisitLimit = 2048;
+        private const int RuntimeGarageMemoizedStateLimit = 2048;
         private const int MaximumAcceptedSolutionDistance = 2;
         private const float MinimumVehicleTargetRatio = 0.75f;
 
@@ -313,12 +315,16 @@ namespace BusPuzzle
                     var solutionDistance = GetSolutionRangeDistance(
                         request,
                         analysis);
+                    var solutionNodeVisitLimit =
+                        GetSolutionNodeVisitLimit(
+                            candidateData.Garages);
                     candidateData.SetGenerationMetadata(
                         CreateProceduralSignature(
                             options,
                             request,
                             candidate,
-                            candidateData.TotalVehicleCount),
+                            candidateData.TotalVehicleCount,
+                            solutionNodeVisitLimit),
                         analysis.SolutionCount);
                     if (solutionDistance <=
                         MaximumAcceptedSolutionDistance)
@@ -378,6 +384,37 @@ namespace BusPuzzle
                 $"{(request.Profile != null ? request.Profile.TargetVehicleCount : 0)}.");
         }
 
+        /// <summary>
+        /// Opt-in A/B probe for the SuperHard + Garage memoized witness
+        /// analyzer. Generate intentionally continues to use AnalyzeSolution
+        /// until exhaustive comparison proves this path is faster without
+        /// changing acceptance.
+        /// </summary>
+        internal static bool TryAnalyzeSuperHardGarageMemoizedWitnessForComparison(
+            IReadOnlyList<BusDefinition> buses,
+            IReadOnlyList<GarageDefinition> garages,
+            StageGenerationRequest request,
+            CancellationToken cancellationToken,
+            out StageMemoizedWitnessAnalysis analysis)
+        {
+            analysis = default;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (request.Difficulty != LevelDifficulty.SuperHard ||
+                garages == null ||
+                garages.Count == 0)
+            {
+                return false;
+            }
+
+            analysis = StageSolutionAnalyzer.AnalyzeMemoizedWitness(
+                buses,
+                garages,
+                RuntimeGarageSolutionNodeVisitLimit,
+                RuntimeGarageMemoizedStateLimit,
+                cancellationToken);
+            return true;
+        }
+
         private static bool HasRequiredShapeCoverage(
             StageGenerationRequest request,
             IReadOnlyList<BusDefinition> buses)
@@ -417,12 +454,32 @@ namespace BusPuzzle
             return StageSolutionAnalyzer.Analyze(
                 buses,
                 garages,
-                Mathf.Clamp(
-                    request.MaxSolutionCount + 1,
-                    1,
-                    MaximumRuntimeSolutionCountLimit),
-                RuntimeSolutionNodeVisitLimit,
+                GetRequiredSolutionProofCount(request),
+                GetSolutionNodeVisitLimit(garages),
                 cancellationToken);
+        }
+
+        private static int GetSolutionNodeVisitLimit(
+            IReadOnlyList<GarageDefinition> garages)
+        {
+            return garages != null &&
+                garages.Count > 0
+                    ? RuntimeGarageSolutionNodeVisitLimit
+                    : RuntimeSolutionNodeVisitLimit;
+        }
+
+        private static int GetRequiredSolutionProofCount(
+            StageGenerationRequest request)
+        {
+            // Runtime acceptance permits a candidate up to two solutions below
+            // the preferred range, and also accepts counts above its upper
+            // bound. Proving more than this lower acceptance threshold cannot
+            // change accept/reject, but it can multiply garage DFS cost.
+            return Mathf.Clamp(
+                request.MinSolutionCount -
+                MaximumAcceptedSolutionDistance,
+                1,
+                MaximumRuntimeSolutionCountLimit);
         }
 
         private static int GetSolutionRangeDistance(
@@ -451,14 +508,15 @@ namespace BusPuzzle
             RuntimeStageGenerationOptions options,
             StageGenerationRequest request,
             int candidateIndex,
-            int actualVehicleCount)
+            int actualVehicleCount,
+            int solutionNodeVisitLimit)
         {
             return
                 $"runtimeProcedural=1;runtimeGenerator={RuntimeGeneratorVersion};" +
                 $"background=1;stage={request.StageNumber};seed={request.Seed};" +
                 $"candidate={candidateIndex};vehicleAttempts={options.VehicleGenerationAttempts};" +
-                $"actualVehicles={actualVehicleCount};solutionNodeLimit={RuntimeSolutionNodeVisitLimit};" +
-                $"solutionCountLimit={Mathf.Clamp(request.MaxSolutionCount + 1, 1, MaximumRuntimeSolutionCountLimit)};" +
+                $"actualVehicles={actualVehicleCount};solutionNodeLimit={solutionNodeVisitLimit};" +
+                $"solutionCountLimit={GetRequiredSolutionProofCount(request)};" +
                 options.BaseGenerationSignature;
         }
     }

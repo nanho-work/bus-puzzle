@@ -56,6 +56,7 @@ namespace BusPuzzle
         private const int EndgameRemainingBusThreshold = 4;
         private const int VipTeleportAdLimitPerStage = 3;
         private const int StageClearGoldReward = 30;
+        private const int StationUnlockGoldCost = 300;
         private const int VipTeleportGoldCost = 120;
         private const int MixShuffleGoldCost = 90;
         private const int DepartGoldCost = 90;
@@ -185,6 +186,7 @@ namespace BusPuzzle
                 uiController.ExitConfirmed -= QuitApplication;
                 uiController.StationUnlockRequested -= ShowStationUnlockPrompt;
                 uiController.StationUnlockConfirmed -= RequestStationSlotUnlock;
+                uiController.StationUnlockGoldConfirmed -= RequestStationSlotUnlockGold;
                 uiController.StationUnlockSkipConfirmed -= RequestStationSlotUnlockSkip;
                 uiController.VipTeleportRequested -= HandleVipTeleportRequested;
                 uiController.VipTeleportGoldConfirmed -= RequestVipBusTeleportGold;
@@ -366,6 +368,7 @@ namespace BusPuzzle
             uiController.ExitConfirmed += QuitApplication;
             uiController.StationUnlockRequested += ShowStationUnlockPrompt;
             uiController.StationUnlockConfirmed += RequestStationSlotUnlock;
+            uiController.StationUnlockGoldConfirmed += RequestStationSlotUnlockGold;
             uiController.StationUnlockSkipConfirmed += RequestStationSlotUnlockSkip;
             uiController.VipTeleportRequested += HandleVipTeleportRequested;
             uiController.VipTeleportGoldConfirmed += RequestVipBusTeleportGold;
@@ -388,7 +391,9 @@ namespace BusPuzzle
             uiController.RecoveryPromptCancelled += HandleRecoveryPromptCancelled;
             uiController.InitialNicknamePromptCompleted += HandleInitialNicknamePromptCompleted;
 
-            rewardedAdService = RewardedAdServiceFactory.Create(AdMobSettings.Load());
+            rewardedAdService = RewardedAdServiceFactory.Create(
+                AdMobSettings.Load(),
+                GetRewardedAdStageContext);
             rewardedAdService.AvailabilityChanged += UpdateRewardedAdUi;
             rewardedAdService.Initialize();
 
@@ -557,6 +562,80 @@ namespace BusPuzzle
             isMixShuffleAdInProgress ||
             isDepartAdInProgress ||
             isClearRewardDoubleAdInProgress;
+
+        private string GetRewardedAdStageContext()
+        {
+            if (!isDailyChallengeMode)
+            {
+                return $"main:{Mathf.Max(1, currentLevelIndex + 1)}";
+            }
+
+            if (string.IsNullOrWhiteSpace(activeDailyChallengeDateKey) ||
+                activeDailyChallengeStepIndex < 1)
+            {
+                // Keep malformed daily state in one restrictive bucket instead of bypassing
+                // stage-scoped limits with an empty context.
+                return "daily:invalid";
+            }
+
+            return $"daily:{activeDailyChallengeDateKey}:{activeDailyChallengeStepIndex}";
+        }
+
+        private bool IsRewardedAdAllowed(RewardedAdPlacement placement)
+        {
+            if (!RemoteConfigService.AreRewardedAdsEnabled || rewardedAdService == null)
+            {
+                return false;
+            }
+
+            if (rewardedAdService is IRewardedAdQuotaStatusProvider quotaStatusProvider)
+            {
+                return quotaStatusProvider.GetQuotaDecision(placement).IsAllowed;
+            }
+
+            return true;
+        }
+
+        private static bool IsStationUnlockGoldFallbackEnabled()
+        {
+            return RemoteConfigService.IsReady &&
+                !RemoteConfigService.AreRewardedAdsEnabled;
+        }
+
+        private bool HasStationUnlockRecoveryOption()
+        {
+            return IsRewardedAdAllowed(RewardedAdPlacement.StationSlotUnlock) ||
+                UserEconomy.AdSkipTicketBalance > 0 ||
+                (IsStationUnlockGoldFallbackEnabled() &&
+                    UserEconomy.CanSpendGold(StationUnlockGoldCost));
+        }
+
+        private bool HasVipTeleportRecoveryOption()
+        {
+            if (vipTeleportTickets > 0)
+            {
+                return true;
+            }
+
+            return RemainingVipTeleportUses > 0 &&
+                (UserEconomy.CanSpendGold(VipTeleportGoldCost) ||
+                    UserEconomy.AdSkipTicketBalance > 0 ||
+                    IsRewardedAdAllowed(RewardedAdPlacement.VipBusTeleport));
+        }
+
+        private bool HasMixShuffleRecoveryOption()
+        {
+            return UserEconomy.CanSpendGold(MixShuffleGoldCost) ||
+                UserEconomy.AdSkipTicketBalance > 0 ||
+                IsRewardedAdAllowed(RewardedAdPlacement.BusColorShuffle);
+        }
+
+        private bool HasDepartRecoveryOption()
+        {
+            return UserEconomy.CanSpendGold(DepartGoldCost) ||
+                UserEconomy.AdSkipTicketBalance > 0 ||
+                IsRewardedAdAllowed(RewardedAdPlacement.DepartBoost);
+        }
 
         private bool CanShowRecoveryPrompt()
         {
@@ -1178,10 +1257,10 @@ namespace BusPuzzle
             uiController.ShowFailed(
                 boardView != null &&
                     boardView.CanUnlockStationSlot &&
-                    (RemoteConfigService.AreRewardedAdsEnabled || UserEconomy.AdSkipTicketBalance > 0),
-                RemainingVipTeleportUses > 0 && HasVipTeleportTarget(),
-                HasMixShuffleTarget(),
-                HasPotentialDepartTarget());
+                    HasStationUnlockRecoveryOption(),
+                HasVipTeleportTarget() && HasVipTeleportRecoveryOption(),
+                HasMixShuffleTarget() && HasMixShuffleRecoveryOption(),
+                HasPotentialDepartTarget() && HasDepartRecoveryOption());
             EffectAudioPlayer.PlayFail();
         }
 
@@ -1313,6 +1392,22 @@ namespace BusPuzzle
             UpdateMixShuffleUi();
             UpdateDepartUi();
             UpdateClearRewardDoubleUi();
+            UpdateFailRecoveryUi();
+        }
+
+        private void UpdateFailRecoveryUi()
+        {
+            if (uiController == null || boardView == null || gameState != GameState.Failed)
+            {
+                return;
+            }
+
+            uiController.SetFailRecoveryOptions(
+                boardView.CanUnlockStationSlot &&
+                    HasStationUnlockRecoveryOption(),
+                HasVipTeleportTarget() && HasVipTeleportRecoveryOption(),
+                HasMixShuffleTarget() && HasMixShuffleRecoveryOption(),
+                HasPotentialDepartTarget() && HasDepartRecoveryOption());
         }
 
         private void UpdateStationUnlockUi()
@@ -1323,14 +1418,21 @@ namespace BusPuzzle
             }
 
             var adSkipTickets = UserEconomy.AdSkipTicketBalance;
-            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var adAllowed = IsRewardedAdAllowed(RewardedAdPlacement.StationSlotUnlock);
+            var goldFallbackEnabled = IsStationUnlockGoldFallbackEnabled();
+            var canSpendGold = goldFallbackEnabled && UserEconomy.CanSpendGold(StationUnlockGoldCost);
             uiController.SetStationUnlock(
                 boardView.LockedStationSlots,
-                gameState == GameState.Playing &&
+                CanShowRecoveryPrompt() &&
                     !IsAnyRewardedAdInProgress &&
                     boardView.CanUnlockStationSlot &&
-                    (adsEnabled || adSkipTickets > 0),
-                adsEnabled && rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
+                    (adAllowed || adSkipTickets > 0 || goldFallbackEnabled),
+                UserEconomy.GoldBalance,
+                StationUnlockGoldCost,
+                goldFallbackEnabled,
+                canSpendGold,
+                adAllowed,
+                adAllowed && rewardedAdService.IsReadyFor(RewardedAdPlacement.StationSlotUnlock),
                 adSkipTickets,
                 isStationUnlockAdInProgress);
         }
@@ -1342,11 +1444,13 @@ namespace BusPuzzle
                 return;
             }
 
+            var adAllowed = IsRewardedAdAllowed(RewardedAdPlacement.VipBusTeleport);
             var canRequest = gameState == GameState.Playing &&
                 !IsAnyRewardedAdInProgress &&
                 (IsTutorialActive
                     ? tutorialStep == TutorialStep.VipHint
-                    : RemainingVipTeleportUses > 0 && HasVipTeleportTarget());
+                    : HasVipTeleportTarget() &&
+                        HasVipTeleportRecoveryOption());
 
             uiController.SetVipTeleport(
                 vipUsesGrantedThisStage,
@@ -1358,9 +1462,8 @@ namespace BusPuzzle
                 VipTeleportGoldCost,
                 UserEconomy.CanSpendGold(VipTeleportGoldCost),
                 UserEconomy.AdSkipTicketBalance,
-                RemoteConfigService.AreRewardedAdsEnabled &&
-                    rewardedAdService != null &&
-                    rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
+                adAllowed,
+                adAllowed && rewardedAdService.IsReadyFor(RewardedAdPlacement.VipBusTeleport),
                 isVipAdInProgress);
         }
 
@@ -1371,10 +1474,12 @@ namespace BusPuzzle
                 return;
             }
 
+            var adAllowed = IsRewardedAdAllowed(RewardedAdPlacement.BusColorShuffle);
             var canRequest = gameState == GameState.Playing &&
                 !isVipSelectionMode &&
                 !IsAnyRewardedAdInProgress &&
-                (HasMixShuffleTarget() || CanUseTutorialFreeMixShuffleNow());
+                (CanUseTutorialFreeMixShuffleNow() ||
+                    (HasMixShuffleTarget() && HasMixShuffleRecoveryOption()));
 
             uiController.SetMixShuffle(
                 canRequest,
@@ -1382,9 +1487,8 @@ namespace BusPuzzle
                 MixShuffleGoldCost,
                 UserEconomy.CanSpendGold(MixShuffleGoldCost),
                 UserEconomy.AdSkipTicketBalance,
-                RemoteConfigService.AreRewardedAdsEnabled &&
-                    rewardedAdService != null &&
-                    rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
+                adAllowed,
+                adAllowed && rewardedAdService.IsReadyFor(RewardedAdPlacement.BusColorShuffle),
                 isMixShuffleAdInProgress);
         }
 
@@ -1395,12 +1499,13 @@ namespace BusPuzzle
                 return;
             }
 
+            var adAllowed = IsRewardedAdAllowed(RewardedAdPlacement.DepartBoost);
             var canRequest = gameState == GameState.Playing &&
                 !isVipSelectionMode &&
                 !IsAnyRewardedAdInProgress &&
                 (IsTutorialActive
                     ? tutorialStep == TutorialStep.DepartFree && CanUseTutorialFreeDepartNow()
-                    : HasPotentialDepartTarget());
+                    : HasPotentialDepartTarget() && HasDepartRecoveryOption());
 
             uiController.SetDepart(
                 canRequest,
@@ -1408,9 +1513,8 @@ namespace BusPuzzle
                 DepartGoldCost,
                 UserEconomy.CanSpendGold(DepartGoldCost),
                 UserEconomy.AdSkipTicketBalance,
-                RemoteConfigService.AreRewardedAdsEnabled &&
-                    rewardedAdService != null &&
-                    rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
+                adAllowed,
+                adAllowed && rewardedAdService.IsReadyFor(RewardedAdPlacement.DepartBoost),
                 isDepartAdInProgress);
         }
 
@@ -1425,12 +1529,12 @@ namespace BusPuzzle
                 currentClearGoldReward > 0 &&
                 !clearRewardDoubled &&
                 !IsAnyRewardedAdInProgress;
-            var adReady = rewardedAdService != null && rewardedAdService.IsReadyFor(RewardedAdPlacement.StageClearDouble);
+            var adAllowed = IsRewardedAdAllowed(RewardedAdPlacement.StageClearDouble);
+            var adReady = adAllowed && rewardedAdService.IsReadyFor(RewardedAdPlacement.StageClearDouble);
             if (gameState == GameState.Cleared &&
                 currentClearGoldReward > 0 &&
                 !clearRewardDoubled &&
-                RemoteConfigService.AreRewardedAdsEnabled &&
-                rewardedAdService != null &&
+                adAllowed &&
                 !adReady)
             {
                 rewardedAdService.Preload(RewardedAdPlacement.StageClearDouble);
@@ -1440,6 +1544,7 @@ namespace BusPuzzle
                 currentClearGoldReward,
                 clearRewardDoubled,
                 canRequest,
+                adAllowed,
                 adReady,
                 isClearRewardDoubleAdInProgress);
         }

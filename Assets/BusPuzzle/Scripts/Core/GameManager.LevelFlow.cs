@@ -479,11 +479,10 @@ namespace BusPuzzle
                     BackgroundMusicPlayer.PlayDefault();
                     uiController.ShowFailed(
                         boardView.CanUnlockStationSlot &&
-                            (RemoteConfigService.AreRewardedAdsEnabled ||
-                                UserEconomy.AdSkipTicketBalance > 0),
-                        RemainingVipTeleportUses > 0 && HasVipTeleportTarget(),
-                        HasMixShuffleTarget(),
-                        HasPotentialDepartTarget());
+                            HasStationUnlockRecoveryOption(),
+                        HasVipTeleportTarget() && HasVipTeleportRecoveryOption(),
+                        HasMixShuffleTarget() && HasMixShuffleRecoveryOption(),
+                        HasPotentialDepartTarget() && HasDepartRecoveryOption());
                 }
                 else
                 {

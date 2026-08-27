@@ -10,13 +10,38 @@ namespace BusPuzzle
 {
     internal sealed class AdMobRewardedAdService : IRewardedAdService
     {
+        private const int ShowCallbackTimeoutSeconds = 120;
+        private const int MaximumAutomaticLoadRetries = 4;
+
+        private sealed class LoadRetryState
+        {
+            public int ConsecutiveFailures;
+            public int Generation;
+            public double NextAllowedRealtime;
+        }
+
+        private static readonly RewardedAdPlacement[] Placements =
+        {
+            RewardedAdPlacement.StationSlotUnlock,
+            RewardedAdPlacement.VipBusTeleport,
+            RewardedAdPlacement.BusColorShuffle,
+            RewardedAdPlacement.DepartBoost,
+            RewardedAdPlacement.StageClearDouble
+        };
+
         private readonly AdMobSettings settings;
-        private readonly Dictionary<RewardedAdPlacement, RewardedAd> rewardedAds = new Dictionary<RewardedAdPlacement, RewardedAd>();
-        private readonly HashSet<RewardedAdPlacement> loadingPlacements = new HashSet<RewardedAdPlacement>();
+        private readonly Dictionary<string, RewardedAd> rewardedAdsByUnitId =
+            new Dictionary<string, RewardedAd>(StringComparer.Ordinal);
+        private readonly HashSet<string> loadingAdUnitIds = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, LoadRetryState> loadRetryStates =
+            new Dictionary<string, LoadRetryState>(StringComparer.Ordinal);
+
         private RewardedAd showingAd;
         private Action<RewardedAdResult> pendingCompletion;
         private bool isInitialized;
         private bool isShutdown;
+        private bool isLifecycleSubscribed;
+        private bool showWasInterruptedByApplicationPause;
         private volatile bool rewardEarned;
         private int showAttemptId;
 
@@ -32,7 +57,16 @@ namespace BusPuzzle
 
         public bool IsReadyFor(RewardedAdPlacement placement)
         {
-            return !isShutdown && rewardedAds.TryGetValue(placement, out var ad) && ad != null && ad.CanShowAd();
+            if (isShutdown)
+            {
+                return false;
+            }
+
+            var adUnitId = GetAdUnitId(placement);
+            return AdMobSettings.LooksLikeAdUnitId(adUnitId) &&
+                rewardedAdsByUnitId.TryGetValue(adUnitId, out var ad) &&
+                ad != null &&
+                ad.CanShowAd();
         }
 
         public string GetAdUnitId(RewardedAdPlacement placement)
@@ -46,6 +80,8 @@ namespace BusPuzzle
             {
                 return;
             }
+
+            SubscribeToApplicationLifecycle();
 
             AdMobSdkInitializer.Initialize(() =>
             {
@@ -71,14 +107,22 @@ namespace BusPuzzle
             pendingCompletion = null;
             rewardEarned = false;
             showAttemptId++;
-            loadingPlacements.Clear();
+            loadingAdUnitIds.Clear();
 
-            foreach (var ad in rewardedAds.Values)
+            foreach (var retryState in loadRetryStates.Values)
+            {
+                retryState.Generation++;
+            }
+
+            loadRetryStates.Clear();
+            UnsubscribeFromApplicationLifecycle();
+
+            foreach (var ad in rewardedAdsByUnitId.Values)
             {
                 ad?.Destroy();
             }
 
-            rewardedAds.Clear();
+            rewardedAdsByUnitId.Clear();
             DestroyShowingAd();
             AvailabilityChanged = null;
         }
@@ -90,55 +134,20 @@ namespace BusPuzzle
                 return;
             }
 
-            Preload(RewardedAdPlacement.StationSlotUnlock);
-            Preload(RewardedAdPlacement.VipBusTeleport);
-            Preload(RewardedAdPlacement.BusColorShuffle);
-            Preload(RewardedAdPlacement.DepartBoost);
-            Preload(RewardedAdPlacement.StageClearDouble);
+            var uniqueAdUnitIds = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < Placements.Length; index++)
+            {
+                var adUnitId = GetAdUnitId(Placements[index]);
+                if (uniqueAdUnitIds.Add(adUnitId))
+                {
+                    PreloadAdUnit(adUnitId);
+                }
+            }
         }
 
         public void Preload(RewardedAdPlacement placement)
         {
-            if (isShutdown || !isInitialized || loadingPlacements.Contains(placement) || IsReadyFor(placement))
-            {
-                return;
-            }
-
-            DestroyRewardedAd(placement);
-
-            var adUnitId = GetAdUnitId(placement);
-            if (!AdMobSettings.LooksLikeAdUnitId(adUnitId))
-            {
-                Debug.LogError($"Rewarded ad unit ID is invalid for {placement}: {adUnitId}");
-                AvailabilityChanged?.Invoke();
-                return;
-            }
-
-            loadingPlacements.Add(placement);
-            RewardedAd.Load(adUnitId, new AdRequest(), (ad, error) =>
-            {
-                MobileAdsEventExecutor.ExecuteInUpdate(() =>
-                {
-                    if (isShutdown)
-                    {
-                        ad?.Destroy();
-                        return;
-                    }
-
-                    loadingPlacements.Remove(placement);
-
-                    if (error != null || ad == null)
-                    {
-                        Debug.LogWarning($"Rewarded ad failed to load for {placement}: {error}");
-                        AvailabilityChanged?.Invoke();
-                        return;
-                    }
-
-                    rewardedAds[placement] = ad;
-                    RegisterCallbacks(ad);
-                    AvailabilityChanged?.Invoke();
-                });
-            });
+            PreloadAdUnit(GetAdUnitId(placement));
         }
 
         public bool ShowStationSlotUnlockAd(Action<RewardedAdResult> onCompleted)
@@ -166,6 +175,72 @@ namespace BusPuzzle
             return ShowRewardedAd(RewardedAdPlacement.StageClearDouble, onCompleted);
         }
 
+        private void PreloadAdUnit(string adUnitId)
+        {
+            if (isShutdown || !isInitialized || loadingAdUnitIds.Contains(adUnitId))
+            {
+                return;
+            }
+
+            if (!AdMobSettings.LooksLikeAdUnitId(adUnitId))
+            {
+                Debug.LogError($"Rewarded ad unit ID is invalid: {adUnitId}");
+                AvailabilityChanged?.Invoke();
+                return;
+            }
+
+            if (rewardedAdsByUnitId.TryGetValue(adUnitId, out var cachedAd))
+            {
+                if (cachedAd != null && cachedAd.CanShowAd())
+                {
+                    return;
+                }
+
+                cachedAd?.Destroy();
+                rewardedAdsByUnitId.Remove(adUnitId);
+            }
+
+            var retryState = GetLoadRetryState(adUnitId);
+            if (Time.realtimeSinceStartupAsDouble < retryState.NextAllowedRealtime)
+            {
+                return;
+            }
+
+            loadingAdUnitIds.Add(adUnitId);
+            RewardedAd.Load(adUnitId, new AdRequest(), (ad, error) =>
+            {
+                MobileAdsEventExecutor.ExecuteInUpdate(() =>
+                {
+                    if (isShutdown)
+                    {
+                        ad?.Destroy();
+                        return;
+                    }
+
+                    loadingAdUnitIds.Remove(adUnitId);
+
+                    if (error != null || ad == null)
+                    {
+                        ad?.Destroy();
+                        Debug.LogWarning($"Rewarded ad failed to load: {error}");
+                        RegisterLoadFailure(adUnitId);
+                        AvailabilityChanged?.Invoke();
+                        return;
+                    }
+
+                    ResetLoadRetryState(adUnitId);
+                    if (rewardedAdsByUnitId.TryGetValue(adUnitId, out var previousAd))
+                    {
+                        previousAd?.Destroy();
+                    }
+
+                    rewardedAdsByUnitId[adUnitId] = ad;
+                    RegisterCallbacks(ad);
+                    AvailabilityChanged?.Invoke();
+                });
+            });
+        }
+
         private bool ShowRewardedAd(RewardedAdPlacement placement, Action<RewardedAdResult> onCompleted)
         {
             if (isShutdown)
@@ -174,26 +249,38 @@ namespace BusPuzzle
                 return false;
             }
 
-            if (showingAd != null || !IsReadyFor(placement))
+            var adUnitId = GetAdUnitId(placement);
+            if (showingAd != null ||
+                !rewardedAdsByUnitId.TryGetValue(adUnitId, out var adToShow) ||
+                adToShow == null ||
+                !adToShow.CanShowAd())
             {
                 onCompleted?.Invoke(RewardedAdResult.NotReady);
-                DestroyRewardedAd(placement);
-                Preload(placement);
+                PreloadAdUnit(adUnitId);
                 return false;
             }
 
             pendingCompletion = onCompleted;
             rewardEarned = false;
-
-            var adToShow = rewardedAds[placement];
-            rewardedAds.Remove(placement);
+            showWasInterruptedByApplicationPause = false;
+            rewardedAdsByUnitId.Remove(adUnitId);
             showingAd = adToShow;
             AvailabilityChanged?.Invoke();
 
-            showAttemptId++;
+            var attemptId = ++showAttemptId;
             try
             {
-                adToShow.Show(_ => rewardEarned = true);
+                adToShow.Show(_ =>
+                {
+                    MobileAdsEventExecutor.ExecuteInUpdate(() =>
+                    {
+                        if (ReferenceEquals(showingAd, adToShow) && attemptId == showAttemptId)
+                        {
+                            rewardEarned = true;
+                        }
+                    });
+                });
+                CompleteAfterShowTimeout(attemptId, adToShow);
             }
             catch (Exception exception)
             {
@@ -209,28 +296,40 @@ namespace BusPuzzle
         {
             ad.OnAdFullScreenContentClosed += () =>
             {
-                var attemptId = showAttemptId;
-                CompleteAfterRewardCallbackGrace(attemptId);
+                MobileAdsEventExecutor.ExecuteInUpdate(() =>
+                {
+                    if (!ReferenceEquals(showingAd, ad))
+                    {
+                        return;
+                    }
+
+                    CompleteAfterRewardCallbackGrace(showAttemptId, ad);
+                });
             };
 
             ad.OnAdFullScreenContentFailed += error =>
             {
                 MobileAdsEventExecutor.ExecuteInUpdate(() =>
                 {
+                    if (!ReferenceEquals(showingAd, ad))
+                    {
+                        return;
+                    }
+
                     Debug.LogWarning($"Rewarded ad failed during fullscreen content: {error}");
                     CompletePendingReward(RewardedAdResult.Failed);
                 });
             };
         }
 
-        private async void CompleteAfterRewardCallbackGrace(int attemptId)
+        private async void CompleteAfterRewardCallbackGrace(int attemptId, RewardedAd ad)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(300));
 
             MobileAdsEventExecutor.ExecuteInUpdate(() =>
             {
                 if (isShutdown ||
-                    showingAd == null ||
+                    !ReferenceEquals(showingAd, ad) ||
                     pendingCompletion == null ||
                     attemptId != showAttemptId)
                 {
@@ -238,6 +337,32 @@ namespace BusPuzzle
                 }
 
                 CompletePendingReward(rewardEarned ? RewardedAdResult.RewardEarned : RewardedAdResult.ClosedWithoutReward);
+            });
+        }
+
+        private async void CompleteAfterShowTimeout(int attemptId, RewardedAd ad)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(ShowCallbackTimeoutSeconds));
+
+            MobileAdsEventExecutor.ExecuteInUpdate(() =>
+            {
+                if (isShutdown ||
+                    !ReferenceEquals(showingAd, ad) ||
+                    pendingCompletion == null ||
+                    attemptId != showAttemptId)
+                {
+                    return;
+                }
+
+                if (showWasInterruptedByApplicationPause)
+                {
+                    showWasInterruptedByApplicationPause = false;
+                    CompleteAfterShowTimeout(attemptId, ad);
+                    return;
+                }
+
+                Debug.LogWarning("Rewarded ad timed out while waiting for a fullscreen completion callback.");
+                CompletePendingReward(rewardEarned ? RewardedAdResult.RewardEarned : RewardedAdResult.Failed);
             });
         }
 
@@ -254,22 +379,122 @@ namespace BusPuzzle
             var callback = pendingCompletion;
             pendingCompletion = null;
             rewardEarned = false;
+            showWasInterruptedByApplicationPause = false;
             showAttemptId++;
 
             DestroyShowingAd();
-            Preload();
             callback?.Invoke(result);
         }
 
-        private void DestroyRewardedAd(RewardedAdPlacement placement)
+        private LoadRetryState GetLoadRetryState(string adUnitId)
         {
-            if (!rewardedAds.TryGetValue(placement, out var ad) || ad == null)
+            if (!loadRetryStates.TryGetValue(adUnitId, out var state))
+            {
+                state = new LoadRetryState();
+                loadRetryStates[adUnitId] = state;
+            }
+
+            return state;
+        }
+
+        private void RegisterLoadFailure(string adUnitId)
+        {
+            var retryState = GetLoadRetryState(adUnitId);
+            retryState.ConsecutiveFailures++;
+            retryState.Generation++;
+
+            var delaySeconds = GetRetryDelaySeconds(retryState.ConsecutiveFailures);
+            retryState.NextAllowedRealtime = Time.realtimeSinceStartupAsDouble + delaySeconds;
+            if (retryState.ConsecutiveFailures <= MaximumAutomaticLoadRetries)
+            {
+                RetryPreloadAfterDelay(adUnitId, retryState.Generation, delaySeconds);
+            }
+        }
+
+        private void ResetLoadRetryState(string adUnitId)
+        {
+            var retryState = GetLoadRetryState(adUnitId);
+            retryState.ConsecutiveFailures = 0;
+            retryState.NextAllowedRealtime = 0d;
+            retryState.Generation++;
+        }
+
+        private async void RetryPreloadAfterDelay(string adUnitId, int generation, int delaySeconds)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+
+            MobileAdsEventExecutor.ExecuteInUpdate(() =>
+            {
+                if (isShutdown || !RemoteConfigService.AreRewardedAdsEnabled)
+                {
+                    return;
+                }
+
+                var retryState = GetLoadRetryState(adUnitId);
+                if (retryState.Generation != generation)
+                {
+                    return;
+                }
+
+                PreloadAdUnit(adUnitId);
+            });
+        }
+
+        private static int GetRetryDelaySeconds(int consecutiveFailures)
+        {
+            var baseSeconds = RemoteConfigService.RewardedRetryBaseSeconds;
+            var maxSeconds = RemoteConfigService.RewardedRetryMaxSeconds;
+            int multiplier;
+            switch (Mathf.Clamp(consecutiveFailures, 1, 5))
+            {
+                case 1:
+                    multiplier = 1;
+                    break;
+                case 2:
+                    multiplier = 2;
+                    break;
+                case 3:
+                    multiplier = 4;
+                    break;
+                case 4:
+                    multiplier = 10;
+                    break;
+                default:
+                    multiplier = 30;
+                    break;
+            }
+
+            return Mathf.Clamp(baseSeconds * multiplier, baseSeconds, maxSeconds);
+        }
+
+        private void SubscribeToApplicationLifecycle()
+        {
+            if (isLifecycleSubscribed)
             {
                 return;
             }
 
-            ad.Destroy();
-            rewardedAds.Remove(placement);
+            Application.focusChanged += HandleApplicationFocusChanged;
+            isLifecycleSubscribed = true;
+        }
+
+        private void UnsubscribeFromApplicationLifecycle()
+        {
+            if (!isLifecycleSubscribed)
+            {
+                return;
+            }
+
+            Application.focusChanged -= HandleApplicationFocusChanged;
+            isLifecycleSubscribed = false;
+        }
+
+        private void HandleApplicationFocusChanged(bool hasFocus)
+        {
+            if (!hasFocus && showingAd != null)
+            {
+                showWasInterruptedByApplicationPause = true;
+            }
         }
 
         private void DestroyShowingAd()
@@ -281,6 +506,7 @@ namespace BusPuzzle
 
             showingAd.Destroy();
             showingAd = null;
+            showWasInterruptedByApplicationPause = false;
         }
     }
 }

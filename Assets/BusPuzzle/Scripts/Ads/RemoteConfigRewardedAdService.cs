@@ -2,7 +2,7 @@ using System;
 
 namespace BusPuzzle
 {
-    internal sealed class RemoteConfigRewardedAdService : IRewardedAdService
+    internal sealed class RemoteConfigRewardedAdService : IRewardedAdService, IRewardedAdQuotaStatusProvider
     {
         private readonly IRewardedAdService inner;
         private bool isInitialized;
@@ -27,6 +27,24 @@ namespace BusPuzzle
         public string GetAdUnitId(RewardedAdPlacement placement)
         {
             return inner != null ? inner.GetAdUnitId(placement) : string.Empty;
+        }
+
+        public RewardedAdQuotaDecision GetQuotaDecision(RewardedAdPlacement placement)
+        {
+            if (inner is IRewardedAdQuotaStatusProvider quotaStatusProvider)
+            {
+                return quotaStatusProvider.GetQuotaDecision(placement);
+            }
+
+            return new RewardedAdQuotaDecision(
+                true,
+                RewardedAdQuotaBlockReason.None,
+                TimeSpan.Zero,
+                true,
+                0,
+                0,
+                0,
+                0);
         }
 
         public void Initialize()

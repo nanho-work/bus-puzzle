@@ -258,7 +258,7 @@ namespace BusPuzzle
 
             SetClearNextPreparing(false, hasNextLevel);
 
-            SetClearRewardDouble(goldReward, false, false, false, false);
+            SetClearRewardDouble(goldReward, false, false, false, false, false);
             if (levelNumber >= ClearCelebrationPreviewStartStageNumber)
             {
                 PlayClearCelebration();
@@ -1237,6 +1237,15 @@ namespace BusPuzzle
             var closeButton = CreatePromptCloseButton("Station Unlock Close Button", modal);
             closeButton.onClick.AddListener(() => CancelRecoveryPrompt(stationUnlockPrompt));
 
+            stationUnlockGoldButton = CreatePromptGoldButton("Station Unlock Gold Button", modal, Localization.Text("cost_gold", 300), UiGoldActionColor, out stationUnlockGoldButtonText);
+            SetAnchors(stationUnlockGoldButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.40f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
+            stationUnlockGoldButton.onClick.AddListener(() =>
+            {
+                shouldReturnToFailPromptOnRecoveryCancel = false;
+                HideStationUnlockPrompt();
+                StationUnlockGoldConfirmed?.Invoke();
+            });
+
             stationUnlockConfirmButton = CreatePromptAdButton("Station Unlock Confirm Button", modal, Localization.Text("watch"), UiAdActionColor, out stationUnlockConfirmButtonText);
             SetAnchors(stationUnlockConfirmButton.GetComponent<RectTransform>(), new Vector2(0.09f, 0f), new Vector2(0.49f, 0.40f), new Vector2(6f, 16f), new Vector2(-6f, -12f));
             stationUnlockConfirmButton.onClick.AddListener(() =>
@@ -1402,9 +1411,19 @@ namespace BusPuzzle
             HideDepartPrompt();
         }
 
-        private void ApplyStationUnlockPromptState(int lockedSlotsRemaining, bool adReady, int adSkipTickets, bool adInProgress)
+        private void ApplyStationUnlockPromptState(
+            int lockedSlotsRemaining,
+            int goldBalance,
+            int goldCost,
+            bool goldFallbackEnabled,
+            bool canSpendGold,
+            bool adAllowed,
+            bool adReady,
+            int adSkipTickets,
+            bool adInProgress)
         {
-            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var showAdButton = RemoteConfigService.AreRewardedAdsEnabled && adAllowed;
+            var showGoldButton = goldFallbackEnabled;
             var canUseSkipTicket = adSkipTickets > 0;
 
             if (stationUnlockPromptText != null)
@@ -1412,6 +1431,13 @@ namespace BusPuzzle
                 if (adInProgress)
                 {
                     stationUnlockPromptText.text = Localization.Text("loading_ad");
+                }
+                else if (showGoldButton)
+                {
+                    stationUnlockPromptText.text = Localization.Text(
+                        "station_unlock_gold",
+                        Mathf.Max(0, goldBalance),
+                        Mathf.Max(0, goldCost));
                 }
                 else if (adReady)
                 {
@@ -1427,10 +1453,23 @@ namespace BusPuzzle
                 }
             }
 
+            if (stationUnlockGoldButton != null)
+            {
+                stationUnlockGoldButton.gameObject.SetActive(showGoldButton);
+                stationUnlockGoldButton.interactable = showGoldButton && canSpendGold && !adInProgress;
+            }
+
+            if (stationUnlockGoldButtonText != null)
+            {
+                stationUnlockGoldButtonText.text = canSpendGold
+                    ? Localization.Text("cost_gold", Mathf.Max(0, goldCost))
+                    : Localization.Text("need_gold");
+            }
+
             if (stationUnlockConfirmButton != null)
             {
-                stationUnlockConfirmButton.gameObject.SetActive(adsEnabled);
-                stationUnlockConfirmButton.interactable = adsEnabled && adReady && !adInProgress;
+                stationUnlockConfirmButton.gameObject.SetActive(showAdButton);
+                stationUnlockConfirmButton.interactable = showAdButton && adReady && !adInProgress;
             }
 
             if (stationUnlockConfirmButtonText != null)
@@ -1449,7 +1488,14 @@ namespace BusPuzzle
                 stationUnlockSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
             }
 
-            SetStationRecoveryButtonLayout(stationUnlockConfirmButton, stationUnlockSkipButton, adsEnabled, canUseSkipTicket);
+            if (showGoldButton)
+            {
+                SetStationRecoveryButtonLayout(stationUnlockGoldButton, stationUnlockSkipButton, true, canUseSkipTicket);
+            }
+            else
+            {
+                SetStationRecoveryButtonLayout(stationUnlockConfirmButton, stationUnlockSkipButton, showAdButton, canUseSkipTicket);
+            }
         }
 
         private void ApplyVipTeleportPromptState(
@@ -1459,10 +1505,11 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
-            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var showAdButton = RemoteConfigService.AreRewardedAdsEnabled && adAllowed;
             var canUseSkipTicket = adSkipTickets > 0;
 
             if (vipTeleportPromptText != null)
@@ -1492,8 +1539,8 @@ namespace BusPuzzle
 
             if (vipTeleportConfirmButton != null)
             {
-                vipTeleportConfirmButton.gameObject.SetActive(adsEnabled);
-                vipTeleportConfirmButton.interactable = adReady && !adInProgress && usedCount < maxUses;
+                vipTeleportConfirmButton.gameObject.SetActive(showAdButton);
+                vipTeleportConfirmButton.interactable = showAdButton && adReady && !adInProgress && usedCount < maxUses;
             }
 
             if (vipTeleportSkipConfirmButton != null)
@@ -1507,7 +1554,7 @@ namespace BusPuzzle
                 vipTeleportSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
             }
 
-            SetRecoveryChoiceButtonLayout(vipTeleportGoldConfirmButton, vipTeleportConfirmButton, vipTeleportSkipConfirmButton, adsEnabled, canUseSkipTicket);
+            SetRecoveryChoiceButtonLayout(vipTeleportGoldConfirmButton, vipTeleportConfirmButton, vipTeleportSkipConfirmButton, showAdButton, canUseSkipTicket);
         }
 
         private void ApplyMixShufflePromptState(
@@ -1515,10 +1562,11 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
-            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var showAdButton = RemoteConfigService.AreRewardedAdsEnabled && adAllowed;
             var canUseSkipTicket = adSkipTickets > 0;
 
             if (mixShufflePromptText != null)
@@ -1547,8 +1595,8 @@ namespace BusPuzzle
 
             if (mixShuffleConfirmButton != null)
             {
-                mixShuffleConfirmButton.gameObject.SetActive(adsEnabled);
-                mixShuffleConfirmButton.interactable = adReady && !adInProgress;
+                mixShuffleConfirmButton.gameObject.SetActive(showAdButton);
+                mixShuffleConfirmButton.interactable = showAdButton && adReady && !adInProgress;
             }
 
             if (mixShuffleSkipConfirmButton != null)
@@ -1562,7 +1610,7 @@ namespace BusPuzzle
                 mixShuffleSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
             }
 
-            SetRecoveryChoiceButtonLayout(mixShuffleGoldConfirmButton, mixShuffleConfirmButton, mixShuffleSkipConfirmButton, adsEnabled, canUseSkipTicket);
+            SetRecoveryChoiceButtonLayout(mixShuffleGoldConfirmButton, mixShuffleConfirmButton, mixShuffleSkipConfirmButton, showAdButton, canUseSkipTicket);
         }
 
         private void ApplyDepartPromptState(
@@ -1570,10 +1618,11 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
-            var adsEnabled = RemoteConfigService.AreRewardedAdsEnabled;
+            var showAdButton = RemoteConfigService.AreRewardedAdsEnabled && adAllowed;
             var canUseSkipTicket = adSkipTickets > 0;
 
             if (departPromptText != null)
@@ -1602,8 +1651,8 @@ namespace BusPuzzle
 
             if (departConfirmButton != null)
             {
-                departConfirmButton.gameObject.SetActive(adsEnabled);
-                departConfirmButton.interactable = adReady && !adInProgress;
+                departConfirmButton.gameObject.SetActive(showAdButton);
+                departConfirmButton.interactable = showAdButton && adReady && !adInProgress;
             }
 
             if (departSkipConfirmButton != null)
@@ -1617,7 +1666,7 @@ namespace BusPuzzle
                 departSkipButtonText.text = GetAdSkipTicketButtonLabel(adSkipTickets);
             }
 
-            SetRecoveryChoiceButtonLayout(departGoldConfirmButton, departConfirmButton, departSkipConfirmButton, adsEnabled, canUseSkipTicket);
+            SetRecoveryChoiceButtonLayout(departGoldConfirmButton, departConfirmButton, departSkipConfirmButton, showAdButton, canUseSkipTicket);
         }
 
         private static void SetStationRecoveryButtonLayout(Button adButton, Button skipButton, bool showAdButton, bool showSkipButton)

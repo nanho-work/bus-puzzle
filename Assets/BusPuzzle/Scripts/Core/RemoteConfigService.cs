@@ -9,7 +9,7 @@ namespace BusPuzzle
 {
     internal static class RemoteConfigService
     {
-        private const int CurrentAndroidVersionCode = 19;
+        private const int CurrentAndroidVersionCode = 20;
         private const int CurrentIosBuildNumber = 18;
         private const string AndroidUpdateUrlFallback = "https://play.google.com/store/apps/details?id=com.koofylab.buspop";
         private const string MaintenanceMessageKoFallback = "잠시 후 다시 이용해 주세요.";
@@ -26,7 +26,21 @@ namespace BusPuzzle
         private const string AndroidBannerAdsEnabledKey = "android_banner_ads_enabled";
         private const string IosBannerAdsEnabledKey = "ios_banner_ads_enabled";
         private const string BannerStartStageKey = "banner_start_stage";
+        private const string RewardedGlobal24HourCapKey = "rewarded_global_24h_cap";
+        private const string RewardedPlacement24HourCapKey = "rewarded_placement_24h_cap";
+        private const string RewardedStageCapKey = "rewarded_stage_cap";
+        private const string RewardedPlacementStageCapKey = "rewarded_placement_stage_cap";
+        private const string RewardedCooldownSecondsKey = "rewarded_cooldown_seconds";
+        private const string RewardedRetryBaseSecondsKey = "rewarded_retry_base_seconds";
+        private const string RewardedRetryMaxSecondsKey = "rewarded_retry_max_seconds";
         private const int DefaultBannerStartStage = 10;
+        private const int DefaultRewardedGlobal24HourCap = 6;
+        private const int DefaultRewardedPlacement24HourCap = 2;
+        private const int DefaultRewardedStageCap = 2;
+        private const int DefaultRewardedPlacementStageCap = 1;
+        private const int DefaultRewardedCooldownSeconds = 120;
+        private const int DefaultRewardedRetryBaseSeconds = 30;
+        private const int DefaultRewardedRetryMaxSeconds = 900;
 
         private static bool isInitialized;
         private static bool isFetching;
@@ -42,6 +56,13 @@ namespace BusPuzzle
         public static bool RewardedAdsEnabled { get; private set; } = DefaultPlatformRewardedAdsEnabled;
         public static bool BannerAdsEnabled { get; private set; } = DefaultPlatformBannerAdsEnabled;
         public static int BannerStartStage { get; private set; } = DefaultBannerStartStage;
+        public static int RewardedGlobal24HourCap { get; private set; } = DefaultRewardedGlobal24HourCap;
+        public static int RewardedPlacement24HourCap { get; private set; } = DefaultRewardedPlacement24HourCap;
+        public static int RewardedStageCap { get; private set; } = DefaultRewardedStageCap;
+        public static int RewardedPlacementStageCap { get; private set; } = DefaultRewardedPlacementStageCap;
+        public static int RewardedCooldownSeconds { get; private set; } = DefaultRewardedCooldownSeconds;
+        public static int RewardedRetryBaseSeconds { get; private set; } = DefaultRewardedRetryBaseSeconds;
+        public static int RewardedRetryMaxSeconds { get; private set; } = DefaultRewardedRetryMaxSeconds;
         public static string MaintenanceMessageKo { get; private set; } = MaintenanceMessageKoFallback;
         public static string MaintenanceMessageEn { get; private set; } = MaintenanceMessageEnFallback;
         public static string UpdateMessageKo { get; private set; } = UpdateMessageKoFallback;
@@ -51,8 +72,18 @@ namespace BusPuzzle
 
         public static bool IsReady => isInitialized && !isFetching;
         public static string FetchStatus => fetchStatus;
-        public static bool AreRewardedAdsEnabled => AdsEnabled && RewardedAdsEnabled;
-        public static bool AreBannerAdsEnabled => AdsEnabled && BannerAdsEnabled;
+        public static bool AreRewardedAdsEnabled => IsReady && AdsEnabled && RewardedAdsEnabled;
+        public static bool AreBannerAdsEnabled => IsReady && AdsEnabled && BannerAdsEnabled;
+
+        public static RewardedAdQuotaPolicy GetRewardedAdQuotaPolicy()
+        {
+            return new RewardedAdQuotaPolicy(
+                RewardedGlobal24HourCap,
+                RewardedPlacement24HourCap,
+                RewardedStageCap,
+                RewardedPlacementStageCap,
+                RewardedCooldownSeconds);
+        }
 
         public static bool IsCurrentBuildUnsupported
         {
@@ -122,6 +153,13 @@ namespace BusPuzzle
                 { AndroidBannerAdsEnabledKey, true },
                 { IosBannerAdsEnabledKey, false },
                 { BannerStartStageKey, DefaultBannerStartStage },
+                { RewardedGlobal24HourCapKey, DefaultRewardedGlobal24HourCap },
+                { RewardedPlacement24HourCapKey, DefaultRewardedPlacement24HourCap },
+                { RewardedStageCapKey, DefaultRewardedStageCap },
+                { RewardedPlacementStageCapKey, DefaultRewardedPlacementStageCap },
+                { RewardedCooldownSecondsKey, DefaultRewardedCooldownSeconds },
+                { RewardedRetryBaseSecondsKey, DefaultRewardedRetryBaseSeconds },
+                { RewardedRetryMaxSecondsKey, DefaultRewardedRetryMaxSeconds },
                 { "maintenance_message_ko", MaintenanceMessageKoFallback },
                 { "maintenance_message_en", MaintenanceMessageEnFallback },
                 { "force_update_message_ko", UpdateMessageKoFallback },
@@ -182,6 +220,34 @@ namespace BusPuzzle
             BannerAdsEnabled = config.GetValue(BannerAdsEnabledKey).BooleanValue &&
                 GetPlatformBoolValue(config, AndroidBannerAdsEnabledKey, IosBannerAdsEnabledKey, DefaultPlatformBannerAdsEnabled);
             BannerStartStage = Mathf.Max(1, GetIntValue(config, BannerStartStageKey, DefaultBannerStartStage));
+            RewardedGlobal24HourCap = Mathf.Clamp(
+                GetIntValue(config, RewardedGlobal24HourCapKey, DefaultRewardedGlobal24HourCap),
+                1,
+                24);
+            RewardedPlacement24HourCap = Mathf.Clamp(
+                GetIntValue(config, RewardedPlacement24HourCapKey, DefaultRewardedPlacement24HourCap),
+                1,
+                RewardedGlobal24HourCap);
+            RewardedStageCap = Mathf.Clamp(
+                GetIntValue(config, RewardedStageCapKey, DefaultRewardedStageCap),
+                1,
+                RewardedGlobal24HourCap);
+            RewardedPlacementStageCap = Mathf.Clamp(
+                GetIntValue(config, RewardedPlacementStageCapKey, DefaultRewardedPlacementStageCap),
+                1,
+                RewardedStageCap);
+            RewardedCooldownSeconds = Mathf.Clamp(
+                GetIntValue(config, RewardedCooldownSecondsKey, DefaultRewardedCooldownSeconds),
+                15,
+                3600);
+            RewardedRetryBaseSeconds = Mathf.Clamp(
+                GetIntValue(config, RewardedRetryBaseSecondsKey, DefaultRewardedRetryBaseSeconds),
+                5,
+                900);
+            RewardedRetryMaxSeconds = Mathf.Clamp(
+                GetIntValue(config, RewardedRetryMaxSecondsKey, DefaultRewardedRetryMaxSeconds),
+                RewardedRetryBaseSeconds,
+                3600);
             MaintenanceMessageKo = GetStringValue(config, "maintenance_message_ko", MaintenanceMessageKoFallback);
             MaintenanceMessageEn = GetStringValue(config, "maintenance_message_en", MaintenanceMessageEnFallback);
             UpdateMessageKo = GetStringValue(config, "force_update_message_ko", UpdateMessageKoFallback);

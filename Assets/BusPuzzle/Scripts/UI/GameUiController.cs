@@ -143,6 +143,8 @@ namespace BusPuzzle
         private RectTransform stationUnlockPrompt;
         private Text stationUnlockPromptTitleText;
         private Text stationUnlockPromptText;
+        private Button stationUnlockGoldButton;
+        private Text stationUnlockGoldButtonText;
         private Button stationUnlockConfirmButton;
         private Text stationUnlockConfirmButtonText;
         private Button stationUnlockSkipButton;
@@ -217,6 +219,7 @@ namespace BusPuzzle
         public event Action ExitConfirmed;
         public event Action StationUnlockRequested;
         public event Action StationUnlockConfirmed;
+        public event Action StationUnlockGoldConfirmed;
         public event Action StationUnlockSkipConfirmed;
         public event Action VipTeleportRequested;
         public event Action VipTeleportGoldConfirmed;
@@ -407,7 +410,17 @@ namespace BusPuzzle
             }
         }
 
-        public void SetStationUnlock(int lockedSlotsRemaining, bool canUnlock, bool adReady, int adSkipTickets, bool adInProgress)
+        public void SetStationUnlock(
+            int lockedSlotsRemaining,
+            bool canUnlock,
+            int goldBalance,
+            int goldCost,
+            bool goldFallbackEnabled,
+            bool canSpendGold,
+            bool adAllowed,
+            bool adReady,
+            int adSkipTickets,
+            bool adInProgress)
         {
             if (stationUnlockPrompt == null)
             {
@@ -425,7 +438,16 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyStationUnlockPromptState(lockedSlotsRemaining, adReady, adSkipTickets, adInProgress);
+            ApplyStationUnlockPromptState(
+                lockedSlotsRemaining,
+                goldBalance,
+                goldCost,
+                goldFallbackEnabled,
+                canSpendGold,
+                adAllowed,
+                adReady,
+                adSkipTickets,
+                adInProgress);
         }
 
         public void SetVipTeleport(
@@ -438,6 +460,7 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
@@ -462,7 +485,7 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
+            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adSkipTickets, adAllowed, adReady, adInProgress);
         }
 
         public void SetMixShuffle(
@@ -471,6 +494,7 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
@@ -484,7 +508,7 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
+            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adAllowed, adReady, adInProgress);
         }
 
         public void SetDepart(
@@ -493,6 +517,7 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
@@ -506,10 +531,19 @@ namespace BusPuzzle
                 return;
             }
 
-            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
+            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adAllowed, adReady, adInProgress);
         }
 
-        public void ShowStationUnlockPrompt(int lockedSlotsRemaining, bool adReady, int adSkipTickets, bool adInProgress)
+        public void ShowStationUnlockPrompt(
+            int lockedSlotsRemaining,
+            int goldBalance,
+            int goldCost,
+            bool goldFallbackEnabled,
+            bool canSpendGold,
+            bool adAllowed,
+            bool adReady,
+            int adSkipTickets,
+            bool adInProgress)
         {
             if (stationUnlockPrompt == null || lockedSlotsRemaining <= 0)
             {
@@ -524,7 +558,16 @@ namespace BusPuzzle
             HideMixShufflePrompt();
             HideDepartPrompt();
             stationUnlockPrompt.gameObject.SetActive(true);
-            ApplyStationUnlockPromptState(lockedSlotsRemaining, adReady, adSkipTickets, adInProgress);
+            ApplyStationUnlockPromptState(
+                lockedSlotsRemaining,
+                goldBalance,
+                goldCost,
+                goldFallbackEnabled,
+                canSpendGold,
+                adAllowed,
+                adReady,
+                adSkipTickets,
+                adInProgress);
         }
 
         public void HideStationUnlockPrompt()
@@ -542,6 +585,7 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
@@ -558,7 +602,7 @@ namespace BusPuzzle
             HideMixShufflePrompt();
             HideDepartPrompt();
             vipTeleportPrompt.gameObject.SetActive(true);
-            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
+            ApplyVipTeleportPromptState(usedCount, maxUses, goldBalance, goldCost, canSpendGold, adSkipTickets, adAllowed, adReady, adInProgress);
         }
 
         public void HideVipTeleportPrompt()
@@ -574,6 +618,7 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
@@ -590,7 +635,7 @@ namespace BusPuzzle
             HideVipTeleportPrompt();
             HideDepartPrompt();
             mixShufflePrompt.gameObject.SetActive(true);
-            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
+            ApplyMixShufflePromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adAllowed, adReady, adInProgress);
         }
 
         public void HideMixShufflePrompt()
@@ -606,6 +651,7 @@ namespace BusPuzzle
             int goldCost,
             bool canSpendGold,
             int adSkipTickets,
+            bool adAllowed,
             bool adReady,
             bool adInProgress)
         {
@@ -622,7 +668,7 @@ namespace BusPuzzle
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
             departPrompt.gameObject.SetActive(true);
-            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adReady, adInProgress);
+            ApplyDepartPromptState(goldBalance, goldCost, canSpendGold, adSkipTickets, adAllowed, adReady, adInProgress);
         }
 
         public void HideDepartPrompt()
@@ -665,10 +711,10 @@ namespace BusPuzzle
             statusText.text = hasNextLevel ? Localization.Text("status_clear") : Localization.Text("status_all_clear");
             SetRestartButtonInteractable(false);
             shouldReturnToFailPromptOnRecoveryCancel = false;
-            SetStationUnlock(0, false, false, 0, false);
-            SetVipTeleport(0, 0, false, false, false, 0, 0, false, 0, false, false);
-            SetMixShuffle(false, 0, 0, false, 0, false, false);
-            SetDepart(false, 0, 0, false, 0, false, false);
+            SetStationUnlock(0, false, 0, 0, false, false, false, false, 0, false);
+            SetVipTeleport(0, 0, false, false, false, 0, 0, false, 0, false, false, false);
+            SetMixShuffle(false, 0, 0, false, 0, false, false, false);
+            SetDepart(false, 0, 0, false, 0, false, false, false);
             HideSettingsPanel();
             HideDailyRewardPrompt();
             HideDailyChallengePrompt();
@@ -681,14 +727,22 @@ namespace BusPuzzle
             ShowClearPrompt(levelNumber, hasNextLevel, goldReward);
         }
 
-        public void SetClearRewardDouble(int baseGoldReward, bool doubled, bool canRequest, bool adReady, bool adInProgress)
+        public void SetClearRewardDouble(
+            int baseGoldReward,
+            bool doubled,
+            bool canRequest,
+            bool adAllowed,
+            bool adReady,
+            bool adInProgress)
         {
             if (clearRewardDoubleButton == null)
             {
                 return;
             }
 
-            var hasReward = baseGoldReward > 0 && RemoteConfigService.AreRewardedAdsEnabled;
+            var hasReward = baseGoldReward > 0 &&
+                RemoteConfigService.AreRewardedAdsEnabled &&
+                adAllowed;
             clearRewardDoubleButton.gameObject.SetActive(hasReward);
             if (nextButton != null)
             {
@@ -740,15 +794,33 @@ namespace BusPuzzle
                 nextButton.interactable = false;
             }
 
-            SetStationUnlock(0, false, false, 0, false);
-            SetVipTeleport(0, 0, false, false, false, 0, 0, false, 0, false, false);
-            SetMixShuffle(false, 0, 0, false, 0, false, false);
-            SetDepart(false, 0, 0, false, 0, false, false);
+            SetStationUnlock(0, false, 0, 0, false, false, false, false, 0, false);
+            SetVipTeleport(0, 0, false, false, false, 0, 0, false, 0, false, false, false);
+            SetMixShuffle(false, 0, 0, false, 0, false, false, false);
+            SetDepart(false, 0, 0, false, 0, false, false, false);
             HideStationUnlockPrompt();
             HideVipTeleportPrompt();
             HideMixShufflePrompt();
             HideDepartPrompt();
             ShowFailPrompt(canUnlockStationSlot, canVipTeleport, canMixShuffle, canDepart);
+        }
+
+        public void SetFailRecoveryOptions(
+            bool canUnlockStationSlot,
+            bool canVipTeleport,
+            bool canMixShuffle,
+            bool canDepart)
+        {
+            if (failPrompt == null || !failPrompt.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            ApplyFailRecoveryState(
+                canUnlockStationSlot,
+                canVipTeleport,
+                canMixShuffle,
+                canDepart);
         }
 
         public void ShowExitPrompt()

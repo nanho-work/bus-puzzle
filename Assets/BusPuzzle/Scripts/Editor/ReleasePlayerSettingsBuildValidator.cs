@@ -55,7 +55,7 @@ namespace BusPuzzle
             RequireContains(settings, $"companyName: {CompanyName}", "Player Settings companyName must be Koofy Lab.");
             RequireContains(settings, $"Android: {BundleIdentifier}", "Android bundle identifier must be com.koofylab.buspop.");
             RequireContains(settings, $"iPhone: {BundleIdentifier}", "iOS bundle identifier must be com.koofylab.buspop.");
-            RequireContains(settings, "bundleVersion: 1.1.0", "Release version should be 1.1.0 for this update.");
+            RequireContains(settings, "bundleVersion: 1.1.2", "Release version should be 1.1.2 for this update.");
             RequireContains(settings, AppIconGuid, "App icon is not assigned in Player Settings.");
             RequireContains(settings, "defaultScreenOrientation: 5", "Default orientation must be Auto Rotation so Android can preserve the current portrait direction at launch.");
             RequireContains(settings, "allowedAutorotateToPortrait: 1", "Portrait orientation must be allowed.");
@@ -85,10 +85,10 @@ namespace BusPuzzle
                 }
 
                 var versionCodeText = ReadYamlField(settings, "AndroidBundleVersionCode");
-                if (!int.TryParse(versionCodeText, out var versionCode) || versionCode < 18)
+                if (!int.TryParse(versionCodeText, out var versionCode) || versionCode < 22)
                 {
                     throw new BuildFailedException(
-                        "Android versionCode must be 18 or higher for the 1.1.0 release baseline.");
+                        "Android versionCode must be 22 or higher for the 1.1.2 release baseline.");
                 }
 
                 var remoteConfigService = ReadRequiredFile(RemoteConfigServicePath);
@@ -108,10 +108,10 @@ namespace BusPuzzle
             if (target == BuildTarget.iOS)
             {
                 var iosBuildNumberText = ReadYamlNestedField(settings, "buildNumber", "iPhone");
-                if (!int.TryParse(iosBuildNumberText, out var iosBuildNumber) || iosBuildNumber < 18)
+                if (!int.TryParse(iosBuildNumberText, out var iosBuildNumber) || iosBuildNumber < 19)
                 {
                     throw new BuildFailedException(
-                        "iOS build number must be 18 or higher for the 1.1.0 release baseline.");
+                        "iOS build number must be 19 or higher for the 1.1.1 release baseline.");
                 }
 
                 var remoteConfigService = ReadRequiredFile(RemoteConfigServicePath);

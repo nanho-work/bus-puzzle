@@ -63,26 +63,21 @@ Play mode loads `Assets/BusPuzzle/Resources/Levels/Generated/GeneratedLevelSeque
 
 Runtime generation is expected only after the shipped generated pack is exhausted. Release builds should keep the verified generated level pack in sync with `StageGenerationConfig.asset` and keep the clear-screen/preload transition active so the first generated stage after the pack does not cause a visible stall.
 
-## AdMob Setup
+## LevelPlay Ads Setup
 
-Rewarded ads are configured through `Assets/BusPuzzle/Resources/Ads/AdMobSettings.asset`.
+The active mobile provider is Unity LevelPlay with the Unity Ads adapter. App keys and banner/rewarded ad unit IDs are configured in `Assets/BusPuzzle/Resources/Ads/LevelPlaySettings.asset`.
 
-- Reward type: `station_slot_unlock`
-- Reward amount: `1`
-- VIP reward type: `vip_bus_teleport`
-- VIP reward amount: `1`
-- Google Mobile Ads Unity SDK `com.google.ads.mobile` is installed through OpenUPM in `Packages/manifest.json`.
-- `Assets/csc.rsp` enables `BUS_PUZZLE_ADMOB`, so the real AdMob adapter is compiled when Unity resolves the package.
-- Editor and development builds use Google's rewarded test ad unit IDs.
-- Release Android/iOS builds use the production IDs in `AdMobSettings.asset`.
-- Release builds fail before build if any mobile production ID is missing, still points at Google's test publisher, or the `BUS_PUZZLE_ADMOB` scripting define is not enabled.
-- For global AdMob releases, add the Google UMP consent flow before initializing Mobile Ads and expose the required privacy options entry point for EEA/UK/CH users.
+- Unity LevelPlay `com.unity.services.levelplay` 9.5.0 is pinned in `Packages/manifest.json`.
+- The Unity Ads adapter uses its official Android and iOS dependencies under `Assets/LevelPlay/Editor/`.
+- `Assets/csc.rsp` enables `BUS_PUZZLE_LEVELPLAY`; `BUS_PUZZLE_ADMOB` stays disabled while AdMob is suspended.
+- Existing AdMob services and settings remain in the repository as a rollback provider, but the Google Mobile Ads package and direct native dependencies are not included in LevelPlay release builds.
+- Existing Firebase Remote Config switches still gate global, platform, banner, rewarded, and banner-start-stage behavior.
+- Rewarded gameplay changes run only after LevelPlay's rewarded callback. This is the phase-one client-authoritative flow; add signed S2S verification before ads protect purchased, withdrawable, competitive, or otherwise high-value server-authoritative assets.
+- Until a complete consent flow is added, LevelPlay is initialized in contextual-only mode. iOS tracking authorization is not requested.
+- LevelPlay automatically adds the installed networks' SKAdNetwork IDs during iOS post-processing.
+- Mobile release builds fail validation when the provider define, IDs, SDK/adapter dependencies, privacy mode, or SKAdNetwork setting is inconsistent.
 
-Production AdMob IDs are intentionally not documented in this README. Keep them in the Unity
-settings asset used by release builds, and avoid copying real IDs into public-facing docs,
-portfolio material, issue reports, or screenshots.
-
-If Unity cannot download OpenUPM packages, the project falls back to a compile error until package resolution succeeds; this is intentional so ad builds do not silently ship in mock mode.
+Do not document production ad IDs in public-facing material. Before enabling ads, confirm that the LevelPlay dashboard maps each platform's Unity Ads game ID and placements to the corresponding `Banner_Main` and `Rewarded_Main` ad units. Use app-version conditions in Remote Config so an older AdMob build cannot be re-enabled when the LevelPlay build rolls out.
 
 ## Next Steps After MVP
 

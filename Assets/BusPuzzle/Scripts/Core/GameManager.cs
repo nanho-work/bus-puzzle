@@ -391,13 +391,16 @@ namespace BusPuzzle
             uiController.RecoveryPromptCancelled += HandleRecoveryPromptCancelled;
             uiController.InitialNicknamePromptCompleted += HandleInitialNicknamePromptCompleted;
 
+            var levelPlaySettings = LevelPlaySettings.Load();
+            var adMobSettings = AdMobSettings.Load();
             rewardedAdService = RewardedAdServiceFactory.Create(
-                AdMobSettings.Load(),
+                levelPlaySettings,
+                adMobSettings,
                 GetRewardedAdStageContext);
             rewardedAdService.AvailabilityChanged += UpdateRewardedAdUi;
             rewardedAdService.Initialize();
 
-            bannerAdService = BannerAdServiceFactory.Create(AdMobSettings.Load());
+            bannerAdService = BannerAdServiceFactory.Create(levelPlaySettings, adMobSettings);
             bannerAdService.Initialize();
 
             gameCamera = gameCamera != null ? gameCamera : Camera.main;

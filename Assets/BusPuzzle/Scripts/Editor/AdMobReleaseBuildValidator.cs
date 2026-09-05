@@ -22,6 +22,11 @@ namespace BusPuzzle
                 return;
             }
 
+            if (!HasAdMobCompilerDefine(report.summary.platform))
+            {
+                return;
+            }
+
             var settings = Resources.Load<AdMobSettings>(AdMobSettings.ResourcePath);
             if (settings == null)
             {
@@ -57,10 +62,6 @@ namespace BusPuzzle
             ValidateProductionAdUnitId(report.summary.platform, "bus color shuffle", shuffleRewardedId);
             ValidateProductionAdUnitId(report.summary.platform, "depart boost", departRewardedId);
 
-            if (!HasAdMobCompilerDefine(report.summary.platform))
-            {
-                throw new BuildFailedException($"Add {AdMobScriptingDefine} to Scripting Define Symbols after installing the Google Mobile Ads Unity SDK.");
-            }
         }
 
         [MenuItem("Bus Puzzle/Ads/Validate AdMob Release Settings")]
